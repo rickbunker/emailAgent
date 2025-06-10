@@ -1,12 +1,12 @@
 """
-Microsoft Graph Integration Test Suite for EmailAgent
+Gmail Integration Test Suite for EmailAgent
 
-Professional Microsoft Graph integration test suite for asset management email automation.
-Validates comprehensive Microsoft Graph API functionality, authentication, and email
+Professional Gmail integration test suite for asset management email automation.
+Validates comprehensive Gmail API functionality, authentication, and email
 processing capabilities within private market asset management environments.
 
 Features:
-    - Professional Microsoft Graph API authentication and connection testing
+    - Professional Gmail API authentication and connection testing
     - Comprehensive email processing and retrieval validation
     - Asset management business scenario testing and validation
     - Advanced error handling and recovery mechanism testing
@@ -14,14 +14,14 @@ Features:
     - Performance assessment and optimization validation
 
 Business Context:
-    Designed for asset management firms requiring reliable Microsoft Graph
+    Designed for asset management firms requiring reliable Gmail
     integration for email automation, compliance monitoring, and
-    investment communication processing. Validates Microsoft Graph API
+    investment communication processing. Validates Gmail API
     functionality for fund management, due diligence workflows,
     and counterparty communication automation.
 
 Technical Architecture:
-    - Microsoft Graph API Integration: Comprehensive authentication and email access
+    - Gmail API Integration: Comprehensive authentication and email access
     - Business Intelligence: Asset management email classification
     - Compliance Systems: Audit trail and regulatory monitoring
     - Memory Integration: Email intelligence and learning capabilities
@@ -31,7 +31,7 @@ Testing Categories:
     - Authentication Testing: Credentials, tokens, and secure connections
     - Email Processing: Retrieval, parsing, and classification
     - Attachment Handling: Document processing and security validation
-    - Folder Management: Microsoft 365 organization and categorization
+    - Label Management: Gmail organization and categorization
     - Error Recovery: Connection failures and retry mechanisms
 
 Version: 1.0.0
@@ -51,7 +51,7 @@ from datetime import datetime, UTC
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 # Core imports
-from email_interface.msgraph import MicrosoftGraphInterface
+from email_interface.gmail import GmailInterface
 from email_interface.base import EmailSearchCriteria, EmailMessage
 from utils.logging_system import (
     LogConfig, configure_logging, get_logger, log_function, 
@@ -61,17 +61,17 @@ from utils.logging_system import (
 # Initialize logger for this test module
 logger = get_logger(__name__)
 
-class MicrosoftGraphIntegrationTestSuite:
+class GmailIntegrationTestSuite:
     """
-    Professional Microsoft Graph integration test suite for asset management.
+    Professional Gmail integration test suite for asset management.
     
-    Provides comprehensive testing of Microsoft Graph API integration including
+    Provides comprehensive testing of Gmail API integration including
     authentication, email processing, security validation, and business
     intelligence features specifically designed for asset management
     email automation and compliance monitoring.
     
     Features:
-        - Comprehensive Microsoft Graph API authentication testing
+        - Comprehensive Gmail API authentication testing
         - Professional email processing and classification
         - Asset management business scenario validation
         - Security and compliance integration testing
@@ -79,14 +79,14 @@ class MicrosoftGraphIntegrationTestSuite:
         
     Attributes:
         test_stats: Integration test execution metrics and results
-        msgraph_interface: Microsoft Graph interface instance for testing
-        test_credentials: Microsoft Graph API credentials configuration
+        gmail_interface: Gmail interface instance for testing
+        test_credentials: Gmail API credentials configuration
         test_results: Comprehensive test results and validation data
     """
     
     def __init__(self):
-        """Initialize the Microsoft Graph integration test suite."""
-        logger.info("Initializing MicrosoftGraphIntegrationTestSuite for asset management environments")
+        """Initialize the Gmail integration test suite."""
+        logger.info("Initializing GmailIntegrationTestSuite for asset management environments")
         
         self.test_stats = {
             'tests_run': 0,
@@ -97,67 +97,75 @@ class MicrosoftGraphIntegrationTestSuite:
             'errors': []
         }
         
-        self.msgraph_interface: Optional[MicrosoftGraphInterface] = None
+        self.gmail_interface: Optional[GmailInterface] = None
         self.test_credentials: Dict[str, Any] = {}
         self.test_results: Dict[str, Any] = {}
         
         # Configure logging for integration testing
         self._setup_logging_configuration()
         
-        logger.info("MicrosoftGraphIntegrationTestSuite initialized successfully")
+        logger.info("GmailIntegrationTestSuite initialized successfully")
 
     @log_function()
     def _setup_logging_configuration(self) -> None:
         """
-        Setup professional logging configuration for Microsoft Graph integration testing.
+        Setup professional logging configuration for Gmail integration testing.
         
-        Configures comprehensive logging for Microsoft Graph integration testing
+        Configures comprehensive logging for Gmail integration testing
         with asset management context and professional audit trails.
         """
-        logger.info("Setting up Microsoft Graph integration test logging configuration")
+        logger.info("Setting up Gmail integration test logging configuration")
         
-        msgraph_config = LogConfig(
+        gmail_config = LogConfig(
             level="INFO",
             log_to_file=True,
             log_to_stdout=True,
-            log_file="logs/msgraph_integration_test.log",
+            log_file="logs/gmail_integration_test.log",
             log_arguments=True,
             log_return_values=False,  # Avoid logging sensitive email content
             log_execution_time=True,
             max_arg_length=500,
             sensitive_keys=[
-                'credentials_file', 'client_secret', 'access_token', 'refresh_token',
-                'password', 'secret', 'key', 'credential', 'auth', 'tenant_id'
+                'credentials_file', 'token_file', 'access_token', 'refresh_token',
+                'password', 'secret', 'key', 'credential', 'auth'
             ]
         )
         
-        configure_logging(msgraph_config)
-        logger.info("Microsoft Graph integration test logging configuration completed")
+        configure_logging(gmail_config)
+        logger.info("Gmail integration test logging configuration completed")
 
     @log_function()
-    def _locate_msgraph_credentials(self) -> Dict[str, str]:
+    def _locate_gmail_credentials(self) -> Dict[str, str]:
         """
-        Locate and validate Microsoft Graph API credentials for testing.
+        Locate and validate Gmail API credentials for testing.
         
-        Searches for Microsoft Graph credentials in standard locations and validates
+        Searches for Gmail credentials in standard locations and validates
         their availability for integration testing in asset management
         environments with professional credential management.
         
         Returns:
-            Dictionary containing Microsoft Graph credential file paths and validation status
+            Dictionary containing Gmail credential file paths and validation status
         """
-        logger.info("Locating Microsoft Graph API credentials for integration testing")
+        logger.info("Locating Gmail API credentials for integration testing")
         
         # Standard credential locations
         credential_paths = [
-            os.path.join(os.path.dirname(__file__), '..', 'examples', 'msgraph_credentials.json'),
-            os.path.join(os.path.dirname(__file__), '..', 'credentials', 'msgraph_credentials.json'),
-            os.path.join(os.path.expanduser('~'), '.emailagent', 'msgraph_credentials.json')
+            os.path.join(os.path.dirname(__file__), '..', 'examples', 'gmail_credentials.json'),
+            os.path.join(os.path.dirname(__file__), '..', 'credentials', 'gmail_credentials.json'),
+            os.path.join(os.path.expanduser('~'), '.emailagent', 'gmail_credentials.json')
+        ]
+        
+        token_paths = [
+            os.path.join(os.path.dirname(__file__), '..', 'examples', 'gmail_token.json'),
+            os.path.join(os.path.dirname(__file__), '..', 'credentials', 'gmail_token.json'),
+            os.path.join(os.path.expanduser('~'), '.emailagent', 'gmail_token.json')
         ]
         
         credentials_result = {
             'credentials_file': None,
+            'token_file': None,
             'credentials_found': False,
+            'token_found': False,
             'interactive_auth_required': True
         }
         
@@ -166,82 +174,100 @@ class MicrosoftGraphIntegrationTestSuite:
             if os.path.exists(cred_path):
                 credentials_result['credentials_file'] = cred_path
                 credentials_result['credentials_found'] = True
-                logger.info(f"Microsoft Graph credentials found: {cred_path}")
+                logger.info(f"Gmail credentials found: {cred_path}")
+                break
+        
+        # Locate token file
+        for token_path in token_paths:
+            if os.path.exists(token_path):
+                credentials_result['token_file'] = token_path
+                credentials_result['token_found'] = True
+                credentials_result['interactive_auth_required'] = False
+                logger.info(f"Gmail token found: {token_path}")
                 break
         
         if not credentials_result['credentials_found']:
-            logger.warning("Microsoft Graph credentials file not found in standard locations")
+            logger.warning("Gmail credentials file not found in standard locations")
+        
+        if not credentials_result['token_found']:
+            logger.info("Gmail token not found - interactive authentication will be required")
         
         return credentials_result
 
     @log_function()
-    async def test_msgraph_authentication(self) -> bool:
+    async def test_gmail_authentication(self) -> bool:
         """
-        Test comprehensive Microsoft Graph API authentication and connection.
+        Test comprehensive Gmail API authentication and connection.
         
-        Validates Microsoft Graph API authentication including credentials validation,
+        Validates Gmail API authentication including credentials validation,
         token management, and secure connection establishment for asset
         management email automation with professional error handling.
         
         Returns:
-            True if Microsoft Graph authentication tests passed successfully
+            True if Gmail authentication tests passed successfully
         """
-        logger.info("Testing Microsoft Graph API authentication and connection")
+        logger.info("Testing Gmail API authentication and connection")
         
         try:
-            # Locate Microsoft Graph credentials
-            credential_info = self._locate_msgraph_credentials()
+            # Locate Gmail credentials
+            credential_info = self._locate_gmail_credentials()
             
             if not credential_info['credentials_found']:
-                logger.error("Microsoft Graph credentials not found - cannot proceed with authentication test")
+                logger.error("Gmail credentials not found - cannot proceed with authentication test")
                 return False
             
-            # Initialize Microsoft Graph interface
-            logger.info("Initializing Microsoft Graph interface for authentication testing")
-            self.msgraph_interface = MicrosoftGraphInterface(credential_info['credentials_file'])
+            # Initialize Gmail interface
+            logger.info("Initializing Gmail interface for authentication testing")
+            self.gmail_interface = GmailInterface()
             
-            # Test Microsoft Graph authentication
-            logger.info("Attempting Microsoft Graph API authentication")
+            # Prepare authentication credentials
+            auth_credentials = {
+                'credentials_file': credential_info['credentials_file'],
+                'token_file': credential_info.get('token_file')
+            }
+            
+            # Test Gmail authentication
+            logger.info("Attempting Gmail API authentication")
             auth_start_time = time.time()
             
-            authentication_successful = await self.msgraph_interface.connect()
+            authentication_successful = await self.gmail_interface.connect(auth_credentials)
             
             auth_duration = time.time() - auth_start_time
             
             if authentication_successful:
-                logger.info(f"Microsoft Graph authentication successful in {auth_duration:.2f} seconds")
+                logger.info(f"Gmail authentication successful in {auth_duration:.2f} seconds")
                 
                 # Validate authentication details
-                if hasattr(self.msgraph_interface, 'display_name') and self.msgraph_interface.display_name:
-                    logger.info(f"Authenticated user: {self.msgraph_interface.display_name}")
+                if hasattr(self.gmail_interface, 'display_name') and self.gmail_interface.display_name:
+                    logger.info(f"Authenticated user: {self.gmail_interface.display_name}")
                 
-                if hasattr(self.msgraph_interface, 'user_email') and self.msgraph_interface.user_email:
-                    logger.info(f"Authenticated email: {self.msgraph_interface.user_email}")
+                if hasattr(self.gmail_interface, 'user_email') and self.gmail_interface.user_email:
+                    logger.info(f"Authenticated email: {self.gmail_interface.user_email}")
                 
                 # Store authentication results
                 self.test_results['authentication'] = {
                     'success': True,
                     'duration': auth_duration,
-                    'user_email': getattr(self.msgraph_interface, 'user_email', None),
-                    'display_name': getattr(self.msgraph_interface, 'display_name', None),
+                    'user_email': getattr(self.gmail_interface, 'user_email', None),
+                    'display_name': getattr(self.gmail_interface, 'display_name', None),
                     'interactive_auth_required': credential_info['interactive_auth_required']
                 }
                 
                 return True
             else:
-                logger.error("Microsoft Graph authentication failed")
+                logger.error("Gmail authentication failed")
                 
                 self.test_results['authentication'] = {
                     'success': False,
                     'duration': auth_duration,
-                    'error': 'Microsoft Graph authentication failed',
+                    'error': 'Gmail authentication failed',
                     'interactive_auth_required': credential_info['interactive_auth_required']
                 }
                 
                 return False
                 
         except Exception as e:
-            logger.error(f"Microsoft Graph authentication test failed with exception: {e}")
+            logger.error(f"Gmail authentication test failed with exception: {e}")
             
             self.test_results['authentication'] = {
                 'success': False,
@@ -252,37 +278,37 @@ class MicrosoftGraphIntegrationTestSuite:
             return False
 
     @log_function()
-    async def test_msgraph_profile_access(self) -> bool:
+    async def test_gmail_profile_access(self) -> bool:
         """
-        Test Microsoft Graph profile access and user information retrieval.
+        Test Gmail profile access and user information retrieval.
         
-        Validates Microsoft Graph API profile access including user information,
+        Validates Gmail API profile access including user information,
         account details, and service capabilities for asset management
         email automation with comprehensive validation.
         
         Returns:
-            True if Microsoft Graph profile access tests passed successfully
+            True if Gmail profile access tests passed successfully
         """
-        logger.info("Testing Microsoft Graph profile access and user information retrieval")
+        logger.info("Testing Gmail profile access and user information retrieval")
         
         try:
-            if not self.msgraph_interface:
-                logger.error("Microsoft Graph interface not initialized - cannot test profile access")
+            if not self.gmail_interface:
+                logger.error("Gmail interface not initialized - cannot test profile access")
                 return False
             
             # Test profile information retrieval
-            logger.info("Retrieving Microsoft Graph profile information")
+            logger.info("Retrieving Gmail profile information")
             profile_start_time = time.time()
             
-            profile_data = await self.msgraph_interface.get_profile()
+            profile_data = await self.gmail_interface.get_profile()
             
             profile_duration = time.time() - profile_start_time
             
             if profile_data:
-                logger.info(f"Microsoft Graph profile retrieved successfully in {profile_duration:.2f} seconds")
+                logger.info(f"Gmail profile retrieved successfully in {profile_duration:.2f} seconds")
                 
                 # Validate profile data
-                profile_fields = ['name', 'email', 'job_title', 'id']
+                profile_fields = ['name', 'email', 'id']
                 validated_fields = {}
                 
                 for field in profile_fields:
@@ -306,7 +332,7 @@ class MicrosoftGraphIntegrationTestSuite:
                 
                 return True
             else:
-                logger.error("Microsoft Graph profile retrieval returned empty data")
+                logger.error("Gmail profile retrieval returned empty data")
                 
                 self.test_results['profile_access'] = {
                     'success': False,
@@ -317,7 +343,7 @@ class MicrosoftGraphIntegrationTestSuite:
                 return False
                 
         except Exception as e:
-            logger.error(f"Microsoft Graph profile access test failed with exception: {e}")
+            logger.error(f"Gmail profile access test failed with exception: {e}")
             
             self.test_results['profile_access'] = {
                 'success': False,
@@ -328,26 +354,26 @@ class MicrosoftGraphIntegrationTestSuite:
             return False
 
     @log_function()
-    async def test_msgraph_email_retrieval(self) -> bool:
+    async def test_gmail_email_retrieval(self) -> bool:
         """
-        Test comprehensive Microsoft Graph email retrieval and processing.
+        Test comprehensive Gmail email retrieval and processing.
         
-        Validates Microsoft Graph email retrieval including search criteria,
+        Validates Gmail email retrieval including search criteria,
         email parsing, attachment handling, and asset management
         email classification with professional validation.
         
         Returns:
-            True if Microsoft Graph email retrieval tests passed successfully
+            True if Gmail email retrieval tests passed successfully
         """
-        logger.info("Testing Microsoft Graph email retrieval and processing")
+        logger.info("Testing Gmail email retrieval and processing")
         
         try:
-            if not self.msgraph_interface:
-                logger.error("Microsoft Graph interface not initialized - cannot test email retrieval")
+            if not self.gmail_interface:
+                logger.error("Gmail interface not initialized - cannot test email retrieval")
                 return False
             
             # Test email list retrieval
-            logger.info("Retrieving Microsoft Graph email list")
+            logger.info("Retrieving Gmail email list")
             email_criteria = EmailSearchCriteria(
                 max_results=10,
                 is_unread=False,  # Include read emails for testing
@@ -356,7 +382,7 @@ class MicrosoftGraphIntegrationTestSuite:
             
             retrieval_start_time = time.time()
             
-            email_list = await self.msgraph_interface.list_emails(email_criteria)
+            email_list = await self.gmail_interface.list_emails(email_criteria)
             
             retrieval_duration = time.time() - retrieval_start_time
             
@@ -409,7 +435,7 @@ class MicrosoftGraphIntegrationTestSuite:
                     logger.info("Testing detailed email retrieval with attachments")
                     
                     try:
-                        detailed_email = await self.msgraph_interface.get_email(
+                        detailed_email = await self.gmail_interface.get_email(
                             email_list[0].id, 
                             include_attachments=True
                         )
@@ -446,7 +472,7 @@ class MicrosoftGraphIntegrationTestSuite:
                 
                 return True
             else:
-                logger.warning("No emails retrieved from Microsoft Graph account")
+                logger.warning("No emails retrieved from Gmail account")
                 
                 self.test_results['email_retrieval'] = {
                     'success': False,
@@ -457,7 +483,7 @@ class MicrosoftGraphIntegrationTestSuite:
                 return False
                 
         except Exception as e:
-            logger.error(f"Microsoft Graph email retrieval test failed with exception: {e}")
+            logger.error(f"Gmail email retrieval test failed with exception: {e}")
             
             self.test_results['email_retrieval'] = {
                 'success': False,
@@ -468,54 +494,96 @@ class MicrosoftGraphIntegrationTestSuite:
             return False
 
     @log_function()
-    async def test_msgraph_folders_management(self) -> bool:
+    async def test_gmail_labels_management(self) -> bool:
         """
-        Test Microsoft Graph folders management and organization features.
+        Test Gmail labels management and organization features.
         
-        Validates Microsoft Graph folders retrieval and management capabilities
+        Validates Gmail labels retrieval and management capabilities
         for email organization and asset management categorization
         with professional validation and error handling.
         
         Returns:
-            True if Microsoft Graph folders management tests passed successfully
+            True if Gmail labels management tests passed successfully
         """
-        logger.info("Testing Microsoft Graph folders management and organization")
+        logger.info("Testing Gmail labels management and organization")
         
         try:
-            if not self.msgraph_interface:
-                logger.error("Microsoft Graph interface not initialized - cannot test folders management")
+            if not self.gmail_interface:
+                logger.error("Gmail interface not initialized - cannot test labels management")
                 return False
             
-            # Test folders retrieval (if implemented in interface)
-            logger.info("Testing Microsoft Graph folders functionality")
-            folders_start_time = time.time()
+            # Test labels retrieval
+            logger.info("Retrieving Gmail labels")
+            labels_start_time = time.time()
             
-            # Simulate folder management functionality
-            # Note: This would depend on the actual implementation of folder support
-            folders_analysis = {
-                'folders_supported': True,
-                'standard_folders': ['Inbox', 'Sent Items', 'Drafts', 'Deleted Items'],
-                'custom_folders': 0,
-                'asset_management_folders': 0
-            }
+            labels_list = await self.gmail_interface.get_labels()
             
-            folders_duration = time.time() - folders_start_time
+            labels_duration = time.time() - labels_start_time
             
-            logger.info(f"Microsoft Graph folders analysis completed in {folders_duration:.2f} seconds")
-            
-            # Store folders management results
-            self.test_results['folders_management'] = {
-                'success': True,
-                'duration': folders_duration,
-                'analysis': folders_analysis
-            }
-            
-            return True
+            if labels_list:
+                logger.info(f"Retrieved {len(labels_list)} Gmail labels in {labels_duration:.2f} seconds")
+                
+                # Analyze labels
+                labels_analysis = {
+                    'total_labels': len(labels_list),
+                    'system_labels': 0,
+                    'custom_labels': 0,
+                    'asset_management_labels': 0,
+                    'label_categories': []
+                }
+                
+                # System labels to identify
+                system_labels = ['INBOX', 'SENT', 'DRAFT', 'SPAM', 'TRASH', 'STARRED', 'IMPORTANT']
+                
+                # Asset management related labels
+                asset_keywords = ['fund', 'investment', 'portfolio', 'client', 'report', 'due diligence']
+                
+                # Analyze first 10 labels
+                for label in labels_list[:10]:
+                    label_info = {
+                        'name': label,
+                        'is_system': label.upper() in system_labels,
+                        'is_asset_related': any(keyword in label.lower() for keyword in asset_keywords)
+                    }
+                    
+                    if label_info['is_system']:
+                        labels_analysis['system_labels'] += 1
+                    else:
+                        labels_analysis['custom_labels'] += 1
+                    
+                    if label_info['is_asset_related']:
+                        labels_analysis['asset_management_labels'] += 1
+                    
+                    labels_analysis['label_categories'].append(label_info)
+                    
+                    logger.info(f"Label: {label} (System: {label_info['is_system']}, Asset: {label_info['is_asset_related']})")
+                
+                if len(labels_list) > 10:
+                    logger.info(f"... and {len(labels_list) - 10} more labels")
+                
+                # Store labels management results
+                self.test_results['labels_management'] = {
+                    'success': True,
+                    'duration': labels_duration,
+                    'analysis': labels_analysis
+                }
+                
+                return True
+            else:
+                logger.warning("No Gmail labels retrieved")
+                
+                self.test_results['labels_management'] = {
+                    'success': False,
+                    'error': 'No labels retrieved',
+                    'duration': labels_duration
+                }
+                
+                return False
                 
         except Exception as e:
-            logger.error(f"Microsoft Graph folders management test failed with exception: {e}")
+            logger.error(f"Gmail labels management test failed with exception: {e}")
             
-            self.test_results['folders_management'] = {
+            self.test_results['labels_management'] = {
                 'success': False,
                 'error': str(e),
                 'exception_type': type(e).__name__
@@ -524,18 +592,18 @@ class MicrosoftGraphIntegrationTestSuite:
             return False
 
     @log_function()
-    async def test_msgraph_error_handling(self) -> bool:
+    async def test_gmail_error_handling(self) -> bool:
         """
-        Test Microsoft Graph error handling and recovery mechanisms.
+        Test Gmail error handling and recovery mechanisms.
         
-        Validates Microsoft Graph interface error handling including connection
+        Validates Gmail interface error handling including connection
         failures, authentication errors, and API rate limiting with
         professional recovery mechanisms and business continuity.
         
         Returns:
-            True if Microsoft Graph error handling tests passed successfully
+            True if Gmail error handling tests passed successfully
         """
-        logger.info("Testing Microsoft Graph error handling and recovery mechanisms")
+        logger.info("Testing Gmail error handling and recovery mechanisms")
         
         try:
             error_tests_passed = 0
@@ -544,8 +612,13 @@ class MicrosoftGraphIntegrationTestSuite:
             # Test 1: Invalid credentials handling
             logger.info("Testing invalid credentials error handling")
             try:
-                invalid_msgraph = MicrosoftGraphInterface('nonexistent_credentials.json')
-                auth_result = await invalid_msgraph.connect()
+                invalid_gmail = GmailInterface()
+                invalid_credentials = {
+                    'credentials_file': 'nonexistent_credentials.json',
+                    'token_file': None
+                }
+                
+                auth_result = await invalid_gmail.connect(invalid_credentials)
                 
                 # Should return False for invalid credentials
                 if not auth_result:
@@ -573,7 +646,7 @@ class MicrosoftGraphIntegrationTestSuite:
             # Test 3: Rate limiting handling
             logger.info("Testing API rate limiting handling")
             try:
-                # Microsoft Graph API rate limiting is typically handled by the library
+                # Gmail API rate limiting is typically handled by the library
                 # This test validates that rate limiting is properly managed
                 logger.info("Rate limiting test completed")
                 error_tests_passed += 1
@@ -593,12 +666,12 @@ class MicrosoftGraphIntegrationTestSuite:
                 'success_rate': success_rate
             }
             
-            logger.info(f"Microsoft Graph error handling tests: {error_tests_passed}/{total_error_tests} passed ({success_rate:.1f}%)")
+            logger.info(f"Gmail error handling tests: {error_tests_passed}/{total_error_tests} passed ({success_rate:.1f}%)")
             
             return error_tests_passed >= 2
             
         except Exception as e:
-            logger.error(f"Microsoft Graph error handling test failed with exception: {e}")
+            logger.error(f"Gmail error handling test failed with exception: {e}")
             
             self.test_results['error_handling'] = {
                 'success': False,
@@ -609,18 +682,18 @@ class MicrosoftGraphIntegrationTestSuite:
             return False
 
     @log_function()
-    async def test_msgraph_performance_assessment(self) -> Dict[str, Any]:
+    async def test_gmail_performance_assessment(self) -> Dict[str, Any]:
         """
-        Test Microsoft Graph integration performance and optimization.
+        Test Gmail integration performance and optimization.
         
-        Validates Microsoft Graph API performance including connection times,
+        Validates Gmail API performance including connection times,
         email retrieval speeds, and overall system responsiveness
         for asset management production environments.
         
         Returns:
             Dictionary containing performance assessment results
         """
-        logger.info("Testing Microsoft Graph integration performance and optimization")
+        logger.info("Testing Gmail integration performance and optimization")
         
         performance_results = {
             'authentication_performance': {},
@@ -636,8 +709,8 @@ class MicrosoftGraphIntegrationTestSuite:
                 
                 performance_results['authentication_performance'] = {
                     'duration': auth_duration,
-                    'acceptable': auth_duration < 15.0,  # Less than 15 seconds (Graph can be slower)
-                    'rating': 'excellent' if auth_duration < 5.0 else 'good' if auth_duration < 10.0 else 'acceptable'
+                    'acceptable': auth_duration < 10.0,  # Less than 10 seconds
+                    'rating': 'excellent' if auth_duration < 3.0 else 'good' if auth_duration < 7.0 else 'acceptable'
                 }
                 
                 logger.info(f"Authentication performance: {auth_duration:.2f}s ({performance_results['authentication_performance']['rating']})")
@@ -654,8 +727,8 @@ class MicrosoftGraphIntegrationTestSuite:
                         'total_duration': retrieval_duration,
                         'emails_retrieved': email_count,
                         'avg_time_per_email': avg_time_per_email,
-                        'acceptable': avg_time_per_email < 1.5,  # Less than 1.5 seconds per email
-                        'rating': 'excellent' if avg_time_per_email < 0.5 else 'good' if avg_time_per_email < 1.0 else 'acceptable'
+                        'acceptable': avg_time_per_email < 1.0,  # Less than 1 second per email
+                        'rating': 'excellent' if avg_time_per_email < 0.3 else 'good' if avg_time_per_email < 0.7 else 'acceptable'
                     }
                     
                     logger.info(f"Email retrieval performance: {avg_time_per_email:.2f}s per email ({performance_results['email_retrieval_performance']['rating']})")
@@ -683,41 +756,41 @@ class MicrosoftGraphIntegrationTestSuite:
                 
                 performance_results['acceptable_performance'] = performance_results['overall_performance']['acceptable']
                 
-                logger.info(f"Overall Microsoft Graph performance: {overall_score * 100:.1f}% (Acceptable: {performance_results['acceptable_performance']})")
+                logger.info(f"Overall Gmail performance: {overall_score * 100:.1f}% (Acceptable: {performance_results['acceptable_performance']})")
             
             return performance_results
             
         except Exception as e:
-            logger.error(f"Microsoft Graph performance assessment failed: {e}")
+            logger.error(f"Gmail performance assessment failed: {e}")
             return {'error': str(e), 'acceptable_performance': False}
 
     @log_function()
-    async def run_comprehensive_msgraph_integration_tests(self) -> Dict[str, Any]:
+    async def run_comprehensive_gmail_integration_tests(self) -> Dict[str, Any]:
         """
-        Run comprehensive Microsoft Graph integration test suite.
+        Run comprehensive Gmail integration test suite.
         
-        Executes complete Microsoft Graph integration validation including
+        Executes complete Gmail integration validation including
         authentication, email processing, error handling, and
         performance assessment for asset management environments.
         
         Returns:
             Dictionary containing comprehensive integration test results
         """
-        logger.info("🚀 Running comprehensive Microsoft Graph integration test suite")
+        logger.info("🚀 Running comprehensive Gmail integration test suite")
         
         self.test_stats['start_time'] = datetime.now(UTC)
         
-        # Microsoft Graph integration test sequence
+        # Gmail integration test sequence
         integration_tests = [
-            ("Microsoft Graph Authentication", self.test_msgraph_authentication),
-            ("Microsoft Graph Profile Access", self.test_msgraph_profile_access),
-            ("Microsoft Graph Email Retrieval", self.test_msgraph_email_retrieval),
-            ("Microsoft Graph Folders Management", self.test_msgraph_folders_management),
-            ("Microsoft Graph Error Handling", self.test_msgraph_error_handling)
+            ("Gmail Authentication", self.test_gmail_authentication),
+            ("Gmail Profile Access", self.test_gmail_profile_access),
+            ("Gmail Email Retrieval", self.test_gmail_email_retrieval),
+            ("Gmail Labels Management", self.test_gmail_labels_management),
+            ("Gmail Error Handling", self.test_gmail_error_handling)
         ]
         
         test_results = {
-            'suite_name': 'Microsoft Graph Integration Tests',
+            'suite_name': 'Gmail Integration Tests',
             'start_time': self.test_stats['start_time'],
             'tests_run': [],
             'overall_success': True,
@@ -725,7 +798,7 @@ class MicrosoftGraphIntegrationTestSuite:
             'errors': []
         }
         
-        # Execute Microsoft Graph integration tests
+        # Execute Gmail integration tests
         for test_name, test_function in integration_tests:
             logger.info(f"Running {test_name}...")
             self.test_stats['tests_run'] += 1
@@ -767,25 +840,25 @@ class MicrosoftGraphIntegrationTestSuite:
                 logger.error(f"❌ {test_name} failed with exception: {e}")
         
         # Run performance assessment
-        logger.info("Running Microsoft Graph performance assessment...")
+        logger.info("Running Gmail performance assessment...")
         try:
-            performance_results = await self.test_msgraph_performance_assessment()
+            performance_results = await self.test_gmail_performance_assessment()
             test_results['performance_assessment'] = performance_results
             
             if not performance_results.get('acceptable_performance', False):
-                logger.warning("Microsoft Graph performance assessment indicates suboptimal performance")
+                logger.warning("Gmail performance assessment indicates suboptimal performance")
         
         except Exception as e:
-            logger.error(f"Microsoft Graph performance assessment failed: {e}")
+            logger.error(f"Gmail performance assessment failed: {e}")
             test_results['performance_assessment'] = {'error': str(e)}
         
-        # Clean up Microsoft Graph connection
-        if self.msgraph_interface:
+        # Clean up Gmail connection
+        if self.gmail_interface:
             try:
-                await self.msgraph_interface.disconnect()
-                logger.info("Microsoft Graph interface disconnected successfully")
+                await self.gmail_interface.disconnect()
+                logger.info("Gmail interface disconnected successfully")
             except Exception as e:
-                logger.warning(f"Microsoft Graph interface disconnect failed: {e}")
+                logger.warning(f"Gmail interface disconnect failed: {e}")
         
         # Calculate final statistics
         self.test_stats['end_time'] = datetime.now(UTC)
@@ -807,36 +880,36 @@ class MicrosoftGraphIntegrationTestSuite:
 
 # Main execution functions
 @log_function()
-async def run_msgraph_integration_tests() -> bool:
+async def run_gmail_integration_tests() -> bool:
     """
-    Main function to run comprehensive Microsoft Graph integration tests.
+    Main function to run comprehensive Gmail integration tests.
     
-    Executes complete Microsoft Graph integration validation for asset management
+    Executes complete Gmail integration validation for asset management
     email automation with professional testing patterns and comprehensive
     validation for production environments.
     
     Returns:
-        True if all Microsoft Graph integration tests passed, False otherwise
+        True if all Gmail integration tests passed, False otherwise
     """
-    logger.info("Initializing comprehensive Microsoft Graph integration test execution")
+    logger.info("Initializing comprehensive Gmail integration test execution")
     
     try:
-        test_suite = MicrosoftGraphIntegrationTestSuite()
-        results = await test_suite.run_comprehensive_msgraph_integration_tests()
+        test_suite = GmailIntegrationTestSuite()
+        results = await test_suite.run_comprehensive_gmail_integration_tests()
         
         # Display comprehensive results
-        print(f"\n🎯 EmailAgent Microsoft Graph Integration Test Results")
+        print(f"\n🎯 EmailAgent Gmail Integration Test Results")
         print(f"=" * 60)
         
         status_emoji = "✅" if results['overall_success'] else "❌"
         print(f"{status_emoji} Overall Status: {'PASSED' if results['overall_success'] else 'FAILED'}")
         
-        print(f"\n📊 Microsoft Graph Integration Test Summary:")
+        print(f"\n📊 Gmail Integration Test Summary:")
         print(f"   - Duration: {results['duration']:.2f} seconds")
         print(f"   - Tests Run: {len(results['tests_run'])}")
         print(f"   - Success Rate: {results['statistics']['success_rate']:.1f}%")
         
-        print(f"\n📋 Individual Microsoft Graph Integration Test Results:")
+        print(f"\n📋 Individual Gmail Integration Test Results:")
         for test in results['tests_run']:
             test_emoji = "✅" if test['success'] else "❌"
             print(f"   {test_emoji} {test['name']}: {'PASSED' if test['success'] else 'FAILED'}")
@@ -846,7 +919,7 @@ async def run_msgraph_integration_tests() -> bool:
         # Display performance assessment
         perf_results = results.get('performance_assessment', {})
         if perf_results and 'overall_performance' in perf_results:
-            print(f"\n📈 Microsoft Graph Performance Assessment:")
+            print(f"\n📈 Gmail Performance Assessment:")
             
             auth_perf = perf_results.get('authentication_performance', {})
             if auth_perf:
@@ -864,7 +937,7 @@ async def run_msgraph_integration_tests() -> bool:
         # Display detailed results if available
         detailed_results = results.get('detailed_results', {})
         if detailed_results:
-            print(f"\n📄 Microsoft Graph Integration Details:")
+            print(f"\n📄 Gmail Integration Details:")
             
             if 'authentication' in detailed_results:
                 auth_info = detailed_results['authentication']
@@ -886,44 +959,44 @@ async def run_msgraph_integration_tests() -> bool:
                 print(f"   - {error}")
         
         if results['overall_success']:
-            print(f"\n🎉 All Microsoft Graph integration tests passed successfully!")
-            print(f"Microsoft Graph integration validated for asset management environments.")
+            print(f"\n🎉 All Gmail integration tests passed successfully!")
+            print(f"Gmail integration validated for asset management environments.")
         else:
-            print(f"\n⚠️  Some Microsoft Graph integration tests failed - review errors above")
-            print(f"Microsoft Graph integration requires attention before production use.")
+            print(f"\n⚠️  Some Gmail integration tests failed - review errors above")
+            print(f"Gmail integration requires attention before production use.")
         
         return results['overall_success']
         
     except Exception as e:
-        logger.error(f"Microsoft Graph integration test execution failed: {e}")
-        print(f"\n❌ Microsoft Graph integration test execution failed: {e}")
+        logger.error(f"Gmail integration test execution failed: {e}")
+        print(f"\n❌ Gmail integration test execution failed: {e}")
         return False
 
 def main() -> None:
     """
-    Main entry point for Microsoft Graph integration tests.
+    Main entry point for Gmail integration tests.
     
-    Provides professional command-line interface for Microsoft Graph integration
+    Provides professional command-line interface for Gmail integration
     test execution with comprehensive error handling and reporting.
     """
-    print("🧪 EmailAgent Microsoft Graph Integration Test Suite")
-    print("Asset Management Email Automation Microsoft Graph Validation")
+    print("🧪 EmailAgent Gmail Integration Test Suite")
+    print("Asset Management Email Automation Gmail Validation")
     print("=" * 60)
     
     try:
-        success = asyncio.run(run_msgraph_integration_tests())
+        success = asyncio.run(run_gmail_integration_tests())
         
         exit_code = 0 if success else 1
         sys.exit(exit_code)
         
     except KeyboardInterrupt:
-        print(f"\n⚠️  Microsoft Graph integration test execution interrupted by user")
-        logger.info("Microsoft Graph integration test execution interrupted by user")
+        print(f"\n⚠️  Gmail integration test execution interrupted by user")
+        logger.info("Gmail integration test execution interrupted by user")
         sys.exit(1)
         
     except Exception as e:
-        print(f"\n❌ Microsoft Graph integration test runner failed: {e}")
-        logger.error(f"Microsoft Graph integration test runner execution failed: {e}")
+        print(f"\n❌ Gmail integration test runner failed: {e}")
+        logger.error(f"Gmail integration test runner execution failed: {e}")
         sys.exit(1)
 
 if __name__ == "__main__":

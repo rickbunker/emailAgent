@@ -1,430 +1,724 @@
 """
-Email Memory System Demo
+Email Memory System Demonstration for EmailAgent
 
-This script demonstrates how the memory system would work for email management
-by populating it with realistic data and running sample queries.
+Professional demonstration script showcasing the comprehensive memory system
+capabilities for private market asset management email automation. Provides
+realistic data population and query demonstrations for enterprise environments.
+
+Features:
+    - Comprehensive memory system demonstration and validation
+    - Realistic asset management email scenarios and data
+    - Professional query patterns and business intelligence
+    - Memory system integration and workflow demonstration
+    - Performance benchmarking and optimization insights
+    - Professional error handling and logging integration
+
+Business Context:
+    Designed for asset management firms requiring sophisticated
+    memory systems for email automation, relationship management,
+    knowledge retention, and business intelligence. Demonstrates
+    real-world scenarios for investment workflows, compliance,
+    and operational efficiency.
+
+Technical Architecture:
+    - Multi-modal memory system integration and coordination
+    - Realistic data population with business context
+    - Query pattern demonstration and performance validation
+    - Memory system learning and adaptation capabilities
+    - Professional demonstration workflow and reporting
+
+Demo Categories:
+    - Procedural: Business rules and workflow automation
+    - Semantic: Sender intelligence and knowledge management
+    - Episodic: Conversation history and learning experiences
+    - Integration: Cross-memory system coordination and insights
+
+Version: 1.0.0
+Author: Email Agent Development Team
+License: Private - Asset Management Use Only
 """
 
 import asyncio
 import time
-from typing import List
-from ..memory.procedural import ProceduralMemory
-from ..memory.semantic import SemanticMemory
-from ..memory.episodic import EpisodicMemory
+from typing import List, Dict, Any, Optional
+from datetime import datetime, UTC
+
+# Core logging system
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+from utils.logging_system import get_logger, log_function, log_debug, log_info
+
+# Memory system imports
+from ..memory.procedural import ProceduralMemory, RuleType, RulePriority, RuleConfidence
+from ..memory.semantic import SemanticMemory, KnowledgeType, KnowledgeConfidence
+from ..memory.episodic import EpisodicMemory, EpisodicMemoryType
+
+# Initialize logger
+logger = get_logger(__name__)
 
 class EmailMemoryDemo:
-    def __init__(self):
+    """
+    Professional email memory system demonstration for asset management.
+    
+    Provides comprehensive demonstration of memory system capabilities
+    including data population, query patterns, and business intelligence
+    for private market asset management email automation environments.
+    
+    Features:
+        - Realistic asset management data population
+        - Professional query pattern demonstrations
+        - Memory system integration and coordination
+        - Performance benchmarking and insights
+        - Business intelligence and learning capabilities
+        
+    Attributes:
+        procedural: Business rules and workflow automation memory
+        semantic: Sender intelligence and knowledge management memory
+        episodic: Conversation history and learning memory
+    """
+    
+    def __init__(self) -> None:
+        """Initialize the email memory demonstration system."""
+        logger.info("Initializing EmailMemoryDemo for asset management environments")
+        
         self.procedural = ProceduralMemory(max_items=1000)
         self.semantic = SemanticMemory(max_items=1000)
         self.episodic = EpisodicMemory(max_items=1000)
+        
+        # Demo metrics and tracking
+        self.demo_stats = {
+            'start_time': None,
+            'end_time': None,
+            'procedural_rules_added': 0,
+            'semantic_knowledge_added': 0,
+            'episodic_memories_added': 0,
+            'queries_executed': 0,
+            'errors_encountered': 0
+        }
+        
+        logger.info("EmailMemoryDemo initialized successfully")
 
-    async def setup_demo_data(self):
-        """Populate the memory system with realistic email management data."""
-        print("🧠 Setting up demo data for email memory system...")
+    @log_function()
+    async def setup_demo_data(self) -> None:
+        """
+        Populate the memory system with realistic asset management data.
         
-        # Clear existing data
-        await self.procedural.clear_collection(force_delete=True)
-        await self.semantic.clear_collection(force_delete=True)
-        await self.episodic.clear_collection(force_delete=True)
+        Creates comprehensive demonstration data including business rules,
+        sender intelligence, and conversation history for professional
+        asset management email automation scenarios.
         
-        await self._populate_procedural_memory()
-        await self._populate_semantic_memory()
-        await self._populate_episodic_memory()
+        Raises:
+            Exception: If demo data setup fails
+        """
+        logger.info("🧠 Setting up demo data for email memory system...")
+        self.demo_stats['start_time'] = datetime.now(UTC)
         
-        print("✅ Demo data setup complete!\n")
+        try:
+            # Clear existing data for clean demonstration
+            logger.info("Clearing existing memory collections for clean demo")
+            await self.procedural.clear_collection(force_delete=True)
+            await self.semantic.clear_collection(force_delete=True)
+            await self.episodic.clear_collection(force_delete=True)
+            
+            # Populate memory systems with realistic data
+            await self._populate_procedural_memory()
+            await self._populate_semantic_memory()
+            await self._populate_episodic_memory()
+            
+            logger.info("✅ Demo data setup complete!")
+            logger.info(f"Added {self.demo_stats['procedural_rules_added']} rules, "
+                       f"{self.demo_stats['semantic_knowledge_added']} knowledge items, "
+                       f"{self.demo_stats['episodic_memories_added']} episodic memories")
+            
+        except Exception as e:
+            self.demo_stats['errors_encountered'] += 1
+            logger.error(f"Demo data setup failed: {e}")
+            raise
 
-    async def _populate_procedural_memory(self):
-        """Add email handling rules and procedures."""
-        print("📋 Adding procedural memory (rules and procedures)...")
+    @log_function()
+    async def _populate_procedural_memory(self) -> None:
+        """
+        Add comprehensive business rules and procedures for asset management.
         
-        rules = [
-            # Spam and Security Rules
-            {
-                "content": "Immediately flag emails with suspicious attachments (.exe, .scr, .bat files) as potential malware",
-                "metadata": {"category": "security", "priority": "critical", "action": "flag"}
-            },
-            {
-                "content": "Mark emails with multiple spelling errors and urgent money requests as likely spam",
-                "metadata": {"category": "spam", "priority": "high", "action": "spam_filter"}
-            },
-            {
-                "content": "Auto-delete emails from known scam domains and blacklisted senders",
-                "metadata": {"category": "spam", "priority": "high", "action": "delete"}
-            },
-            
-            # Priority and Response Rules
-            {
-                "content": "Always prioritize emails from family members and mark as urgent",
-                "metadata": {"category": "priority", "priority": "high", "sender_type": "family"}
-            },
-            {
-                "content": "Respond to work emails within 4 hours during business hours",
-                "metadata": {"category": "response_time", "priority": "medium", "timeframe": "4_hours"}
-            },
-            {
-                "content": "Auto-respond to newsletter subscriptions with unsubscribe confirmation",
-                "metadata": {"category": "automation", "priority": "low", "action": "auto_respond"}
-            },
-            
-            # Organization Rules
-            {
-                "content": "Archive emails older than 6 months unless they contain important keywords",
-                "metadata": {"category": "maintenance", "priority": "low", "action": "archive"}
-            },
-            {
-                "content": "Categorize financial emails (banks, credit cards, investments) into Finance folder",
-                "metadata": {"category": "organization", "priority": "medium", "folder": "Finance"}
-            },
-            {
-                "content": "Extract contact information from legitimate business emails for contact database",
-                "metadata": {"category": "contact_management", "priority": "medium", "action": "extract_contacts"}
-            }
-        ]
+        Populates procedural memory with investment rules, compliance procedures,
+        operational standards, and decision criteria for professional
+        asset management environments.
+        """
+        logger.info("📋 Adding procedural memory (business rules and procedures)...")
         
-        for rule in rules:
-            await self.procedural.add(rule["content"], rule["metadata"])
-        
-        print(f"   Added {len(rules)} procedural rules")
-
-    async def _populate_semantic_memory(self):
-        """Add knowledge about senders and email patterns."""
-        print("🧠 Adding semantic memory (sender knowledge)...")
-        
-        knowledge = [
-            # Trusted Senders
+        # Investment decision and approval rules
+        investment_rules = [
             {
-                "content": "John Smith from Acme Corp sends weekly project updates every Monday morning, usually contains meeting schedules and deliverable status",
+                "content": "Investment committee approval required for any single investment exceeding $50M",
+                "rule_type": RuleType.INVESTMENT,
+                "priority": RulePriority.CRITICAL,
+                "confidence": RuleConfidence.VERIFIED,
                 "metadata": {
-                    "sender": "john.smith@acmecorp.com", 
-                    "sender_type": "colleague", 
-                    "trust_level": "high",
-                    "email_pattern": "weekly_updates",
-                    "company": "Acme Corp",
-                    "typical_subject": "Weekly Project Update"
+                    "threshold_amount": 50000000,
+                    "approval_body": "investment_committee",
+                    "sector": "all",
+                    "effective_date": "2024-01-01"
                 }
             },
             {
-                "content": "Sarah Johnson is the HR director, sends policy updates and meeting invitations, always professional and legitimate",
+                "content": "Real estate investments require property appraisal and market analysis documentation",
+                "rule_type": RuleType.INVESTMENT,
+                "priority": RulePriority.HIGH,
+                "confidence": RuleConfidence.VERIFIED,
                 "metadata": {
-                    "sender": "sarah.johnson@company.com",
-                    "sender_type": "hr",
-                    "trust_level": "high",
-                    "role": "HR Director",
-                    "email_pattern": "policy_updates"
+                    "sector": "real_estate",
+                    "required_docs": ["appraisal", "market_analysis"],
+                    "compliance_requirement": True
                 }
             },
             {
-                "content": "Mom sends family updates and photos, often with subject lines about family events or holiday plans",
+                "content": "Private equity fund investments require LP consent for fund size changes > 20%",
+                "rule_type": RuleType.INVESTMENT,
+                "priority": RulePriority.HIGH,
+                "confidence": RuleConfidence.VERIFIED,
                 "metadata": {
-                    "sender": "mom@familyemail.com",
-                    "sender_type": "family",
-                    "trust_level": "highest",
-                    "relationship": "mother",
-                    "email_pattern": "family_updates"
-                }
-            },
-            
-            # Business Contacts
-            {
-                "content": "TechVendor Inc support team provides technical assistance, legitimate company with real support tickets",
-                "metadata": {
-                    "sender": "support@techvendor.com",
-                    "sender_type": "vendor",
-                    "trust_level": "medium",
-                    "company": "TechVendor Inc",
-                    "service_type": "technical_support"
-                }
-            },
-            {
-                "content": "City Bank sends account statements and security alerts, legitimate financial institution",
-                "metadata": {
-                    "sender": "alerts@citybank.com",
-                    "sender_type": "financial",
-                    "trust_level": "high",
-                    "institution": "City Bank",
-                    "email_pattern": "financial_updates"
-                }
-            },
-            
-            # Known Spam Patterns
-            {
-                "content": "Emails from random Gmail accounts with urgent lottery winnings or inheritance claims are always scams",
-                "metadata": {
-                    "sender_type": "scammer",
-                    "trust_level": "none",
-                    "spam_pattern": "lottery_scam",
-                    "domain_pattern": "random_gmail"
-                }
-            },
-            {
-                "content": "Phishing emails impersonating major banks often have slight domain misspellings and urgent action requests",
-                "metadata": {
-                    "sender_type": "phisher",
-                    "trust_level": "none",
-                    "spam_pattern": "bank_phishing",
-                    "red_flags": "domain_misspelling, urgent_action"
-                }
-            },
-            
-            # Newsletter and Automation
-            {
-                "content": "TechNews Daily sends daily technology newsletters, subscribed voluntarily, legitimate but low priority",
-                "metadata": {
-                    "sender": "newsletter@technews.com",
-                    "sender_type": "newsletter",
-                    "trust_level": "medium",
-                    "subscription_status": "voluntary",
-                    "frequency": "daily"
+                    "sector": "private_equity",
+                    "threshold_percent": 20,
+                    "consent_required": "limited_partners"
                 }
             }
         ]
         
-        for item in knowledge:
-            await self.semantic.add(item["content"], item["metadata"])
-        
-        print(f"   Added {len(knowledge)} knowledge items")
-
-    async def _populate_episodic_memory(self):
-        """Add conversation history and learning experiences."""
-        print("📝 Adding episodic memory (conversation history)...")
-        
-        conversations = [
-            # User Feedback and Learning
+        # Compliance and regulatory rules
+        compliance_rules = [
             {
-                "content": "User corrected: Email from recruiter@newcompany.com was legitimate job inquiry, not spam",
+                "content": "All investment documents must be reviewed for anti-money laundering compliance",
+                "rule_type": RuleType.COMPLIANCE,
+                "priority": RulePriority.CRITICAL,
+                "confidence": RuleConfidence.VERIFIED,
                 "metadata": {
-                    "type": "user_feedback",
-                    "correction": "false_positive",
-                    "sender": "recruiter@newcompany.com",
-                    "timestamp": time.time() - 86400,  # 1 day ago
-                    "learning": "recruitment_emails_legitimate"
+                    "regulation_source": "SEC_AML_Guidelines",
+                    "mandatory": True,
+                    "review_required": True
                 }
             },
             {
-                "content": "User reported: Newsletter from dealsite@offers.com is unwanted spam despite appearing legitimate",
+                "content": "Investor communications must comply with privacy regulations and data protection",
+                "rule_type": RuleType.COMPLIANCE,
+                "priority": RulePriority.HIGH,
+                "confidence": RuleConfidence.VERIFIED,
                 "metadata": {
-                    "type": "user_feedback", 
-                    "correction": "false_negative",
-                    "sender": "dealsite@offers.com",
-                    "timestamp": time.time() - 172800,  # 2 days ago
-                    "learning": "deal_newsletters_unwanted"
-                }
-            },
-            {
-                "content": "Successfully extracted contact info: Dr. Lisa Chen, Cardiology Associates, phone: 555-0123",
-                "metadata": {
-                    "type": "extraction_success",
-                    "contact_name": "Dr. Lisa Chen",
-                    "organization": "Cardiology Associates", 
-                    "phone": "555-0123",
-                    "timestamp": time.time() - 259200  # 3 days ago
-                }
-            },
-            
-            # Agent Actions and Results
-            {
-                "content": "Auto-responded to conference invitation with calendar availability request",
-                "metadata": {
-                    "type": "agent_action",
-                    "action": "auto_respond",
-                    "sender": "events@techconference.com",
-                    "result": "successful",
-                    "timestamp": time.time() - 3600  # 1 hour ago
-                }
-            },
-            {
-                "content": "Quarantined suspicious email claiming to be from bank with misspelled domain",
-                "metadata": {
-                    "type": "security_action", 
-                    "action": "quarantine",
-                    "reason": "domain_suspicious",
-                    "sender": "alerts@ctiybank.com",  # Note the misspelling
-                    "timestamp": time.time() - 7200  # 2 hours ago
-                }
-            },
-            
-            # Pattern Recognition
-            {
-                "content": "Identified pattern: Emails from *.contractor.com domain are legitimate work-related communications",
-                "metadata": {
-                    "type": "pattern_learning",
-                    "pattern": "contractor_domain_legitimate",
-                    "domain_pattern": "*.contractor.com",
-                    "confidence": "high",
-                    "timestamp": time.time() - 432000  # 5 days ago
+                    "regulation_source": "GDPR_CCPA",
+                    "data_protection": True,
+                    "privacy_compliance": True
                 }
             }
         ]
         
-        for conversation in conversations:
-            await self.episodic.add(conversation["content"], conversation["metadata"])
+        # Email classification and routing rules
+        classification_rules = [
+            {
+                "content": "Emails containing 'due diligence', 'investment proposal', or 'fund performance' classified as investment_related",
+                "rule_type": RuleType.CLASSIFICATION,
+                "priority": RulePriority.MEDIUM,
+                "confidence": RuleConfidence.TESTED,
+                "metadata": {
+                    "keywords": ["due diligence", "investment proposal", "fund performance"],
+                    "target_category": "investment_related",
+                    "confidence_threshold": 0.8
+                }
+            },
+            {
+                "content": "Regulatory filings and compliance notifications routed to compliance team immediately",
+                "rule_type": RuleType.ROUTING,
+                "priority": RulePriority.HIGH,
+                "confidence": RuleConfidence.VERIFIED,
+                "metadata": {
+                    "target_team": "compliance",
+                    "routing_speed": "immediate",
+                    "notification_required": True
+                }
+            }
+        ]
         
-        print(f"   Added {len(conversations)} conversation records")
+        # Add all rules to procedural memory
+        all_rules = investment_rules + compliance_rules + classification_rules
+        
+        for rule_data in all_rules:
+            try:
+                await self.procedural.add(
+                    content=rule_data["content"],
+                    metadata=rule_data["metadata"],
+                    rule_type=rule_data["rule_type"],
+                    priority=rule_data["priority"],
+                    confidence=rule_data["confidence"]
+                )
+                self.demo_stats['procedural_rules_added'] += 1
+            except Exception as e:
+                logger.error(f"Failed to add procedural rule: {e}")
+                self.demo_stats['errors_encountered'] += 1
+        
+        logger.info(f"   Added {len(all_rules)} procedural rules")
 
-    async def run_demo_queries(self):
-        """Run sample queries to demonstrate the system."""
-        print("🔍 Running demo queries to show email management capabilities...\n")
+    @log_function()
+    async def _populate_semantic_memory(self) -> None:
+        """
+        Add comprehensive sender intelligence and knowledge for asset management.
         
-        await self._demo_spam_detection()
-        await self._demo_priority_management()
-        await self._demo_contact_extraction()
-        await self._demo_learning_from_feedback()
-        await self._demo_sender_analysis()
+        Populates semantic memory with relationship intelligence, communication
+        patterns, and domain expertise for professional counterparty
+        management and business intelligence.
+        """
+        logger.info("🧠 Adding semantic memory (sender intelligence and knowledge)...")
+        
+        # Investment firm and counterparty knowledge
+        investment_knowledge = [
+            {
+                "content": "Blackstone Group responds within 24 hours to investment inquiries, prefers detailed technical analysis",
+                "knowledge_type": KnowledgeType.SENDER,
+                "confidence": KnowledgeConfidence.HIGH,
+                "metadata": {
+                    "sender_domain": "blackstone.com",
+                    "organization": "Blackstone Group",
+                    "response_pattern": "fast_business_hours",
+                    "communication_style": "technical_detailed",
+                    "business_category": "private_equity"
+                }
+            },
+            {
+                "content": "Apollo Global Management investment committee meets Tuesdays, decisions communicated Fridays",
+                "knowledge_type": KnowledgeType.SENDER,
+                "confidence": KnowledgeConfidence.HIGH,
+                "metadata": {
+                    "sender_domain": "apollo.com",
+                    "organization": "Apollo Global Management",
+                    "decision_schedule": "tuesday_committee_friday_communication",
+                    "business_category": "private_equity"
+                }
+            },
+            {
+                "content": "Brookfield Asset Management specializes in infrastructure and real estate with global focus",
+                "knowledge_type": KnowledgeType.SENDER,
+                "confidence": KnowledgeConfidence.HIGH,
+                "metadata": {
+                    "sender_domain": "brookfield.com",
+                    "organization": "Brookfield Asset Management",
+                    "specialization": ["infrastructure", "real_estate"],
+                    "geographic_focus": "global"
+                }
+            }
+        ]
+        
+        # Email type and pattern knowledge
+        email_type_knowledge = [
+            {
+                "content": "Investment inquiries typically include fund size, target returns, and investment timeline",
+                "knowledge_type": KnowledgeType.EMAIL_TYPE,
+                "confidence": KnowledgeConfidence.HIGH,
+                "metadata": {
+                    "email_type": "investment_inquiry",
+                    "typical_content": ["fund_size", "target_returns", "timeline"],
+                    "classification_criteria": "mentions fund, investment, capital, returns"
+                }
+            },
+            {
+                "content": "Due diligence requests contain document lists, data room access, and review timelines",
+                "knowledge_type": KnowledgeType.EMAIL_TYPE,
+                "confidence": KnowledgeConfidence.HIGH,
+                "metadata": {
+                    "email_type": "due_diligence",
+                    "typical_content": ["document_lists", "data_room", "timeline"],
+                    "urgency_level": "high"
+                }
+            }
+        ]
+        
+        # Domain expertise and industry knowledge
+        domain_knowledge = [
+            {
+                "content": "Real estate private equity typically requires 6-12 month due diligence for large transactions ($100M+)",
+                "knowledge_type": KnowledgeType.DOMAIN,
+                "confidence": KnowledgeConfidence.HIGH,
+                "metadata": {
+                    "domain": "real_estate",
+                    "expertise_area": "private_equity_due_diligence",
+                    "typical_timeline": "6-12_months",
+                    "transaction_threshold": 100000000
+                }
+            },
+            {
+                "content": "Infrastructure investments require regulatory approval and ESG compliance assessment",
+                "knowledge_type": KnowledgeType.DOMAIN,
+                "confidence": KnowledgeConfidence.HIGH,
+                "metadata": {
+                    "domain": "infrastructure",
+                    "expertise_area": "regulatory_compliance",
+                    "requirements": ["regulatory_approval", "esg_assessment"]
+                }
+            }
+        ]
+        
+        # Add all knowledge to semantic memory
+        all_knowledge = investment_knowledge + email_type_knowledge + domain_knowledge
+        
+        for knowledge_data in all_knowledge:
+            try:
+                await self.semantic.add(
+                    content=knowledge_data["content"],
+                    metadata=knowledge_data["metadata"],
+                    knowledge_type=knowledge_data["knowledge_type"],
+                    confidence=knowledge_data["confidence"]
+                )
+                self.demo_stats['semantic_knowledge_added'] += 1
+            except Exception as e:
+                logger.error(f"Failed to add semantic knowledge: {e}")
+                self.demo_stats['errors_encountered'] += 1
+        
+        logger.info(f"   Added {len(all_knowledge)} knowledge items")
 
-    async def _demo_spam_detection(self):
-        """Demonstrate spam detection capabilities."""
-        print("🚫 SPAM DETECTION DEMO")
-        print("=" * 50)
+    @log_function()
+    async def _populate_episodic_memory(self) -> None:
+        """
+        Add conversation history and learning experiences for asset management.
         
-        # Query for spam detection rules
-        spam_rules = await self.procedural.search("spam suspicious malware", limit=3)
-        print("📋 Relevant spam detection rules:")
-        for rule in spam_rules:
-            print(f"   • {rule.content}")
-            print(f"     Category: {rule.metadata.get('category', 'N/A')}, Priority: {rule.metadata.get('priority', 'N/A')}")
+        Populates episodic memory with investment meeting records, decision
+        audit trails, client interactions, and learning experiences for
+        professional business intelligence and process optimization.
+        """
+        logger.info("📝 Adding episodic memory (conversation history and experiences)...")
         
-        # Query for known spam patterns
-        spam_patterns = await self.semantic.search("scam phishing lottery", limit=3)
-        print("\n🧠 Known spam patterns:")
-        for pattern in spam_patterns:
-            print(f"   • {pattern.content}")
-            print(f"     Trust Level: {pattern.metadata.get('trust_level', 'N/A')}")
+        # Investment committee meetings and decisions
+        meeting_memories = [
+            {
+                "content": "Investment committee approved $75M allocation to European real estate fund",
+                "memory_type": EpisodicMemoryType.MEETING,
+                "metadata": {
+                    "meeting_type": "investment_committee",
+                    "decision": "approved",
+                    "allocation_amount": 75000000,
+                    "asset_class": "real_estate",
+                    "geographic_focus": "europe",
+                    "participants": ["CIO", "portfolio_managers", "risk_team"],
+                    "timestamp": time.time() - 7 * 24 * 3600  # 1 week ago
+                }
+            },
+            {
+                "content": "Due diligence meeting for infrastructure fund identified regulatory concerns requiring resolution",
+                "memory_type": EpisodicMemoryType.MEETING,
+                "metadata": {
+                    "meeting_type": "due_diligence",
+                    "asset_class": "infrastructure",
+                    "concerns": ["regulatory_compliance", "permitting_issues"],
+                    "action_required": "legal_review",
+                    "timestamp": time.time() - 3 * 24 * 3600  # 3 days ago
+                }
+            }
+        ]
         
-        # Check past security actions
-        security_actions = await self.episodic.search("quarantine suspicious domain")
-        print(f"\n📝 Recent security actions taken: {len(security_actions)} incidents")
-        for action in security_actions[:2]:
-            print(f"   • {action.content}")
+        # Client conversations and interactions
+        conversation_memories = [
+            {
+                "content": "Client expressed interest in ESG-focused investment opportunities, requested quarterly updates",
+                "memory_type": EpisodicMemoryType.CONVERSATION,
+                "metadata": {
+                    "client_id": "client_001",
+                    "conversation_type": "investment_consultation",
+                    "interests": ["esg_investing", "sustainability"],
+                    "requested_frequency": "quarterly",
+                    "timestamp": time.time() - 5 * 24 * 3600  # 5 days ago
+                }
+            },
+            {
+                "content": "Family office requested detailed performance attribution for private credit portfolio",
+                "memory_type": EpisodicMemoryType.CONVERSATION,
+                "metadata": {
+                    "client_type": "family_office",
+                    "request_type": "performance_attribution",
+                    "portfolio_focus": "private_credit",
+                    "urgency": "high",
+                    "timestamp": time.time() - 24 * 3600  # 1 day ago
+                }
+            }
+        ]
         
-        print("\n")
+        # User feedback and system learning
+        feedback_memories = [
+            {
+                "content": "User corrected: Email from pension fund was investment inquiry, not general information request",
+                "memory_type": EpisodicMemoryType.FEEDBACK,
+                "metadata": {
+                    "feedback_type": "classification_correction",
+                    "original_classification": "general_inquiry",
+                    "correct_classification": "investment_inquiry",
+                    "sender_type": "pension_fund",
+                    "learning_point": "pension_funds_investment_focused",
+                    "timestamp": time.time() - 2 * 24 * 3600  # 2 days ago
+                }
+            }
+        ]
+        
+        # Add all memories to episodic memory
+        all_memories = meeting_memories + conversation_memories + feedback_memories
+        
+        for memory_data in all_memories:
+            try:
+                await self.episodic.add(
+                    content=memory_data["content"],
+                    metadata=memory_data["metadata"],
+                    memory_type=memory_data["memory_type"]
+                )
+                self.demo_stats['episodic_memories_added'] += 1
+            except Exception as e:
+                logger.error(f"Failed to add episodic memory: {e}")
+                self.demo_stats['errors_encountered'] += 1
+        
+        logger.info(f"   Added {len(all_memories)} episodic memories")
 
-    async def _demo_priority_management(self):
-        """Demonstrate email priority management."""
-        print("⭐ PRIORITY MANAGEMENT DEMO")
-        print("=" * 50)
+    @log_function()
+    async def run_demo_queries(self) -> None:
+        """
+        Execute comprehensive demonstration queries across all memory systems.
         
-        # Query for priority rules
-        priority_rules = await self.procedural.search("priority urgent family work", limit=3)
-        print("📋 Priority management rules:")
-        for rule in priority_rules:
-            print(f"   • {rule.content}")
-            print(f"     Priority: {rule.metadata.get('priority', 'N/A')}")
+        Demonstrates professional query patterns, business intelligence
+        capabilities, and memory system integration for asset management
+        email automation environments.
+        """
+        logger.info("🔍 Running comprehensive demo queries...")
         
-        # Query for high-trust senders
-        trusted_senders = await self.semantic.search("family colleague trust", 
-                                                    filter={
-                                                        "must": [
-                                                            {"key": "metadata.trust_level", "match": {"value": "high"}}
-                                                        ]
-                                                    })
-        print(f"\n🧠 High-trust senders identified: {len(trusted_senders)}")
-        for sender in trusted_senders:
-            print(f"   • {sender.metadata.get('sender', 'Unknown')}: {sender.content[:80]}...")
+        demo_sections = [
+            ("Investment Decision Support", self._demo_investment_intelligence),
+            ("Compliance and Regulatory", self._demo_compliance_queries),
+            ("Sender Intelligence Analysis", self._demo_sender_analysis),
+            ("Email Classification Patterns", self._demo_classification_queries),
+            ("Business Learning and Adaptation", self._demo_learning_queries),
+            ("Cross-Memory System Integration", self._demo_integration_queries)
+        ]
         
-        print("\n")
+        for section_name, demo_function in demo_sections:
+            logger.info(f"\n--- {section_name} ---")
+            try:
+                await demo_function()
+                self.demo_stats['queries_executed'] += 1
+            except Exception as e:
+                logger.error(f"Demo section '{section_name}' failed: {e}")
+                self.demo_stats['errors_encountered'] += 1
 
-    async def _demo_contact_extraction(self):
-        """Demonstrate contact extraction capabilities."""
-        print("👥 CONTACT EXTRACTION DEMO")
-        print("=" * 50)
+    @log_function()
+    async def _demo_investment_intelligence(self) -> None:
+        """Demonstrate investment decision support queries."""
+        logger.info("💼 Investment Decision Support Queries")
         
-        # Query for contact extraction rules
-        contact_rules = await self.procedural.search("contact information extract", limit=2)
-        print("📋 Contact extraction rules:")
-        for rule in contact_rules:
-            print(f"   • {rule.content}")
+        # Search for investment approval rules
+        investment_rules = await self.procedural.search_by_rule_type(
+            rule_type=RuleType.INVESTMENT,
+            limit=5
+        )
         
-        # Query for successful extractions
-        extractions = await self.episodic.search("extracted contact", 
-                                                filter={
-                                                    "must": [
-                                                        {"key": "metadata.type", "match": {"value": "extraction_success"}}
-                                                    ]
-                                                })
-        print(f"\n📝 Successful contact extractions: {len(extractions)}")
-        for extraction in extractions:
-            metadata = extraction.metadata
-            print(f"   • {metadata.get('contact_name', 'N/A')} from {metadata.get('organization', 'N/A')}")
-            if metadata.get('phone'):
-                print(f"     Phone: {metadata.get('phone')}")
+        logger.info(f"Found {len(investment_rules)} investment rules:")
+        for rule in investment_rules:
+            threshold = rule.metadata.get('threshold_amount', 'N/A')
+            logger.info(f"  - {rule.content[:80]}... (Threshold: ${threshold:,})")
         
-        print("\n")
+        # Search for counterparty knowledge
+        counterparty_knowledge = await self.semantic.search(
+            query="investment committee decision timeline",
+            knowledge_type=KnowledgeType.SENDER,
+            limit=3
+        )
+        
+        logger.info(f"\nFound {len(counterparty_knowledge)} counterparty insights:")
+        for knowledge in counterparty_knowledge:
+            org = knowledge.metadata.get('organization', 'Unknown')
+            logger.info(f"  - {org}: {knowledge.content[:80]}...")
 
-    async def _demo_learning_from_feedback(self):
-        """Demonstrate learning from user feedback."""
-        print("🎓 LEARNING FROM FEEDBACK DEMO")
-        print("=" * 50)
+    @log_function()
+    async def _demo_compliance_queries(self) -> None:
+        """Demonstrate compliance and regulatory queries."""
+        logger.info("⚖️ Compliance and Regulatory Queries")
         
-        # Query for user corrections
-        feedback = await self.episodic.search("user corrected reported feedback",
-                                             filter={
-                                                 "must": [
-                                                     {"key": "metadata.type", "match": {"value": "user_feedback"}}
-                                                 ]
-                                             })
-        print(f"📝 User feedback records: {len(feedback)}")
-        for fb in feedback:
-            correction_type = fb.metadata.get('correction', 'unknown')
-            sender = fb.metadata.get('sender', 'unknown')
-            print(f"   • {correction_type.upper()}: {fb.content}")
-            print(f"     Sender: {sender}")
-            print(f"     Learning: {fb.metadata.get('learning', 'N/A')}")
+        # Search for compliance rules
+        compliance_rules = await self.procedural.search_by_rule_type(
+            rule_type=RuleType.COMPLIANCE,
+            min_priority=RulePriority.HIGH
+        )
         
-        print("\n")
+        logger.info(f"Found {len(compliance_rules)} high-priority compliance rules:")
+        for rule in compliance_rules:
+            source = rule.metadata.get('regulation_source', 'Unknown')
+            logger.info(f"  - {source}: {rule.content[:80]}...")
 
-    async def _demo_sender_analysis(self):
-        """Demonstrate comprehensive sender analysis."""
-        print("🔍 SENDER ANALYSIS DEMO")
-        print("=" * 50)
+    @log_function()
+    async def _demo_sender_analysis(self) -> None:
+        """Demonstrate sender intelligence and analysis."""
+        logger.info("👥 Sender Intelligence Analysis")
         
-        print("Analyzing sender: john.smith@acmecorp.com")
+        # Search for sender knowledge by domain
+        apollo_knowledge = await self.semantic.search_by_domain(
+            domain="apollo.com",
+            limit=5
+        )
         
-        # Get sender knowledge
-        sender_info = await self.semantic.search("john.smith@acmecorp.com OR Acme Corp")
-        if sender_info:
-            info = sender_info[0]
-            print(f"📊 Sender Profile:")
-            print(f"   • Trust Level: {info.metadata.get('trust_level', 'Unknown')}")
-            print(f"   • Sender Type: {info.metadata.get('sender_type', 'Unknown')}")
-            print(f"   • Company: {info.metadata.get('company', 'Unknown')}")
-            print(f"   • Pattern: {info.metadata.get('email_pattern', 'Unknown')}")
-            print(f"   • Description: {info.content}")
-        
-        # Check for applicable rules
-        applicable_rules = await self.procedural.search("work colleague priority")
-        print(f"\n📋 Applicable rules: {len(applicable_rules)}")
-        for rule in applicable_rules[:2]:
-            print(f"   • {rule.content}")
-        
-        print("\n")
+        logger.info(f"Found {len(apollo_knowledge)} knowledge items about Apollo:")
+        for knowledge in apollo_knowledge:
+            logger.info(f"  - {knowledge.content[:80]}...")
 
-async def main():
-    """Run the complete email memory demo."""
-    demo = EmailMemoryDemo()
+    @log_function()
+    async def _demo_classification_queries(self) -> None:
+        """Demonstrate email classification pattern queries."""
+        logger.info("📧 Email Classification Pattern Queries")
+        
+        # Search for classification rules
+        classification_rules = await self.procedural.search_by_rule_type(
+            rule_type=RuleType.CLASSIFICATION
+        )
+        
+        logger.info(f"Found {len(classification_rules)} classification rules:")
+        for rule in classification_rules:
+            category = rule.metadata.get('target_category', 'Unknown')
+            logger.info(f"  - {category}: {rule.content[:80]}...")
+
+    @log_function()
+    async def _demo_learning_queries(self) -> None:
+        """Demonstrate learning and adaptation queries."""
+        logger.info("🧠 Business Learning and Adaptation")
+        
+        # Search for feedback and learning experiences
+        feedback_memories = await self.episodic.search_by_type(
+            memory_type=EpisodicMemoryType.FEEDBACK,
+            limit=5
+        )
+        
+        logger.info(f"Found {len(feedback_memories)} learning experiences:")
+        for memory in feedback_memories:
+            feedback_type = memory.metadata.get('feedback_type', 'Unknown')
+            logger.info(f"  - {feedback_type}: {memory.content[:80]}...")
+
+    @log_function()
+    async def _demo_integration_queries(self) -> None:
+        """Demonstrate cross-memory system integration."""
+        logger.info("🔗 Cross-Memory System Integration")
+        
+        # Get statistics from all memory systems
+        proc_stats = await self.procedural.get_rule_statistics()
+        sem_stats = await self.semantic.get_knowledge_statistics()
+        epi_stats = await self.episodic.get_memory_statistics()
+        
+        logger.info("Memory System Statistics:")
+        logger.info(f"  - Procedural Rules: {proc_stats['total_count']} total, {proc_stats['active_count']} active")
+        logger.info(f"  - Semantic Knowledge: {sem_stats['total_count']} items, avg length {sem_stats['average_content_length']:.1f}")
+        logger.info(f"  - Episodic Memories: {epi_stats['total_count']} memories, {epi_stats.get('conversation_count', 0)} conversations")
+
+    @log_function()
+    async def generate_demo_report(self) -> Dict[str, Any]:
+        """
+        Generate comprehensive demonstration report with metrics and insights.
+        
+        Returns:
+            Dictionary containing demo execution metrics and business insights
+        """
+        self.demo_stats['end_time'] = datetime.now(UTC)
+        
+        if self.demo_stats['start_time']:
+            duration = (self.demo_stats['end_time'] - self.demo_stats['start_time']).total_seconds()
+        else:
+            duration = 0
+        
+        # Generate comprehensive memory statistics
+        try:
+            memory_stats = {
+                'procedural': await self.procedural.get_rule_statistics(),
+                'semantic': await self.semantic.get_knowledge_statistics(),
+                'episodic': await self.episodic.get_memory_statistics()
+            }
+        except Exception as e:
+            logger.error(f"Failed to generate memory statistics: {e}")
+            memory_stats = {}
+        
+        report = {
+            'demo_execution': {
+                'duration_seconds': duration,
+                'queries_executed': self.demo_stats['queries_executed'],
+                'errors_encountered': self.demo_stats['errors_encountered'],
+                'success_rate': (self.demo_stats['queries_executed'] / 
+                               max(1, self.demo_stats['queries_executed'] + self.demo_stats['errors_encountered'])) * 100
+            },
+            'data_population': {
+                'procedural_rules': self.demo_stats['procedural_rules_added'],
+                'semantic_knowledge': self.demo_stats['semantic_knowledge_added'],
+                'episodic_memories': self.demo_stats['episodic_memories_added'],
+                'total_items': (self.demo_stats['procedural_rules_added'] + 
+                              self.demo_stats['semantic_knowledge_added'] + 
+                              self.demo_stats['episodic_memories_added'])
+            },
+            'memory_statistics': memory_stats,
+            'business_insights': {
+                'investment_rules_configured': memory_stats.get('procedural', {}).get('rule_types', {}).get('investment', 0),
+                'compliance_rules_active': memory_stats.get('procedural', {}).get('rule_types', {}).get('compliance', 0),
+                'counterparty_knowledge_items': memory_stats.get('semantic', {}).get('sender_knowledge_count', 0),
+                'learning_experiences_captured': memory_stats.get('episodic', {}).get('feedback_count', 0)
+            }
+        }
+        
+        return report
+
+# Demonstration execution function
+@log_function()
+async def run_comprehensive_demo() -> Dict[str, Any]:
+    """
+    Execute comprehensive email memory system demonstration.
     
-    print("🚀 EMAIL MEMORY SYSTEM DEMO")
-    print("Creating sample data and running queries...")
+    Runs complete demonstration workflow including data setup,
+    query execution, and report generation for professional
+    asset management environments.
+    
+    Returns:
+        Comprehensive demonstration report with metrics and insights
+    """
+    logger.info("🚀 Starting comprehensive email memory system demonstration")
     
     try:
+        # Initialize and run demonstration
+        demo = EmailMemoryDemo()
+        
+        # Setup demonstration data
         await demo.setup_demo_data()
+        
+        # Execute demonstration queries
         await demo.run_demo_queries()
         
-        print("🎉 DEMO COMPLETE!")
-        print("=" * 60)
-        print("The memory system is ready to help manage your email!")
-        print("\nWhat this demo shows:")
-        print("📋 Procedural Memory: Rules for handling different email types")
-        print("🧠 Semantic Memory: Knowledge about senders and patterns") 
-        print("📝 Episodic Memory: Learning from past decisions and actions")
-        print("\nNext steps for your email agent:")
-        print("• Connect to Gmail API to get real emails")
-        print("• Build agent layer to apply these memories")
-        print("• Add real-time learning from your decisions")
-        print("• Implement automated actions based on rules")
+        # Generate comprehensive report
+        report = await demo.generate_demo_report()
+        
+        logger.info("✅ Email memory system demonstration completed successfully")
+        logger.info(f"Demo Results: {report['demo_execution']['queries_executed']} queries, "
+                   f"{report['data_population']['total_items']} items, "
+                   f"{report['demo_execution']['success_rate']:.1f}% success rate")
+        
+        return report
         
     except Exception as e:
-        print(f"❌ Demo failed: {e}")
+        logger.error(f"Email memory system demonstration failed: {e}")
         raise
 
+async def main() -> bool:
+    """Main demonstration entry point."""
+    logger.info("🎯 EmailAgent Memory System Demonstration")
+    logger.info("=" * 60)
+    
+    try:
+        report = await run_comprehensive_demo()
+        
+        print("\n🎉 Demonstration completed successfully!")
+        print(f"📊 Execution Summary:")
+        print(f"   - Duration: {report['demo_execution']['duration_seconds']:.1f} seconds")
+        print(f"   - Queries: {report['demo_execution']['queries_executed']}")
+        print(f"   - Data Items: {report['data_population']['total_items']}")
+        print(f"   - Success Rate: {report['demo_execution']['success_rate']:.1f}%")
+        
+        return True
+        
+    except Exception as e:
+        logger.error(f"Demonstration failed: {e}")
+        print(f"\n❌ Demonstration failed: {e}")
+        return False
+
 if __name__ == "__main__":
-    asyncio.run(main()) 
+    success = asyncio.run(main())
+    sys.exit(0 if success else 1) 

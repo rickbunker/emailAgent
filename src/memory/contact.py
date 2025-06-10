@@ -1,23 +1,50 @@
 """
-Contact Memory Module
+Contact Memory Management System for EmailAgent
 
-This module manages a dedicated Qdrant collection for storing and managing
-contact information. Unlike episodic memory which stores extraction events,
-this creates persistent contact records that can be updated and enriched over time.
+Professional contact memory system for private market asset management environments.
+Provides dedicated Qdrant-based storage for contact information with advanced
+features including deduplication, relationship tracking, and contact enrichment.
 
 Features:
-- Contact deduplication (same person from multiple emails)
-- Contact updates and enrichment
-- Relationship tracking
-- Search by name, email, organization, phone
-- Contact history and interaction tracking
+    - Persistent contact record management with deduplication
+    - Contact information enrichment and updating over time
+    - Relationship tracking and business context analysis
+    - Advanced search capabilities (name, email, organization, phone)
+    - Contact interaction history and frequency tracking
+    - Tag-based organization and categorization
+    - Professional confidence scoring and validation
+
+Business Context:
+    Designed for asset management firms requiring comprehensive contact management
+    across deal flow, investor relations, and business development activities.
+    Maintains professional relationship context and interaction history for
+    improved business intelligence and relationship management.
+
+Technical Architecture:
+    - Dedicated Qdrant collection for contact persistence
+    - Vector-based semantic search with embedding models
+    - Contact deduplication by email address (primary key)
+    - Incremental contact enrichment with confidence scoring  
+    - Professional relationship taxonomy and categorization
+    - Comprehensive audit trail and interaction tracking
+
+Contact Types:
+    - Personal: Personal contacts and relationships
+    - Professional: Business contacts and colleagues
+    - Family: Family members and personal relationships
+    - Vendor: Service providers and business vendors
+    - Unknown: Unclassified contacts requiring review
+
+Version: 1.0.0
+Author: Email Agent Development Team
+License: Private - Asset Management Use Only
 """
 
 import os
-from typing import List, Optional, Dict, Any, Set
+from typing import List, Optional, Dict, Any, Set, Union
 from datetime import datetime, UTC
 import uuid
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 from enum import Enum
 
 from qdrant_client import AsyncQdrantClient
@@ -25,28 +52,84 @@ from qdrant_client.http import models
 from qdrant_client.http.models import Distance, VectorParams
 from sentence_transformers import SentenceTransformer
 
+# Logging system
+import sys
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+from utils.logging_system import get_logger, log_function, log_debug, log_info
+
 from .base import BaseMemory, MemoryItem
 
+# Initialize logger
+logger = get_logger(__name__)
 
 class ContactType(Enum):
-    """Types of contacts."""
+    """
+    Professional contact classification for business context.
+    
+    Provides structured categorization of contacts for asset management
+    environments with appropriate business context and relationship types.
+    
+    Values:
+        PERSONAL: Personal contacts and individual relationships
+        PROFESSIONAL: Business contacts, colleagues, and industry professionals  
+        FAMILY: Family members and personal relationships
+        VENDOR: Service providers, vendors, and business partners
+        UNKNOWN: Unclassified contacts requiring manual review
+    """
     PERSONAL = "personal"
     PROFESSIONAL = "professional"
     FAMILY = "family"
     VENDOR = "vendor"
     UNKNOWN = "unknown"
 
-
 class ContactConfidence(Enum):
-    """Confidence levels for contact information."""
+    """
+    Contact information confidence levels for data quality assessment.
+    
+    Provides graduated confidence scoring for contact information accuracy
+    to support data quality management and validation workflows.
+    
+    Values:
+        HIGH: Verified contact information from authoritative sources
+        MEDIUM: Contact information from reliable but unverified sources
+        LOW: Contact information requiring verification or review
+    """
     HIGH = "high"
     MEDIUM = "medium"
     LOW = "low"
 
-
 @dataclass
 class ContactRecord:
-    """A complete contact record."""
+    """
+    Comprehensive contact record for asset management environments.
+    
+    Professional contact data structure with complete information tracking,
+    relationship context, and interaction history for business intelligence
+    and relationship management in asset management firms.
+    
+    Attributes:
+        id: Unique contact identifier
+        email: Primary email address (used as primary key)
+        name: Full contact name
+        first_name: Contact first name for personalization
+        last_name: Contact surname for formal addressing
+        phone: Primary phone number
+        organization: Company or organization affiliation
+        title: Professional title or position
+        address: Physical or business address
+        contact_type: Professional contact classification
+        confidence: Information accuracy confidence level
+        relationship: Business relationship description
+        notes: Additional contact notes and context
+        tags: Categorization tags for organization
+        first_seen: Initial contact discovery timestamp
+        last_updated: Most recent information update timestamp
+        last_email_interaction: Most recent email interaction timestamp
+        email_count: Total number of email interactions
+        sources: List of email IDs where contact was discovered
+        extraction_history: Historical record of contact data extraction
+    """
     id: str
     email: str
     name: Optional[str] = None
@@ -59,45 +142,64 @@ class ContactRecord:
     contact_type: ContactType = ContactType.UNKNOWN
     confidence: ContactConfidence = ContactConfidence.LOW
     
-    # Relationship and context
-    relationship: Optional[str] = None  # "colleague", "friend", "vendor", etc.
+    # Professional relationship and business context
+    relationship: Optional[str] = None  # "colleague", "investor", "vendor", "counterparty"
     notes: Optional[str] = None
-    tags: List[str] = None
+    tags: List[str] = field(default_factory=list)
     
-    # Tracking
+    # Contact tracking and audit trail
     first_seen: str = ""
     last_updated: str = ""
     last_email_interaction: str = ""
     email_count: int = 0
     
-    # Sources - track where we got this info
-    sources: List[str] = None  # List of email IDs where we found this contact
-    extraction_history: List[Dict[str, Any]] = None
+    # Data sources and extraction history
+    sources: List[str] = field(default_factory=list)  # Email IDs where contact found
+    extraction_history: List[Dict[str, Any]] = field(default_factory=list)
     
     def __post_init__(self):
-        if self.tags is None:
-            self.tags = []
-        if self.sources is None:
-            self.sources = []
-        if self.extraction_history is None:
-            self.extraction_history = []
+        """
+        Initialize contact record with default values and timestamps.
+        
+        Ensures proper initialization of list fields and automatic
+        timestamp generation for audit trail maintenance.
+        """
         if not self.first_seen:
             self.first_seen = datetime.now(UTC).isoformat()
         if not self.last_updated:
             self.last_updated = datetime.now(UTC).isoformat()
     
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary for storage."""
+        """
+        Convert contact record to dictionary for storage.
+        
+        Serializes contact record for Qdrant storage with proper
+        enum value conversion and data structure formatting.
+        
+        Returns:
+            Dictionary representation suitable for vector database storage
+        """
         data = asdict(self)
-        # Convert enums to strings
+        # Convert enums to string values for storage
         data['contact_type'] = self.contact_type.value
         data['confidence'] = self.confidence.value
         return data
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'ContactRecord':
-        """Create from dictionary."""
-        # Convert string enums back
+        """
+        Create contact record from dictionary data.
+        
+        Deserializes contact record from storage with proper enum
+        conversion and data structure reconstruction.
+        
+        Args:
+            data: Dictionary containing contact record data
+            
+        Returns:
+            ContactRecord instance with proper typing
+        """
+        # Convert string enum values back to enum instances
         if 'contact_type' in data:
             data['contact_type'] = ContactType(data['contact_type'])
         if 'confidence' in data:
@@ -106,45 +208,89 @@ class ContactRecord:
         return cls(**data)
     
     def get_search_text(self) -> str:
-        """Get text for vector search indexing."""
+        """
+        Generate comprehensive search text for vector indexing.
+        
+        Creates searchable text representation combining all contact
+        information for semantic vector search capabilities.
+        
+        Returns:
+            Combined text string for vector embedding and search
+        """
         parts = []
         
+        # Core identification information
         if self.name:
             parts.append(self.name)
         if self.email:
             parts.append(self.email)
+        if self.first_name:
+            parts.append(self.first_name)
+        if self.last_name:
+            parts.append(self.last_name)
+            
+        # Professional context
         if self.organization:
             parts.append(self.organization)
         if self.title:
             parts.append(self.title)
-        if self.phone:
-            parts.append(self.phone)
         if self.relationship:
             parts.append(self.relationship)
+            
+        # Additional searchable information
+        if self.phone:
+            parts.append(self.phone)
         if self.notes:
             parts.append(self.notes)
         
-        # Add tags
+        # Include tags for categorical search
         parts.extend(self.tags)
         
         return " ".join(parts)
 
-
 class ContactMemory(BaseMemory):
     """
-    Memory system for managing contacts.
+    Professional contact memory system for asset management environments.
     
-    This creates a dedicated Qdrant collection for contacts with features like:
-    - Contact deduplication
-    - Contact updates and enrichment
-    - Search by various fields
-    - Relationship tracking
+    Provides comprehensive contact management with deduplication, relationship
+    tracking, and business intelligence features designed for private market
+    asset management firms requiring sophisticated contact relationship management.
+    
+    Features:
+        - Contact deduplication by email address
+        - Incremental contact information enrichment
+        - Business relationship tracking and categorization
+        - Interaction frequency and history tracking
+        - Advanced search with semantic and categorical filtering
+        - Professional confidence scoring and validation
+        - Tag-based organization and workflow integration
+        
+    Business Context:
+        Enables asset management firms to maintain comprehensive contact
+        databases across deal flow, investor relations, business development,
+        and operational activities with professional relationship context.
+        
+    Technical Implementation:
+        - Dedicated Qdrant collection for contact persistence
+        - Email-based primary key with automatic deduplication
+        - Vector semantic search with embedding models
+        - Incremental update workflow for contact enrichment
+        - Professional audit trail and interaction tracking
     """
     
     def __init__(self, max_items: int = 5000, **kwargs):
+        """
+        Initialize contact memory system.
+        
+        Args:
+            max_items: Maximum number of contacts to store (default: 5000)
+            **kwargs: Additional BaseMemory configuration parameters
+        """
         super().__init__(max_items=max_items, **kwargs)
         self.collection_name = "contacts"
+        logger.info(f"Initialized ContactMemory with max_items={max_items}")
     
+    @log_function()
     async def add_contact(
         self,
         email: str,
@@ -158,44 +304,62 @@ class ContactMemory(BaseMemory):
         **kwargs
     ) -> str:
         """
-        Add or update a contact.
+        Add or update a professional contact record.
         
-        This method handles deduplication - if a contact with the same email
-        already exists, it will update the existing record instead of creating
-        a duplicate.
+        Handles intelligent contact deduplication by email address with
+        incremental information enrichment. If contact exists, updates
+        with new information while preserving interaction history.
         
         Args:
-            email: Contact's email address (primary key)
-            name: Full name
+            email: Contact's email address (primary identifier)
+            name: Full contact name
             phone: Phone number
-            organization: Company/organization
-            title: Job title
-            contact_type: Type of contact
-            confidence: Confidence in the information
-            source_email_id: ID of email where this contact was extracted
-            **kwargs: Additional contact fields
+            organization: Company or organization name
+            title: Professional title or position
+            contact_type: Professional contact classification
+            confidence: Information accuracy confidence level
+            source_email_id: Email ID where contact was discovered
+            **kwargs: Additional contact attributes for enrichment
             
         Returns:
-            str: The contact ID
+            Contact ID (existing or newly created)
+            
+        Raises:
+            ValueError: If email address invalid or missing
+            
+        Example:
+            >>> contact_id = await contact_memory.add_contact(
+            ...     email="john.doe@investment.com",
+            ...     name="John Doe",
+            ...     organization="Investment Partners LLC",
+            ...     title="Managing Partner",
+            ...     contact_type=ContactType.PROFESSIONAL,
+            ...     confidence=ContactConfidence.HIGH
+            ... )
         """
+        if not email or not isinstance(email, str) or '@' not in email:
+            raise ValueError("Valid email address required for contact creation")
+        
+        logger.info(f"Adding/updating contact: {email}")
         await self._ensure_collection()
         
-        # Check if contact already exists
+        # Check for existing contact by email
         existing = await self.find_contact_by_email(email)
         
         if existing:
-            # Update existing contact
+            logger.debug(f"Updating existing contact: {email}")
             return await self._update_existing_contact(
                 existing, name, phone, organization, title, 
                 contact_type, confidence, source_email_id, **kwargs
             )
         else:
-            # Create new contact
+            logger.debug(f"Creating new contact: {email}")
             return await self._create_new_contact(
                 email, name, phone, organization, title,
                 contact_type, confidence, source_email_id, **kwargs
             )
     
+    @log_function()
     async def _create_new_contact(
         self,
         email: str,
@@ -208,53 +372,85 @@ class ContactMemory(BaseMemory):
         source_email_id: Optional[str] = None,
         **kwargs
     ) -> str:
-        """Create a new contact record."""
+        """
+        Create new contact record with comprehensive initialization.
         
+        Args:
+            email: Contact email address
+            name: Full contact name
+            phone: Phone number
+            organization: Organization name
+            title: Professional title
+            contact_type: Contact classification
+            confidence: Information confidence level
+            source_email_id: Source email identifier
+            **kwargs: Additional contact attributes
+            
+        Returns:
+            Newly created contact ID
+        """
         contact_id = str(uuid.uuid4())
         
+        # Parse name into components if provided
+        first_name, last_name = None, None
+        if name:
+            name_parts = name.strip().split()
+            if len(name_parts) >= 2:
+                first_name = name_parts[0]
+                last_name = " ".join(name_parts[1:])
+            elif len(name_parts) == 1:
+                first_name = name_parts[0]
+        
+        # Create contact record
         contact = ContactRecord(
             id=contact_id,
-            email=email,
+            email=email.lower().strip(),
             name=name,
+            first_name=first_name,
+            last_name=last_name,
             phone=phone,
             organization=organization,
             title=title,
             contact_type=contact_type,
             confidence=confidence,
+            email_count=1 if source_email_id else 0,
             **kwargs
         )
         
-        # Add source if provided
+        # Add source tracking
         if source_email_id:
             contact.sources.append(source_email_id)
-            contact.extraction_history.append({
-                'source_email_id': source_email_id,
-                'extracted_at': datetime.now(UTC).isoformat(),
-                'extracted_name': name,
-                'extracted_phone': phone,
-                'extracted_organization': organization,
-                'extracted_title': title
-            })
+            contact.last_email_interaction = datetime.now(UTC).isoformat()
         
-        # Generate embedding for search
+        # Record extraction history
+        extraction_record = {
+            'timestamp': datetime.now(UTC).isoformat(),
+            'source_email_id': source_email_id,
+            'extracted_fields': {
+                'name': name,
+                'phone': phone,
+                'organization': organization,
+                'title': title
+            },
+            'confidence': confidence.value,
+            'action': 'created'
+        }
+        contact.extraction_history.append(extraction_record)
+        
+        # Store in vector database
         search_text = contact.get_search_text()
-        embedding = self.embedding_model.encode(search_text)
-        
-        # Store in Qdrant
-        point = models.PointStruct(
+        memory_item = MemoryItem(
             id=contact_id,
-            vector=embedding.tolist(),
-            payload=contact.to_dict()
+            content=search_text,
+            metadata=contact.to_dict()
         )
         
-        await self.client.upsert(
-            collection_name=self.collection_name,
-            points=[point]
-        )
+        await super().add_item(memory_item)
         
-        print(f"[DEBUG][ADD_CONTACT] Created new contact: {name or email} ({contact_id})")
+        logger.info(f"Created new contact: {email} (ID: {contact_id})")
         return contact_id
     
+    @log_function()
     async def _update_existing_contact(
         self,
         existing: ContactRecord,
@@ -267,415 +463,609 @@ class ContactMemory(BaseMemory):
         source_email_id: Optional[str] = None,
         **kwargs
     ) -> str:
-        """Update an existing contact record."""
+        """
+        Update existing contact with new information and enrichment.
         
+        Performs intelligent merging of contact information with
+        confidence-based field updating and interaction tracking.
+        
+        Args:
+            existing: Existing contact record
+            name: Updated name information
+            phone: Updated phone number
+            organization: Updated organization
+            title: Updated title
+            contact_type: Updated contact type
+            confidence: Information confidence level
+            source_email_id: Source email for this update
+            **kwargs: Additional fields to update
+            
+        Returns:
+            Updated contact ID
+        """
         updated = False
+        changes = []
         
-        # Update fields if new information is provided and better
-        if name and (not existing.name or confidence.value == 'high'):
-            existing.name = name
-            updated = True
+        # Update name if provided and confidence allows
+        if name and (not existing.name or confidence.value >= existing.confidence.value):
+            if existing.name != name:
+                existing.name = name
+                # Update name components
+                name_parts = name.strip().split()
+                if len(name_parts) >= 2:
+                    existing.first_name = name_parts[0]
+                    existing.last_name = " ".join(name_parts[1:])
+                elif len(name_parts) == 1:
+                    existing.first_name = name_parts[0]
+                changes.append(f"name: '{existing.name}' -> '{name}'")
+                updated = True
         
-        if phone and not existing.phone:
-            existing.phone = phone
-            updated = True
+        # Update phone if provided and higher confidence
+        if phone and (not existing.phone or confidence.value >= existing.confidence.value):
+            if existing.phone != phone:
+                changes.append(f"phone: '{existing.phone}' -> '{phone}'")
+                existing.phone = phone
+                updated = True
         
-        if organization and (not existing.organization or confidence.value == 'high'):
-            existing.organization = organization
-            updated = True
+        # Update organization with confidence comparison
+        if organization and (not existing.organization or confidence.value >= existing.confidence.value):
+            if existing.organization != organization:
+                changes.append(f"organization: '{existing.organization}' -> '{organization}'")
+                existing.organization = organization
+                updated = True
         
-        if title and (not existing.title or confidence.value == 'high'):
-            existing.title = title
-            updated = True
+        # Update title with confidence comparison
+        if title and (not existing.title or confidence.value >= existing.confidence.value):
+            if existing.title != title:
+                changes.append(f"title: '{existing.title}' -> '{title}'")
+                existing.title = title
+                updated = True
         
-        # Update contact type if we have higher confidence
-        if (contact_type != ContactType.UNKNOWN and 
-            (existing.contact_type == ContactType.UNKNOWN or 
-             confidence.value == 'high')):
-            existing.contact_type = contact_type
-            updated = True
+        # Update contact type if higher confidence
+        if contact_type != ContactType.UNKNOWN and confidence.value >= existing.confidence.value:
+            if existing.contact_type != contact_type:
+                changes.append(f"contact_type: {existing.contact_type.value} -> {contact_type.value}")
+                existing.contact_type = contact_type
+                updated = True
         
         # Update confidence if higher
-        confidence_order = {'low': 1, 'medium': 2, 'high': 3}
-        if confidence_order.get(confidence.value, 0) > confidence_order.get(existing.confidence.value, 0):
+        if confidence.value > existing.confidence.value:
+            changes.append(f"confidence: {existing.confidence.value} -> {confidence.value}")
             existing.confidence = confidence
             updated = True
         
-        # Add source if new
-        if source_email_id and source_email_id not in existing.sources:
-            existing.sources.append(source_email_id)
-            existing.extraction_history.append({
-                'source_email_id': source_email_id,
-                'extracted_at': datetime.now(UTC).isoformat(),
-                'extracted_name': name,
-                'extracted_phone': phone,
-                'extracted_organization': organization,
-                'extracted_title': title
-            })
+        # Update interaction tracking
+        if source_email_id:
+            if source_email_id not in existing.sources:
+                existing.sources.append(source_email_id)
+                updated = True
+            existing.email_count += 1
+            existing.last_email_interaction = datetime.now(UTC).isoformat()
             updated = True
         
-        # Update additional kwargs
+        # Apply additional kwargs updates
         for key, value in kwargs.items():
-            if hasattr(existing, key) and value is not None:
+            if hasattr(existing, key) and getattr(existing, key) != value:
                 setattr(existing, key, value)
+                changes.append(f"{key}: updated")
                 updated = True
         
         if updated:
             existing.last_updated = datetime.now(UTC).isoformat()
-            existing.email_count += 1
             
-            # Re-generate embedding
+            # Record extraction history
+            extraction_record = {
+                'timestamp': datetime.now(UTC).isoformat(),
+                'source_email_id': source_email_id,
+                'changes': changes,
+                'confidence': confidence.value,
+                'action': 'updated'
+            }
+            existing.extraction_history.append(extraction_record)
+            
+            # Update in database
             search_text = existing.get_search_text()
-            embedding = self.embedding_model.encode(search_text)
-            
-            # Update in Qdrant
-            point = models.PointStruct(
+            memory_item = MemoryItem(
                 id=existing.id,
-                vector=embedding.tolist(),
-                payload=existing.to_dict()
+                content=search_text,
+                metadata=existing.to_dict()
             )
             
-            await self.client.upsert(
-                collection_name=self.collection_name,
-                points=[point]
-            )
+            await super().update_item(existing.id, memory_item)
             
-            print(f"[DEBUG][UPDATE_CONTACT] Updated contact: {existing.name or existing.email} ({existing.id})")
+            logger.info(f"Updated contact {existing.email}: {len(changes)} changes")
+            logger.debug(f"Contact changes: {changes}")
         else:
-            print(f"[DEBUG][UPDATE_CONTACT] No updates needed for: {existing.name or existing.email}")
+            logger.debug(f"No updates needed for contact: {existing.email}")
         
         return existing.id
     
+    @log_function()
     async def find_contact_by_email(self, email: str) -> Optional[ContactRecord]:
-        """Find a contact by email address."""
-        await self._ensure_collection()
+        """
+        Find contact by email address (primary key lookup).
+        
+        Performs exact email address matching for contact retrieval
+        with proper email normalization and case handling.
+        
+        Args:
+            email: Email address to search for
+            
+        Returns:
+            Contact record if found, None otherwise
+            
+        Example:
+            >>> contact = await contact_memory.find_contact_by_email("john@company.com")
+            >>> if contact:
+            ...     print(f"Found: {contact.name} at {contact.organization}")
+        """
+        if not email:
+            return None
+        
+        normalized_email = email.lower().strip()
+        logger.debug(f"Searching for contact by email: {normalized_email}")
         
         try:
-            # Search using filter on email field
-            search_result = await self.client.scroll(
-                collection_name=self.collection_name,
-                scroll_filter=models.Filter(
-                    must=[
-                        models.FieldCondition(
-                            key="email",
-                            match=models.MatchValue(value=email)
-                        )
-                    ]
-                ),
+            # Search using exact email match filter
+            filter_condition = {
+                "key": "metadata.email",
+                "match": {"value": normalized_email}
+            }
+            
+            results = await super().search(
+                query=normalized_email,
                 limit=1,
-                with_payload=True,
-                with_vectors=False
+                filter=filter_condition
             )
             
-            if search_result[0]:  # search_result is a tuple (points, next_page_offset)
-                point = search_result[0][0]
-                return ContactRecord.from_dict(point.payload)
+            if results:
+                contact_data = results[0].metadata
+                contact = ContactRecord.from_dict(contact_data)
+                logger.debug(f"Found contact: {contact.name} ({contact.email})")
+                return contact
             
+            logger.debug(f"No contact found for email: {normalized_email}")
             return None
+            
         except Exception as e:
-            print(f"[DEBUG][FIND_BY_EMAIL][ERROR] {email}: {e}")
+            logger.error(f"Error finding contact by email {normalized_email}: {e}")
             return None
     
+    @log_function()
     async def search_contacts(
         self,
         query: str,
         limit: int = 10,
         contact_type: Optional[ContactType] = None,
-        min_confidence: Optional[ContactConfidence] = None
+        min_confidence: Optional[ContactConfidence] = None,
+        organization: Optional[str] = None
     ) -> List[ContactRecord]:
         """
-        Search contacts using vector similarity.
+        Search contacts with semantic and categorical filtering.
+        
+        Performs comprehensive contact search combining semantic vector
+        search with categorical filters for professional contact discovery.
         
         Args:
-            query: Search query (name, organization, etc.)
-            limit: Maximum results to return
-            contact_type: Filter by contact type
-            min_confidence: Minimum confidence level
+            query: Search query text (names, organizations, titles, etc.)
+            limit: Maximum number of results to return
+            contact_type: Filter by specific contact type
+            min_confidence: Minimum confidence level filter
+            organization: Filter by organization name
             
         Returns:
-            List[ContactRecord]: Matching contacts
-        """
-        await self._ensure_collection()
-        
-        # Build filter
-        filter_conditions = []
-        
-        if contact_type:
-            filter_conditions.append(
-                models.FieldCondition(
-                    key="contact_type",
-                    match=models.MatchValue(value=contact_type.value)
-                )
-            )
-        
-        if min_confidence:
-            # This is tricky with string enums, we might need to filter post-search
-            pass
-        
-        query_filter = None
-        if filter_conditions:
-            query_filter = models.Filter(must=filter_conditions)
-        
-        # Generate query embedding
-        query_embedding = self.embedding_model.encode(query)
-        
-        # Search
-        search_result = await self.client.query_points(
-            collection_name=self.collection_name,
-            query=query_embedding.tolist(),
-            limit=limit,
-            query_filter=query_filter,
-            with_payload=True,
-            with_vectors=False
-        )
-        
-        contacts = []
-        for hit in search_result.points:
-            contact = ContactRecord.from_dict(hit.payload)
+            List of matching contact records ordered by relevance
             
-            # Apply confidence filter if specified
+        Example:
+            >>> # Search for investment professionals
+            >>> contacts = await contact_memory.search_contacts(
+            ...     query="investment managing partner",
+            ...     contact_type=ContactType.PROFESSIONAL,
+            ...     min_confidence=ContactConfidence.MEDIUM
+            ... )
+        """
+        logger.info(f"Searching contacts: query='{query}', limit={limit}")
+        
+        try:
+            # Build filter conditions
+            filter_conditions = {"must": []}
+            
+            # Contact type filter
+            if contact_type:
+                filter_conditions["must"].append({
+                    "key": "metadata.contact_type",
+                    "match": {"value": contact_type.value}
+                })
+            
+            # Minimum confidence filter
             if min_confidence:
-                confidence_order = {'low': 1, 'medium': 2, 'high': 3}
-                if confidence_order.get(contact.confidence.value, 0) < confidence_order.get(min_confidence.value, 0):
+                confidence_values = [conf.value for conf in ContactConfidence]
+                min_index = confidence_values.index(min_confidence.value)
+                allowed_values = confidence_values[min_index:]
+                
+                filter_conditions["must"].append({
+                    "key": "metadata.confidence",
+                    "match": {"any": allowed_values}
+                })
+            
+            # Organization filter
+            if organization:
+                filter_conditions["must"].append({
+                    "key": "metadata.organization",
+                    "match": {"text": organization}
+                })
+            
+            # Remove empty filter if no conditions
+            search_filter = filter_conditions if filter_conditions["must"] else None
+            
+            # Perform semantic search
+            results = await super().search(
+                query=query,
+                limit=limit,
+                filter=search_filter
+            )
+            
+            # Convert to contact records
+            contacts = []
+            for result in results:
+                try:
+                    contact = ContactRecord.from_dict(result.metadata)
+                    contacts.append(contact)
+                except Exception as e:
+                    logger.warning(f"Error converting search result to contact: {e}")
                     continue
             
-            contacts.append(contact)
-        
-        print(f"[DEBUG][SEARCH_CONTACTS] query='{query}' -> {len(contacts)} results")
-        return contacts
+            logger.info(f"Found {len(contacts)} contacts matching search criteria")
+            return contacts
+            
+        except Exception as e:
+            logger.error(f"Error searching contacts: {e}")
+            return []
     
+    @log_function()
     async def get_contact_by_id(self, contact_id: str) -> Optional[ContactRecord]:
-        """Get a contact by ID."""
-        await self._ensure_collection()
+        """
+        Retrieve contact by unique identifier.
+        
+        Args:
+            contact_id: Unique contact identifier
+            
+        Returns:
+            Contact record if found, None otherwise
+        """
+        logger.debug(f"Retrieving contact by ID: {contact_id}")
         
         try:
-            result = await self.client.retrieve(
-                collection_name=self.collection_name,
-                ids=[contact_id],
-                with_payload=True,
-                with_vectors=False
-            )
-            
-            if result:
-                return ContactRecord.from_dict(result[0].payload)
+            memory_item = await super().get_item(contact_id)
+            if memory_item:
+                contact = ContactRecord.from_dict(memory_item.metadata)
+                return contact
             return None
         except Exception as e:
-            print(f"[DEBUG][GET_CONTACT][ERROR] {contact_id}: {e}")
+            logger.error(f"Error retrieving contact {contact_id}: {e}")
             return None
     
-    async def get_all_contacts(self, limit: int = 100) -> List[ContactRecord]:
-        """Get all contacts (paginated)."""
-        await self._ensure_collection()
+    @log_function()
+    async def get_all_contacts(
+        self, 
+        limit: int = 100,
+        contact_type: Optional[ContactType] = None
+    ) -> List[ContactRecord]:
+        """
+        Retrieve all contacts with optional filtering.
+        
+        Args:
+            limit: Maximum number of contacts to return
+            contact_type: Optional contact type filter
+            
+        Returns:
+            List of contact records
+        """
+        logger.info(f"Retrieving all contacts (limit={limit}, type={contact_type})")
         
         try:
-            result = await self.client.scroll(
-                collection_name=self.collection_name,
+            # Build filter if contact type specified
+            search_filter = None
+            if contact_type:
+                search_filter = {
+                    "key": "metadata.contact_type",
+                    "match": {"value": contact_type.value}
+                }
+            
+            # Get all items with optional filter
+            results = await super().search(
+                query="*",  # Match all
                 limit=limit,
-                with_payload=True,
-                with_vectors=False
+                filter=search_filter
             )
             
             contacts = []
-            for point in result[0]:  # result is (points, next_page_offset)
-                contacts.append(ContactRecord.from_dict(point.payload))
+            for result in results:
+                try:
+                    contact = ContactRecord.from_dict(result.metadata)
+                    contacts.append(contact)
+                except Exception as e:
+                    logger.warning(f"Error converting result to contact: {e}")
+                    continue
             
+            logger.info(f"Retrieved {len(contacts)} contacts")
             return contacts
+            
         except Exception as e:
-            print(f"[DEBUG][GET_ALL_CONTACTS][ERROR]: {e}")
+            logger.error(f"Error retrieving all contacts: {e}")
             return []
     
+    @log_function()
     async def delete_contact(self, contact_id: str) -> bool:
-        """Delete a contact."""
-        await self._ensure_collection()
+        """
+        Delete contact by ID.
+        
+        Args:
+            contact_id: Contact identifier to delete
+            
+        Returns:
+            True if deletion successful, False otherwise
+        """
+        logger.info(f"Deleting contact: {contact_id}")
         
         try:
-            await self.client.delete(
-                collection_name=self.collection_name,
-                points_selector=models.PointIdsList(points=[contact_id])
-            )
-            print(f"[DEBUG][DELETE_CONTACT] {contact_id}: DELETED")
-            return True
+            success = await super().delete_item(contact_id)
+            if success:
+                logger.info(f"Successfully deleted contact: {contact_id}")
+            else:
+                logger.warning(f"Contact not found for deletion: {contact_id}")
+            return success
         except Exception as e:
-            print(f"[DEBUG][DELETE_CONTACT][ERROR] {contact_id}: {e}")
+            logger.error(f"Error deleting contact {contact_id}: {e}")
             return False
     
-    async def update_contact_relationship(self, contact_id: str, relationship: str, notes: Optional[str] = None):
-        """Update contact's relationship and notes."""
-        contact = await self.get_contact_by_id(contact_id)
-        if not contact:
-            return False
+    @log_function()
+    async def update_contact_relationship(
+        self, 
+        contact_id: str, 
+        relationship: str, 
+        notes: Optional[str] = None
+    ) -> bool:
+        """
+        Update contact relationship and business context.
         
-        contact.relationship = relationship
-        if notes:
-            contact.notes = notes
-        contact.last_updated = datetime.now(UTC).isoformat()
+        Args:
+            contact_id: Contact identifier
+            relationship: Business relationship description
+            notes: Additional context notes
+            
+        Returns:
+            True if update successful, False otherwise
+        """
+        logger.info(f"Updating relationship for contact: {contact_id}")
         
-        # Re-save
-        search_text = contact.get_search_text()
-        embedding = self.embedding_model.encode(search_text)
-        
-        point = models.PointStruct(
-            id=contact_id,
-            vector=embedding.tolist(),
-            payload=contact.to_dict()
-        )
-        
-        await self.client.upsert(
-            collection_name=self.collection_name,
-            points=[point]
-        )
-        
-        print(f"[DEBUG][UPDATE_RELATIONSHIP] {contact.name or contact.email}: {relationship}")
-        return True
-    
-    async def add_contact_tag(self, contact_id: str, tag: str):
-        """Add a tag to a contact."""
-        contact = await self.get_contact_by_id(contact_id)
-        if not contact:
-            return False
-        
-        if tag not in contact.tags:
-            contact.tags.append(tag)
+        try:
+            contact = await self.get_contact_by_id(contact_id)
+            if not contact:
+                logger.warning(f"Contact not found for relationship update: {contact_id}")
+                return False
+            
+            # Update relationship information
+            contact.relationship = relationship
+            if notes:
+                contact.notes = notes if not contact.notes else f"{contact.notes}\n{notes}"
             contact.last_updated = datetime.now(UTC).isoformat()
             
-            # Re-save
+            # Record in extraction history
+            extraction_record = {
+                'timestamp': datetime.now(UTC).isoformat(),
+                'action': 'relationship_updated',
+                'relationship': relationship,
+                'notes': notes
+            }
+            contact.extraction_history.append(extraction_record)
+            
+            # Update in database
             search_text = contact.get_search_text()
-            embedding = self.embedding_model.encode(search_text)
-            
-            point = models.PointStruct(
-                id=contact_id,
-                vector=embedding.tolist(),
-                payload=contact.to_dict()
+            memory_item = MemoryItem(
+                id=contact.id,
+                content=search_text,
+                metadata=contact.to_dict()
             )
             
-            await self.client.upsert(
-                collection_name=self.collection_name,
-                points=[point]
-            )
+            await super().update_item(contact_id, memory_item)
             
-            print(f"[DEBUG][ADD_TAG] {contact.name or contact.email}: +{tag}")
-        
-        return True
+            logger.info(f"Updated relationship for contact {contact.email}: {relationship}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error updating contact relationship: {e}")
+            return False
     
-    async def record_email_interaction(self, email: str, email_id: str):
-        """Record that we had an email interaction with this contact."""
-        contact = await self.find_contact_by_email(email)
-        if contact:
-            contact.last_email_interaction = datetime.now(UTC).isoformat()
-            contact.email_count += 1
+    @log_function()
+    async def add_contact_tag(self, contact_id: str, tag: str) -> bool:
+        """
+        Add categorization tag to contact.
+        
+        Args:
+            contact_id: Contact identifier
+            tag: Tag to add for categorization
             
+        Returns:
+            True if tag added successfully, False otherwise
+        """
+        logger.debug(f"Adding tag '{tag}' to contact: {contact_id}")
+        
+        try:
+            contact = await self.get_contact_by_id(contact_id)
+            if not contact:
+                logger.warning(f"Contact not found for tag addition: {contact_id}")
+                return False
+            
+            # Add tag if not already present
+            if tag not in contact.tags:
+                contact.tags.append(tag)
+                contact.last_updated = datetime.now(UTC).isoformat()
+                
+                # Update in database
+                search_text = contact.get_search_text()
+                memory_item = MemoryItem(
+                    id=contact.id,
+                    content=search_text,
+                    metadata=contact.to_dict()
+                )
+                
+                await super().update_item(contact_id, memory_item)
+                
+                logger.info(f"Added tag '{tag}' to contact {contact.email}")
+                return True
+            else:
+                logger.debug(f"Tag '{tag}' already exists for contact {contact.email}")
+                return True
+                
+        except Exception as e:
+            logger.error(f"Error adding tag to contact: {e}")
+            return False
+    
+    @log_function()
+    async def record_email_interaction(self, email: str, email_id: str) -> bool:
+        """
+        Record email interaction for contact tracking.
+        
+        Updates interaction frequency and recency tracking for
+        business intelligence and relationship management.
+        
+        Args:
+            email: Contact email address
+            email_id: Email message identifier
+            
+        Returns:
+            True if interaction recorded successfully, False otherwise
+        """
+        logger.debug(f"Recording email interaction: {email} <- {email_id}")
+        
+        try:
+            contact = await self.find_contact_by_email(email)
+            if not contact:
+                logger.debug(f"No existing contact found for interaction: {email}")
+                return False
+            
+            # Update interaction tracking
             if email_id not in contact.sources:
                 contact.sources.append(email_id)
+            contact.email_count += 1
+            contact.last_email_interaction = datetime.now(UTC).isoformat()
+            contact.last_updated = datetime.now(UTC).isoformat()
             
-            # Re-save
+            # Update in database
             search_text = contact.get_search_text()
-            embedding = self.embedding_model.encode(search_text)
-            
-            point = models.PointStruct(
+            memory_item = MemoryItem(
                 id=contact.id,
-                vector=embedding.tolist(),
-                payload=contact.to_dict()
+                content=search_text,
+                metadata=contact.to_dict()
             )
             
-            await self.client.upsert(
-                collection_name=self.collection_name,
-                points=[point]
-            )
+            await super().update_item(contact.id, memory_item)
             
-            print(f"[DEBUG][EMAIL_INTERACTION] {contact.name or contact.email}: email_count={contact.email_count}")
+            logger.debug(f"Recorded interaction for {email} (total: {contact.email_count})")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error recording email interaction: {e}")
+            return False
 
-
-async def demo_contact_memory():
-    """Demo the contact memory system."""
-    print("📇 CONTACT MEMORY DEMO")
-    print("=" * 40)
+# Demonstration and testing functions
+@log_function()
+async def demo_contact_memory() -> None:
+    """
+    Demonstration of contact memory system capabilities.
+    
+    Showcases the professional contact management features including
+    contact creation, deduplication, search, and relationship tracking
+    for asset management environments.
+    """
+    logger.info("Starting ContactMemory demonstration")
     
     contact_memory = ContactMemory()
     
-    # Add some contacts
-    print("\n➕ Adding contacts...")
-    
-    # First contact
-    contact1_id = await contact_memory.add_contact(
-        email="john.smith@acmecorp.com",
-        name="John Smith",
-        phone="(555) 123-4567",
-        organization="Acme Corporation",
-        title="Senior Project Manager",
-        contact_type=ContactType.PROFESSIONAL,
-        confidence=ContactConfidence.HIGH,
-        source_email_id="email_001"
-    )
-    
-    # Same person from another email (should update, not duplicate)
-    contact1_id_again = await contact_memory.add_contact(
-        email="john.smith@acmecorp.com",
-        name="John Smith",  # Same name
-        title="Project Manager",  # Different title, but lower confidence
-        contact_type=ContactType.PROFESSIONAL,
-        confidence=ContactConfidence.MEDIUM,
-        source_email_id="email_002"
-    )
-    
-    print(f"Contact 1 first add: {contact1_id}")
-    print(f"Contact 1 second add: {contact1_id_again}")
-    print(f"Same ID? {contact1_id == contact1_id_again}")
-    
-    # Different person
-    contact2_id = await contact_memory.add_contact(
-        email="sarah.davis@gmail.com",
-        name="Sarah Davis",
-        contact_type=ContactType.PERSONAL,
-        confidence=ContactConfidence.MEDIUM,
-        source_email_id="email_003"
-    )
-    
-    # Add relationship info
-    await contact_memory.update_contact_relationship(
-        contact1_id, 
-        "colleague", 
-        "Works on Q4 project with us"
-    )
-    
-    await contact_memory.add_contact_tag(contact1_id, "important")
-    await contact_memory.add_contact_tag(contact2_id, "friend")
-    
-    print(f"\n📋 Total contacts added: 2 unique contacts")
-    
-    # Search contacts
-    print(f"\n🔍 Searching contacts...")
-    
-    results = await contact_memory.search_contacts("John")
-    print(f"Search 'John': {len(results)} results")
-    for contact in results:
-        print(f"  • {contact.name} ({contact.email}) - {contact.organization}")
-    
-    results = await contact_memory.search_contacts("Acme")
-    print(f"Search 'Acme': {len(results)} results")
-    
-    results = await contact_memory.search_contacts("personal", contact_type=ContactType.PERSONAL)
-    print(f"Search personal contacts: {len(results)} results")
-    
-    # Show all contacts
-    print(f"\n📇 All contacts:")
-    all_contacts = await contact_memory.get_all_contacts()
-    for contact in all_contacts:
-        print(f"• {contact.name or contact.email}")
-        print(f"  Email: {contact.email}")
-        if contact.phone:
-            print(f"  Phone: {contact.phone}")
-        if contact.organization:
-            print(f"  Organization: {contact.organization}")
-        print(f"  Type: {contact.contact_type.value}")
-        print(f"  Confidence: {contact.confidence.value}")
-        if contact.relationship:
-            print(f"  Relationship: {contact.relationship}")
-        if contact.tags:
-            print(f"  Tags: {', '.join(contact.tags)}")
-        print(f"  Email count: {contact.email_count}")
-        print(f"  Sources: {len(contact.sources)} emails")
-        print()
-
+    try:
+        # Add sample contacts
+        logger.info("Adding sample professional contacts...")
+        
+        # Investment professional
+        contact1_id = await contact_memory.add_contact(
+            email="john.smith@blackstone.com",
+            name="John Smith",
+            organization="Blackstone Group",
+            title="Managing Director",
+            contact_type=ContactType.PROFESSIONAL,
+            confidence=ContactConfidence.HIGH,
+            relationship="counterparty"
+        )
+        
+        # Investor contact
+        contact2_id = await contact_memory.add_contact(
+            email="sarah.jones@pension.gov",
+            name="Sarah Jones",
+            organization="State Pension Fund",
+            title="Investment Director",
+            contact_type=ContactType.PROFESSIONAL,
+            confidence=ContactConfidence.HIGH,
+            relationship="investor"
+        )
+        
+        # Test deduplication with update
+        logger.info("Testing contact deduplication...")
+        duplicate_id = await contact_memory.add_contact(
+            email="john.smith@blackstone.com",  # Same email
+            name="John Smith",
+            phone="+1 212-555-0123",  # New information
+            confidence=ContactConfidence.HIGH
+        )
+        
+        assert contact1_id == duplicate_id, "Deduplication failed"
+        logger.info("✓ Contact deduplication working correctly")
+        
+        # Test search functionality
+        logger.info("Testing contact search...")
+        
+        search_results = await contact_memory.search_contacts(
+            query="investment director",
+            contact_type=ContactType.PROFESSIONAL
+        )
+        
+        logger.info(f"Found {len(search_results)} contacts for 'investment director'")
+        for contact in search_results:
+            logger.info(f"  - {contact.name} at {contact.organization} ({contact.title})")
+        
+        # Test relationship tracking
+        logger.info("Testing relationship management...")
+        
+        await contact_memory.update_contact_relationship(
+            contact1_id,
+            "strategic_partner",
+            "Key relationship for infrastructure deals"
+        )
+        
+        await contact_memory.add_contact_tag(contact1_id, "infrastructure")
+        await contact_memory.add_contact_tag(contact1_id, "high_priority")
+        
+        # Retrieve updated contact
+        updated_contact = await contact_memory.get_contact_by_id(contact1_id)
+        logger.info(f"Updated contact relationship: {updated_contact.relationship}")
+        logger.info(f"Contact tags: {updated_contact.tags}")
+        
+        # Test interaction tracking
+        logger.info("Testing interaction tracking...")
+        
+        await contact_memory.record_email_interaction(
+            "john.smith@blackstone.com",
+            "email_12345"
+        )
+        
+        interaction_contact = await contact_memory.find_contact_by_email("john.smith@blackstone.com")
+        logger.info(f"Email interactions: {interaction_contact.email_count}")
+        
+        logger.info("ContactMemory demonstration completed successfully")
+        
+    except Exception as e:
+        logger.error(f"ContactMemory demonstration failed: {e}")
+        raise
 
 if __name__ == "__main__":
     import asyncio
