@@ -1,17 +1,17 @@
 # Microsoft Graph Spam Management System
 
-This directory contains a comprehensive spam detection and management system for Microsoft 365/Outlook accounts using Microsoft Graph API.
+This directory contains a complete spam detection and management system for Microsoft 365/Outlook accounts using Microsoft Graph API.
 
 ## 🎯 Features
 
 ### **Spam Detection**
-- **SpamAssassin Integration**: Advanced spam analysis with customizable rules
+- **SpamAssassin Integration**: spam analysis with customizable rules
 - **Multi-level Whitelisting**: Automatic protection for trusted sources
 - **Contact Integration**: Automatic protection for Microsoft Graph contacts
-- **False Positive Prevention**: Comprehensive safeguards against legitimate email removal
+- **False Positive Prevention**: Complete safeguards against legitimate email removal
 
 ### **Automated Actions**
-- **Smart Unsubscribe**: Safely attempts to unsubscribe from legitimate mailing lists
+- **Unsubscribe**: Safely attempts to unsubscribe from legitimate mailing lists
 - **Folder Management**: Moves spam to Junk Email folder or creates custom Spam folder
 - **Batch Processing**: Efficient handling of large email volumes
 - **Rate Limiting**: Respects Microsoft Graph API limits
@@ -151,7 +151,7 @@ Found 500 emails to analyze
    📁 Emails moved to junk: 23
 ```
 
-## 🔧 Advanced Configuration
+## 🔧 Configuration
 
 ### **Custom Whitelist Domains**
 Add domains to protection lists in `SimpleSpamDetector.__init__()`:
@@ -238,10 +238,10 @@ Potential improvements for the Microsoft Graph implementation:
 - Machine learning spam classification
 - Integration with Microsoft Defender
 - Automatic rule learning from user actions
-- Advanced phishing detection
+- phishing detection
 - Integration with Microsoft Purview
 - Shared mailbox support
-- Exchange Online advanced features
+- Exchange Online features
 
 ---
 

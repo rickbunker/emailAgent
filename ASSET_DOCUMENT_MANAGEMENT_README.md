@@ -1,6 +1,6 @@
 # Asset Document E-Mail Ingestion Agent
 
-An intelligent email-driven document processing and filing agent for private market assets.
+An email-driven document processing and filing agent for private market assets.
 
 ## Overview
 
@@ -80,6 +80,6 @@ This agent automatically processes email attachments and organizes them by asset
 
 ## Agent Architecture
 
-The agent integrates with existing email and memory systems to provide intelligent document management with minimal human intervention.
+The agent integrates with existing email and memory systems to provide document management with minimal human intervention.
 
 Ready for Phase 1 implementation. 

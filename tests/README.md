@@ -15,7 +15,7 @@ This directory contains all test files for the Email Agent system.
 
 ### Feature Tests
 - `simple_phase3_test.py` - Basic Phase 3 document classification test
-- `test_phase3_classification.py` - Comprehensive Phase 3 classification and intelligence tests
+- `test_phase3_classification.py` - Complete Phase 3 classification and intelligence tests
 
 ## Running Tests
 

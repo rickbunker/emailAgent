@@ -50,7 +50,7 @@ junk_folder = {'id': 'folder_id', 'name': 'Junk Email', 'type': 'system_junk'}
 ### **Microsoft Graph Advantages**
 - **Enterprise Integration**: Native Office 365/Exchange integration
 - **Rich Metadata**: More detailed email properties and folder info
-- **Advanced Permissions**: Granular access control via Azure AD
+- **Permissions**: Granular access control via Azure AD
 - **Folder Structure**: Familiar folder-based organization
 - **Business Features**: Integration with Outlook rules and policies
 
@@ -119,7 +119,7 @@ credentials = {
 
 ### **Common Features**
 Both implementations share:
-- SpamAssassin integration for advanced detection
+- SpamAssassin integration for detection
 - Multi-level whitelist protection (government, financial, news, contacts)
 - Automated unsubscribe attempts with safety filters
 - Detailed CSV logging and JSON summaries
@@ -130,7 +130,7 @@ Both implementations share:
 - **Label Management**: Can create and manage custom labels
 - **Thread Handling**: Native Gmail conversation threading
 - **Import/Export**: Easy backup and migration options
-- **Advanced Search**: Google's powerful search syntax
+- **Search**: Google's search syntax
 
 ### **Microsoft Graph-Specific Features**
 - **Folder Hierarchy**: Rich folder structure with subfolders
@@ -179,14 +179,14 @@ python msgraph_spam_test.py
 
 ### **Choose Microsoft Graph If:**
 - ✅ You use Office 365 or Exchange Online
-- ✅ You need enterprise-grade security features
+- ✅ You need security features
 - ✅ You want native Outlook integration
 - ✅ You prefer folder-based email organization
-- ✅ You need advanced compliance features
+- ✅ You need compliance features
 
 ### **Use Both If:**
 - 🎯 You manage multiple email systems
-- 🎯 You want comprehensive email security
+- 🎯 You want complete email security
 - 🎯 You serve clients with different email providers
 - 🎯 You need maximum flexibility and coverage
 
@@ -208,7 +208,7 @@ python msgraph_spam_test.py
 
 ### **Planned Enhancements (Both Systems)**
 - [ ] Machine learning spam classification
-- [ ] Advanced phishing detection
+- [ ] phishing detection
 - [ ] Automated rule learning
 - [ ] Integration with external threat feeds
 - [ ] Mobile app support
@@ -217,7 +217,7 @@ python msgraph_spam_test.py
 ### **Gmail-Specific Roadmap**
 - [ ] Google Workspace admin features
 - [ ] Integration with Google Cloud Security
-- [ ] Advanced Gmail filters management
+- [ ] Gmail filters management
 - [ ] Google Chat integration
 
 ### **Microsoft Graph-Specific Roadmap**
@@ -244,7 +244,7 @@ python msgraph_spam_test.py
 
 ## 🎉 Conclusion
 
-Both implementations provide robust spam management capabilities. Choose based on your email platform, security requirements, and technical preferences. The unified interface design allows easy switching between systems or running both simultaneously for comprehensive coverage.
+Both implementations provide spam management capabilities. Choose based on your email platform, security requirements, and technical preferences. The unified interface design allows easy switching between systems or running both simultaneously for complete coverage.
 
 For detailed setup instructions:
 - Gmail: See `GMAIL_SETUP.md`

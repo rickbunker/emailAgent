@@ -36,7 +36,7 @@ Business Context:
     false positives while maintaining strong protection against threats.
 
 Version: 1.0.0
-Author: Rick Bunker, rbunker@inveniam.io  
+Author: Rick Bunker, rbunker@inveniam.io
 License: Private - Inveniam Capital Partners, LLC use only
 Copyright: 2025 Inveniam Capital Partners, LLC and Rick Bunker
 """

@@ -55,7 +55,7 @@ This guide will help you set up Microsoft Graph API access for the email agent t
    - Go to "Authentication" in the left sidebar
    - Under "Platform configurations", ensure you have:
      - **Public client/native (mobile & desktop)** with redirect URI: `http://localhost:8080`
-   - Under "Advanced settings":
+   - Under "settings":
      - Enable "Allow public client flows": **Yes**
 
 ## Step 4: Update Email Agent Configuration

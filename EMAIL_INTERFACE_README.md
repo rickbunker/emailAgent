@@ -1,6 +1,6 @@
 # Email Interface Layer
 
-A powerful, unified interface for connecting to multiple email systems in the Email Agent project.
+A unified interface for connecting to multiple email systems in the Email Agent project.
 
 ## 🎯 **Overview**
 
@@ -132,7 +132,7 @@ criteria = EmailSearchCriteria(
     has_attachments=False
 )
 
-# Advanced search
+# search
 criteria = EmailSearchCriteria(
     query="important meeting",
     sender="boss@company.com",
@@ -198,7 +198,7 @@ await interface.remove_label('email-id', 'Spam')
 
 ## 🔍 **Search Capabilities**
 
-The `EmailSearchCriteria` class provides powerful filtering:
+The `EmailSearchCriteria` class provides filtering:
 
 ```python
 criteria = EmailSearchCriteria(
@@ -350,7 +350,7 @@ python examples/email_demo.py --system microsoft_graph
 
 - **IMAP/POP3 Support** - Generic email server support
 - **Exchange Server** - On-premises Exchange integration  
-- **Email Threading** - Advanced conversation management
+- **Email Threading** - conversation management
 - **Bulk Operations** - Batch email processing
 - **Real-time Updates** - Webhook/push notifications
 - **Caching Layer** - Performance optimization

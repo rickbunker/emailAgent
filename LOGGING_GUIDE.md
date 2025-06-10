@@ -1,6 +1,6 @@
 # Email Agent Logging System Guide
 
-A comprehensive, decorator-based logging system designed to provide detailed insights into the email agent's operations.
+A complete, decorator-based logging system designed to provide detailed insights into the email agent's operations.
 
 ## Features
 
@@ -264,7 +264,7 @@ config = LogConfig(
 )
 ```
 
-## Advanced Usage
+## Usage
 
 ### Manual Logging
 
@@ -312,7 +312,7 @@ def slow_operation():
 
 ## Testing
 
-Run the comprehensive logging tests:
+Run the complete logging tests:
 
 ```bash
 # Test basic logging functionality
@@ -350,4 +350,4 @@ Log files are automatically rotated when they reach the configured size:
 
 ---
 
-The logging system is now ready to provide comprehensive insights into your email agent's operations! 
+The logging system is now ready to provide complete insights into your email agent's operations! 
