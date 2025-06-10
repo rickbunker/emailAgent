@@ -91,4 +91,12 @@ test-virus.txt
 .coverage
 
 # Documentation builds
-docs/_build/ 
+docs/_build/
+
+# Data Directory (temporary/generated files)
+data/*
+!data/.gitkeep
+
+# Script outputs
+scripts/*.log
+scripts/output/ 

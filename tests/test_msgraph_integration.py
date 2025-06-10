@@ -52,10 +52,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 # Core imports
 from email_interface.msgraph import MicrosoftGraphInterface
-from email_interface.base import EmailSearchCriteria, EmailMessage
+from email_interface.base import EmailSearchCriteria, Email
 from utils.logging_system import (
     LogConfig, configure_logging, get_logger, log_function, 
-    log_debug, log_info, log_error
+    log_debug, log_info
 )
 
 # Initialize logger for this test module

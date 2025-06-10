@@ -532,14 +532,20 @@ class AssetDocumentAgent:
             temp_path = temp_file.name
         
         try:
-            # Run clamscan on the file
-            process = subprocess.Popen(
-                [self.clamscan_path, '--stdout', '--no-summary', temp_path],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True
+            # Run clamscan asynchronously on the file
+            process = await asyncio.create_subprocess_exec(
+                self.clamscan_path, '--stdout', '--no-summary', temp_path,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
             )
-            stdout, stderr = process.communicate(timeout=30)  # 30 second timeout
+            
+            stdout, stderr = await asyncio.wait_for(
+                process.communicate(), timeout=30  # 30 second timeout
+            )
+            
+            # Decode bytes to string
+            stdout = stdout.decode('utf-8') if stdout else ""
+            stderr = stderr.decode('utf-8') if stderr else ""
             
             # Check if virus was found
             if 'Infected files: 1' in stdout or process.returncode == 1:
@@ -564,7 +570,7 @@ class AssetDocumentAgent:
                 print(f"⚠️ ClamAV scan error for {filename}: {stderr.strip()}")
                 return False, f"Scan error: {stderr.strip()}"
                 
-        except subprocess.TimeoutExpired:
+        except asyncio.TimeoutError:
             print(f"⚠️ ClamAV scan timeout for {filename}")
             return False, "Scan timeout"
         except Exception as e:
@@ -1473,6 +1479,266 @@ class AssetDocumentAgent:
         }
         
         return result
+
+    async def save_attachment_to_asset_folder(self, 
+                                           attachment_content: bytes,
+                                           filename: str,
+                                           processing_result: ProcessingResult,
+                                           asset_id: Optional[str] = None) -> Optional[Path]:
+        """
+        Save processed attachment to the appropriate asset folder.
+        
+        Args:
+            attachment_content: Binary content of the attachment
+            filename: Original filename of the attachment
+            processing_result: Result of processing including classification
+            asset_id: Asset ID to save to (if known)
+            
+        Returns:
+            Path where file was saved, or None if saving failed
+        """
+        try:
+            # Determine target folder based on confidence level and asset match
+            if asset_id and processing_result.confidence_level in [ConfidenceLevel.HIGH, ConfidenceLevel.MEDIUM]:
+                # Save to specific asset folder
+                asset = await self.get_asset(asset_id)
+                if asset:
+                    base_folder = Path(asset.folder_path)
+                    
+                    # Create document category subfolder
+                    if processing_result.document_category and processing_result.document_category != DocumentCategory.UNKNOWN:
+                        category_folder = base_folder / processing_result.document_category.value
+                    else:
+                        category_folder = base_folder / "to_be_categorized"
+                else:
+                    # Asset not found, use uncategorized
+                    base_folder = self.base_assets_path / "uncategorized"
+                    category_folder = base_folder / "unknown_asset"
+            else:
+                # Low confidence or no asset match - save to review folder
+                base_folder = self.base_assets_path / "to_be_reviewed"
+                
+                if processing_result.confidence_level == ConfidenceLevel.LOW:
+                    category_folder = base_folder / "low_confidence"
+                else:
+                    category_folder = base_folder / "very_low_confidence"
+            
+            # Create folder structure
+            category_folder.mkdir(parents=True, exist_ok=True)
+            
+            # Generate unique filename to avoid conflicts
+            file_path = category_folder / filename
+            counter = 1
+            while file_path.exists():
+                # Add counter to filename if it already exists
+                stem = Path(filename).stem
+                suffix = Path(filename).suffix
+                new_filename = f"{stem}_{counter:03d}{suffix}"
+                file_path = category_folder / new_filename
+                counter += 1
+            
+            # Save the file
+            with open(file_path, 'wb') as f:
+                f.write(attachment_content)
+            
+            self.logger.info(f"File saved to: {file_path}")
+            
+            # Update processing result with file path
+            processing_result.file_path = file_path
+            
+            return file_path
+            
+        except Exception as e:
+            self.logger.error(f"Failed to save attachment {filename}: {e}")
+            return None
+
+    async def process_and_save_attachment(self, 
+                                        attachment_data: Dict[str, Any], 
+                                        email_data: Dict[str, Any],
+                                        save_to_disk: bool = True) -> ProcessingResult:
+        """
+        Complete attachment processing pipeline including file saving.
+        
+        This is the main entry point for processing email attachments with
+        full validation, classification, asset matching, and file saving.
+        
+        Args:
+            attachment_data: Dict with 'filename' and 'content' keys
+            email_data: Dict with email metadata
+            save_to_disk: Whether to save processed files to disk
+            
+        Returns:
+            ProcessingResult with complete processing information
+        """
+        # Step 1: Enhanced processing (validation + classification)
+        result = await self.enhanced_process_attachment(attachment_data, email_data)
+        
+        # Step 2: Save to disk if successful and requested
+        if save_to_disk and result.status == ProcessingStatus.SUCCESS:
+            content = attachment_data.get('content', b'')
+            filename = attachment_data.get('filename', 'unknown_attachment')
+            
+            if content:
+                file_path = await self.save_attachment_to_asset_folder(
+                    content, filename, result, result.matched_asset_id
+                )
+                
+                if file_path:
+                    print(f"    💾 Saved to: {file_path}")
+                    
+                    # Store document metadata in Qdrant
+                    if self.qdrant and result.file_hash:
+                        document_id = await self.store_processed_document(
+                            result.file_hash, result, result.matched_asset_id
+                        )
+                        print(f"    📊 Document metadata stored: {document_id[:8]}...")
+                else:
+                    print(f"    ❌ Failed to save file to disk")
+        
+        return result
+
+    async def process_attachments_parallel(self, email_attachments: List[Dict[str, Any]], email_data: Dict[str, Any]) -> List[ProcessingResult]:
+        """
+        Process multiple email attachments in parallel for maximum performance.
+        
+        This method provides significant performance improvements by:
+        1. Running virus scans concurrently instead of sequentially
+        2. Processing multiple attachments simultaneously
+        3. Using asyncio task groups for optimal resource utilization
+        
+        Args:
+            email_attachments: List of attachment dictionaries with 'filename' and 'content' keys
+            email_data: Email metadata dictionary
+            
+        Returns:
+            List of ProcessingResult objects in the same order as input attachments
+        """
+        if not email_attachments:
+            return []
+        
+        start_time = asyncio.get_event_loop().time()
+        self.logger.info(f"🔄 Starting parallel processing of {len(email_attachments)} attachments")
+        
+        # Create tasks for parallel processing
+        tasks = []
+        for i, attachment_data in enumerate(email_attachments):
+            filename = attachment_data.get('filename', f'attachment_{i}')
+            self.logger.debug(f"Creating task for {filename}")
+            
+            # Create coroutine for processing this attachment
+            task = self.process_and_save_attachment(
+                attachment_data=attachment_data,
+                email_data=email_data,
+                save_to_disk=True
+            )
+            tasks.append(task)
+        
+        try:
+            # Execute all tasks concurrently with proper error handling
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            # Convert exceptions to error ProcessingResults
+            final_results = []
+            for i, result in enumerate(results):
+                if isinstance(result, Exception):
+                    filename = email_attachments[i].get('filename', f'attachment_{i}')
+                    self.logger.error(f"Error processing {filename}: {result}")
+                    
+                    error_result = ProcessingResult(
+                        status=ProcessingStatus.ERROR,
+                        error_message=str(result)
+                    )
+                    final_results.append(error_result)
+                else:
+                    final_results.append(result)
+            
+            end_time = asyncio.get_event_loop().time()
+            total_time = end_time - start_time
+            
+            # Log performance improvement
+            sequential_estimate = len(email_attachments) * 10  # Assume 10s per attachment sequentially
+            improvement = ((sequential_estimate - total_time) / sequential_estimate) * 100
+            
+            self.logger.info(f"✅ Parallel processing completed in {total_time:.1f}s")
+            self.logger.info(f"🚀 Estimated performance improvement: {improvement:.1f}% faster than sequential")
+            self.logger.info(f"   Sequential estimate: {sequential_estimate:.1f}s vs Parallel actual: {total_time:.1f}s")
+            
+            # Update statistics
+            self.processing_times.append(total_time)
+            
+            return final_results
+            
+        except Exception as e:
+            self.logger.error(f"Critical error in parallel processing: {e}")
+            
+            # Fallback: return error results for all attachments
+            return [
+                ProcessingResult(
+                    status=ProcessingStatus.ERROR,
+                    error_message=f"Parallel processing failed: {str(e)}"
+                )
+                for _ in email_attachments
+            ]
+
+    async def scan_files_antivirus_parallel(self, file_data_list: List[Tuple[bytes, str]]) -> List[Tuple[bool, Optional[str]]]:
+        """
+        Scan multiple files with ClamAV in parallel for maximum performance.
+        
+        This method dramatically improves virus scanning performance by running
+        multiple ClamAV processes concurrently instead of sequentially.
+        
+        Args:
+            file_data_list: List of (file_content, filename) tuples
+            
+        Returns:
+            List of (is_clean, threat_name) tuples in the same order as input
+        """
+        if not file_data_list:
+            return []
+        
+        start_time = asyncio.get_event_loop().time()
+        self.logger.info(f"🦠 Starting parallel virus scanning of {len(file_data_list)} files")
+        
+        # Create tasks for parallel scanning
+        tasks = []
+        for file_content, filename in file_data_list:
+            task = self.scan_file_antivirus(file_content, filename)
+            tasks.append(task)
+        
+        try:
+            # Execute all scans concurrently
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            # Convert exceptions to failed scan results
+            final_results = []
+            for i, result in enumerate(results):
+                if isinstance(result, Exception):
+                    filename = file_data_list[i][1]
+                    self.logger.error(f"Virus scan error for {filename}: {result}")
+                    final_results.append((False, f"Scan error: {str(result)}"))
+                else:
+                    final_results.append(result)
+            
+            end_time = asyncio.get_event_loop().time()
+            total_time = end_time - start_time
+            
+            # Log performance improvement
+            sequential_estimate = len(file_data_list) * 10  # Assume 10s per scan sequentially
+            improvement = ((sequential_estimate - total_time) / sequential_estimate) * 100
+            
+            self.logger.info(f"✅ Parallel virus scanning completed in {total_time:.1f}s")
+            self.logger.info(f"🚀 Estimated performance improvement: {improvement:.1f}% faster than sequential")
+            
+            return final_results
+            
+        except Exception as e:
+            self.logger.error(f"Critical error in parallel virus scanning: {e}")
+            
+            # Fallback: return scan error for all files
+            return [
+                (False, f"Parallel scan failed: {str(e)}")
+                for _ in file_data_list
+            ]
 
 # Example usage and testing
 async def test_asset_document_agent() -> None:

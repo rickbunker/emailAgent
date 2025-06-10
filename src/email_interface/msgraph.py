@@ -542,10 +542,14 @@ class MicrosoftGraphInterface(BaseEmailInterface):
             if not server.auth_code:
                 raise AuthenticationError(f"Authentication timeout after {timeout_seconds} seconds")
             
-            # Complete the flow with authorization code
+            # Complete the flow with authorization code and state
+            auth_response = {'code': server.auth_code}
+            if server.state:
+                auth_response['state'] = server.state
+            
             token_result = self.app.acquire_token_by_auth_code_flow(
                 auth_code_flow=flow,
-                auth_response={'code': server.auth_code}
+                auth_response=auth_response
             )
             
             self.logger.info("Interactive authentication completed successfully")
@@ -687,10 +691,20 @@ class MicrosoftGraphInterface(BaseEmailInterface):
             if criteria.is_flagged:
                 filters.append("flag/flagStatus eq 'flagged'")
             if criteria.date_after:
-                iso_date = criteria.date_after.strftime('%Y-%m-%dT%H:%M:%SZ')
+                # Use proper ISO format for Microsoft Graph compatibility
+                if criteria.date_after.tzinfo is None:
+                    # Add UTC timezone if naive datetime
+                    from datetime import timezone
+                    criteria.date_after = criteria.date_after.replace(tzinfo=timezone.utc)
+                iso_date = criteria.date_after.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
                 filters.append(f"receivedDateTime ge {iso_date}")
             if criteria.date_before:
-                iso_date = criteria.date_before.strftime('%Y-%m-%dT%H:%M:%SZ')
+                # Use proper ISO format for Microsoft Graph compatibility
+                if criteria.date_before.tzinfo is None:
+                    # Add UTC timezone if naive datetime
+                    from datetime import timezone
+                    criteria.date_before = criteria.date_before.replace(tzinfo=timezone.utc)
+                iso_date = criteria.date_before.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
                 filters.append(f"receivedDateTime le {iso_date}")
             
             # Build URL
@@ -701,7 +715,22 @@ class MicrosoftGraphInterface(BaseEmailInterface):
             }
             
             if filters:
-                params['$filter'] = ' and '.join(filters)
+                # Microsoft Graph requires: properties in $orderby must also appear in $filter
+                # AND properties in $orderby must appear FIRST in $filter
+                
+                # Check if we already have receivedDateTime filters from date criteria
+                has_date_filter = any('receivedDateTime' in f for f in filters)
+                if not has_date_filter:
+                    # Add minimal date filter only if no date criteria specified
+                    date_filter = "receivedDateTime ge 1900-01-01T00:00:00Z"
+                    all_filters = [date_filter] + filters
+                else:
+                    # Move existing receivedDateTime filters to the front
+                    date_filters = [f for f in filters if 'receivedDateTime' in f]
+                    other_filters = [f for f in filters if 'receivedDateTime' not in f]
+                    all_filters = date_filters + other_filters
+                
+                params['$filter'] = ' and '.join(all_filters)
             
             if criteria.query:
                 params['$search'] = f'"{criteria.query}"'

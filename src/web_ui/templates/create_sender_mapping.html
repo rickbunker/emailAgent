@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+
+{% block title %}Create Sender Mapping - Email Agent Asset Management{% endblock %}
+
+{% block page_title %}Create Sender Mapping{% endblock %}
+
+{% block page_actions %}
+<a href="{{ url_for('list_senders') }}" class="btn btn-outline-secondary">
+    <i class="bi bi-arrow-left"></i>
+    Back to Senders
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card shadow">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="bi bi-person-plus"></i>
+                    Sender-Asset Mapping
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <h6><i class="bi bi-info-circle"></i> About Sender Mappings</h6>
+                    <p class="mb-0">
+                        Sender mappings help the system automatically route email attachments to the correct asset folder. 
+                        When the system receives an email from a mapped sender, it will automatically classify and save 
+                        attachments to the associated asset's folder structure.
+                    </p>
+                </div>
+
+                <form method="POST">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="asset_id" class="form-label">
+                                    <strong>Asset</strong> <span class="text-danger">*</span>
+                                </label>
+                                <select class="form-select" id="asset_id" name="asset_id" required>
+                                    <option value="">Select an asset...</option>
+                                    {% for asset in assets %}
+                                    <option value="{{ asset.deal_id }}" 
+                                            data-type="{{ asset.asset_type.value }}"
+                                            {% if request.args.get('asset_id') == asset.deal_id %}selected{% endif %}>
+                                        {{ asset.deal_name }} - {{ asset.asset_name }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                <small class="form-text text-muted">
+                                    The asset that will receive documents from this sender
+                                </small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="sender_email" class="form-label">
+                                    <strong>Sender Email</strong> <span class="text-danger">*</span>
+                                </label>
+                                <input type="email" 
+                                       class="form-control" 
+                                       id="sender_email" 
+                                       name="sender_email" 
+                                       placeholder="e.g., john@property-management.com"
+                                       required>
+                                <small class="form-text text-muted">
+                                    The email address that will send documents for this asset
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="confidence" class="form-label">
+                                    <strong>Confidence Level</strong>
+                                </label>
+                                <select class="form-select" id="confidence" name="confidence">
+                                    <option value="0.9">High (90%) - Auto-process all documents</option>
+                                    <option value="0.8" selected>High (80%) - Auto-process most documents</option>
+                                    <option value="0.7">Medium (70%) - Review some documents</option>
+                                    <option value="0.6">Medium (60%) - Review many documents</option>
+                                    <option value="0.5">Low (50%) - Review most documents</option>
+                                </select>
+                                <small class="form-text text-muted">
+                                    Higher confidence means more automatic processing
+                                </small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="document_types" class="form-label">
+                                    <strong>Expected Document Types</strong>
+                                </label>
+                                <input type="text" 
+                                       class="form-control" 
+                                       id="document_types" 
+                                       name="document_types" 
+                                       placeholder="e.g., rent_roll, financial_statements, lease_documents">
+                                <small class="form-text text-muted">
+                                    Comma-separated list of document types this sender typically provides
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Document Type Suggestions -->
+                    <div class="mb-3">
+                        <label class="form-label">
+                            <strong>Document Type Suggestions</strong>
+                        </label>
+                        <div id="document-type-suggestions" class="border rounded p-3 bg-light">
+                            <p class="text-muted mb-0">Select an asset above to see relevant document types for this asset class.</p>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('list_senders') }}" class="btn btn-secondary">
+                            <i class="bi bi-x-circle"></i>
+                            Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle"></i>
+                            Create Mapping
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Document type suggestions by asset type
+const documentTypeSuggestions = {
+    'commercial_real_estate': [
+        'rent_roll', 'financial_statements', 'property_photos', 
+        'appraisal', 'lease_documents', 'property_management'
+    ],
+    'private_credit': [
+        'loan_documents', 'borrower_financials', 'covenant_compliance', 
+        'credit_memo', 'loan_monitoring'
+    ],
+    'private_equity': [
+        'portfolio_reports', 'investor_updates', 'board_materials', 
+        'deal_documents', 'valuation_reports'
+    ],
+    'infrastructure': [
+        'engineering_reports', 'construction_updates', 'regulatory_documents', 
+        'operations_reports'
+    ]
+};
+
+document.getElementById('asset_id').addEventListener('change', function() {
+    const selectedOption = this.options[this.selectedIndex];
+    const assetType = selectedOption.getAttribute('data-type');
+    const suggestionsDiv = document.getElementById('document-type-suggestions');
+    
+    if (assetType && documentTypeSuggestions[assetType]) {
+        const suggestions = documentTypeSuggestions[assetType];
+        const badgesHtml = suggestions.map(type => 
+            `<span class="badge bg-primary me-1 mb-1 doc-type-badge" style="cursor: pointer;" 
+                   onclick="addDocumentType('${type}')">${type.replace('_', ' ')}</span>`
+        ).join('');
+        
+        suggestionsDiv.innerHTML = `
+            <p class="mb-2"><strong>Suggested document types for ${assetType.replace('_', ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}:</strong></p>
+            <div>${badgesHtml}</div>
+            <small class="text-muted mt-2 d-block">Click on a badge to add it to the document types field</small>
+        `;
+    } else {
+        suggestionsDiv.innerHTML = '<p class="text-muted mb-0">Select an asset above to see relevant document types for this asset class.</p>';
+    }
+});
+
+function addDocumentType(docType) {
+    const input = document.getElementById('document_types');
+    const currentValue = input.value.trim();
+    
+    // Check if the document type is already in the list
+    const currentTypes = currentValue ? currentValue.split(',').map(t => t.trim()) : [];
+    if (!currentTypes.includes(docType)) {
+        const newValue = currentValue ? `${currentValue}, ${docType}` : docType;
+        input.value = newValue;
+        
+        // Visual feedback
+        const badge = event.target;
+        badge.classList.remove('bg-primary');
+        badge.classList.add('bg-success');
+        setTimeout(() => {
+            badge.classList.remove('bg-success');
+            badge.classList.add('bg-primary');
+        }, 1000);
+    }
+}
+
+// Pre-select asset if provided in URL
+document.addEventListener('DOMContentLoaded', function() {
+    const assetSelect = document.getElementById('asset_id');
+    if (assetSelect.value) {
+        assetSelect.dispatchEvent(new Event('change'));
+    }
+});
+</script>
+{% endblock %} 

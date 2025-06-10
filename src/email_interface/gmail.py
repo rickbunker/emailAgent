@@ -223,7 +223,7 @@ class GmailInterface(BaseEmailInterface):
             
             # Build Gmail service
             self.credentials = creds
-            self.service = await self._run_in_executor(build, 'gmail', 'v1', credentials=creds)
+            self.service = await self._run_in_executor(lambda: build('gmail', 'v1', credentials=creds))
             
             # Validate connection by getting user profile
             profile = await self.get_profile()

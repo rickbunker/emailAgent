@@ -77,34 +77,49 @@ confidence_level = agent.determine_confidence_level(
 
 ```
 emailAgent/
-├── 📂 src/                           # Core application code
-│   ├── 📧 email_interface/           # Email system integrations  
-│   │   ├── base.py                   # Abstract interface & data models
+├── 📱 app.py                        # ✅ Main application launcher
+├── 📋 requirements.txt              # Python dependencies
+├── 📂 src/                          # Core application code
+│   ├── 📧 email_interface/          # Email system integrations  
+│   │   ├── base.py                  # Abstract interface & data models
 │   │   ├── gmail.py                 # ✅ Gmail API (working)
 │   │   ├── msgraph.py               # ✅ Microsoft Graph (working)
 │   │   └── factory.py               # Email system factory
-│   ├── 🤖 agents/                   # LangGraph AI agents
-│   │   ├── asset_document_agent.py  # ✅ Main document processing agent
-│   │   ├── contact_extractor.py     # Contact extraction agent
-│   │   ├── spam_detector.py         # Spam detection agent
-│   │   └── supervisor.py            # Multi-agent supervisor
-│   ├── 🧠 memory/                   # Qdrant memory systems
-│   │   ├── contact.py               # Contact relationship mapping
-│   │   ├── semantic.py              # Document and sender knowledge
-│   │   ├── episodic.py              # Processing history and feedback
-│   │   └── procedural.py            # Rules and procedures
-│   └── 🛠️ tools/                    # Security and utility tools
-│       └── spamassassin_integration.py
-├── 📂 tests/                        # ✅ Organized test suite
-│   ├── test_msgraph_web_auth.py     # ✅ Working Microsoft Graph auth
+│   ├── 🤖 agents/                  # LangGraph AI agents
+│   │   ├── asset_document_agent.py # ✅ Main document processing agent
+│   │   ├── contact_extractor.py    # Contact extraction agent
+│   │   ├── spam_detector.py        # Spam detection agent
+│   │   └── supervisor.py           # Multi-agent supervisor
+│   ├── 🧠 memory/                  # Qdrant memory systems
+│   │   ├── contact.py              # Contact relationship mapping
+│   │   ├── semantic.py             # Document and sender knowledge
+│   │   ├── episodic.py             # Processing history and feedback
+│   │   └── procedural.py           # Rules and procedures
+│   ├── 🌐 web_ui/                  # ✅ Web interface for asset management
+│   │   ├── app.py                  # Flask web application
+│   │   └── templates/              # HTML templates
+│   ├── 🛠️ tools/                   # Security and utility tools
+│   │   └── spamassassin_integration.py
+│   └── 🔧 utils/                   # ✅ Logging and utility functions
+│       └── logging_system.py       # Comprehensive logging framework
+├── 📂 tests/                       # ✅ Consolidated test suite
+│   ├── test_msgraph_web_auth.py    # ✅ Working Microsoft Graph auth
 │   ├── test_phase3_classification.py # ✅ AI document classification  
-│   ├── test_100_real_emails.py      # Performance testing
-│   ├── simple_phase3_test.py        # ✅ Basic functionality test
-│   └── README.md                    # Test documentation
-├── 📂 examples/                     # Integration examples and demos
-├── 📂 assets/                       # Test assets and sample documents
-├── 📋 requirements.txt              # Python dependencies
-└── 📖 Documentation files           # Setup guides and README files
+│   ├── test_100_real_emails.py     # Performance testing
+│   ├── test_logging_system.py      # ✅ Logging framework tests
+│   ├── test_memory.py              # Memory system tests
+│   ├── simple_phase3_test.py       # ✅ Basic functionality test
+│   └── README.md                   # Test documentation
+├── 📂 scripts/                     # Development and debug scripts
+│   ├── debug_msgraph.py            # Microsoft Graph debugging
+│   ├── test_msgraph_simple.py      # Simple testing script
+│   └── test_parallel_processing.py # Performance testing
+├── 📂 data/                        # Temporary data files (gitignored)
+│   └── .gitkeep                    # Directory structure placeholder
+├── 📂 examples/                    # Integration examples and demos
+├── 📂 assets/                      # Asset storage and test documents
+├── 📂 logs/                        # Application logs
+└── 📖 Documentation files          # Setup guides and README files
 ```
 
 ## 🚀 Quick Start
@@ -141,9 +156,13 @@ Create `examples/msgraph_credentials.json`:
 
 See [MSGRAPH_SETUP.md](MSGRAPH_SETUP.md) for detailed setup instructions.
 
-### 3. Test the System
+### 3. Run the Application
 
 ```bash
+# Start the web interface for asset management
+python app.py
+# Access at: http://localhost:5001
+
 # Test basic Phase 3 functionality
 python tests/simple_phase3_test.py
 

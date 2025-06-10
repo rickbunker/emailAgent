@@ -57,13 +57,13 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 # Core imports
 from email_interface.gmail import GmailInterface
 from email_interface.msgraph import MicrosoftGraphInterface
-from email_interface.base import EmailSearchCriteria, EmailMessage, EmailAttachment
+from email_interface.base import EmailSearchCriteria, Email, EmailAttachment
 from agents.email_agent import EmailAgent
 from tools.document_processor import DocumentProcessor
 from tools.virus_scanner import VirusScanner
 from utils.logging_system import (
     LogConfig, configure_logging, get_logger, log_function, 
-    log_debug, log_info, log_error
+    log_debug, log_info
 )
 
 # Initialize logger for this test module

@@ -21,7 +21,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 from email_interface import EmailInterfaceFactory
 from utils.logging_system import (
     LogConfig, configure_logging, get_logger, log_function, 
-    log_debug, log_info, log_error
+    log_debug, log_info
 )
 
 # Initialize logger for this test module

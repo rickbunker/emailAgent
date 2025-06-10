@@ -63,7 +63,7 @@ import aiohttp
 # Core logging imports
 from utils.logging_system import (
     LogConfig, configure_logging, get_logger, log_function, 
-    log_debug, log_info, log_error
+    log_debug, log_info
 )
 
 # Initialize logger for this test module
