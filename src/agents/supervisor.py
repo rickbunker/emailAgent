@@ -1,5 +1,5 @@
 """
-Email Management Supervisor Agent for Intelligent Document Processing
+Email Management Supervisor Agent for Document Processing
 
 The central orchestration agent that coordinates the entire email management workflow
 for private market asset management professionals. This supervisor makes high-level
@@ -36,8 +36,9 @@ Business Context:
     management in high-stakes environments.
 
 Version: 1.0.0
-Author: Email Agent Development Team
-License: Private - Asset Management Use Only
+Author: Rick Bunker, rbunker@inveniam.io
+License: Private - Inveniam Capital Partners, LLC use only
+Copyright: 2025 Inveniam Capital Partners, LLC and Rick Bunker
 """
 
 import asyncio
@@ -114,9 +115,9 @@ class PriorityLevel(Enum):
 @dataclass
 class EmailMessage:
     """
-    Comprehensive email message data structure for processing.
+    Complete email message data structure for processing.
     
-    Represents an email with all metadata needed for intelligent processing,
+    Represents an email with all metadata needed for processing,
     including content analysis, attachment information, and routing data.
     
     Attributes:
@@ -155,7 +156,7 @@ class EmailMessage:
 @dataclass 
 class EmailAnalysis:
     """
-    Comprehensive results of email analysis with actionable insights.
+    Complete results of email analysis with actionable insights.
     
     Contains all information needed to make informed decisions about
     email handling, including confidence metrics and detailed reasoning.
@@ -209,7 +210,7 @@ class EmailAnalysis:
 
 class EmailSupervisor:
     """
-    Central orchestration agent for intelligent email management.
+    Central orchestration agent for email management.
     
     The supervisor coordinates all aspects of email processing, from initial
     intake through final action execution. It integrates multiple analysis
@@ -307,7 +308,7 @@ class EmailSupervisor:
     @log_function()
     async def process_email(self, email: EmailMessage) -> EmailAnalysis:
         """
-        Main entry point for comprehensive email processing.
+        Main entry point for complete email processing.
         
         Performs complete analysis of an email message and generates
         actionable recommendations based on multiple factors including
@@ -346,7 +347,7 @@ class EmailSupervisor:
                 f"Priority analysis: score={priority_score:.3f}, level={priority_level.value}"
             )
             
-            # Step 4: Generate comprehensive recommendations
+            # Step 4: Generate complete recommendations
             actions, reasoning = await self._generate_recommendations(
                 email, sender_info, spam_score, priority_score
             )
@@ -354,7 +355,7 @@ class EmailSupervisor:
             # Step 5: Calculate overall confidence in analysis
             confidence = self._calculate_confidence(sender_info, spam_score, priority_score)
             
-            # Step 6: Create comprehensive analysis
+            # Step 6: Create complete analysis
             end_time = datetime.now()
             processing_time = (end_time - start_time).total_seconds()
             
@@ -698,7 +699,7 @@ class EmailSupervisor:
         priority_score: float
     ) -> Tuple[List[EmailAction], str]:
         """
-        Generate comprehensive action recommendations based on analysis.
+        Generate complete action recommendations based on analysis.
         
         Combines all analysis factors to recommend appropriate actions
         for email processing and user workflow optimization.
@@ -1064,7 +1065,7 @@ async def demo_supervisor() -> None:
     Demonstration of the email supervisor system.
     
     Shows how to use the EmailSupervisor with sample email data
-    and displays comprehensive analysis results.
+    and displays complete analysis results.
     """
     print("🎯 Email Management Supervisor Demo")
     print("=" * 50)

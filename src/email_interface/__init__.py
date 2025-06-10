@@ -1,7 +1,7 @@
 """
 Email Integration Package for EmailAgent
 
-Comprehensive email system integration package for private market asset management
+Complete email system integration package for private market asset management
 environments. Provides unified interfaces, implementations, and factory patterns
 for connecting to various enterprise email systems with consistent APIs.
 
@@ -9,12 +9,12 @@ Features:
     - Unified email interface abstractions
     - Multiple email system implementations (Gmail, Microsoft Graph)
     - Factory pattern for dynamic email system instantiation
-    - Comprehensive data models for emails, attachments, and search
-    - Professional error handling with business-context exceptions
+    - Complete data models for emails, attachments, and search
+    - error handling with business-context exceptions
     - Type-safe email operations with validation
 
 Business Context:
-    Designed for asset management firms requiring robust email integration
+    Designed for asset management firms requiring email integration
     across diverse organizational infrastructures including Google Workspace,
     Microsoft 365, and legacy exchange systems. Maintains consistent
     operational patterns while supporting multi-tenant deployments.
@@ -23,8 +23,8 @@ Technical Architecture:
     - Abstract base interface with async operations
     - Concrete implementations for major email providers
     - Factory pattern with configuration-driven instantiation
-    - Comprehensive data models with validation
-    - Professional exception hierarchy for error handling
+    - Complete data models with validation
+    - exception hierarchy for error handling
 
 Supported Email Systems:
     - Gmail: Google Workspace integration via Gmail API
@@ -33,8 +33,9 @@ Supported Email Systems:
     - Office365: Alias for Microsoft Graph (common naming)
 
 Version: 1.0.0
-Author: Email Agent Development Team
-License: Private - Asset Management Use Only
+Author: Rick Bunker, rbunker@inveniam.io
+License: Private - Inveniam Capital Partners, LLC use only
+Copyright: 2025 Inveniam Capital Partners, LLC and Rick Bunker
 """
 
 # Core logging system

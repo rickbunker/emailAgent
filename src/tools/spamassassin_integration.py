@@ -2,14 +2,14 @@
 """
 SpamAssassin Integration for Email Agent
 
-A comprehensive interface to Apache SpamAssassin for sophisticated email spam detection
+A complete interface to Apache SpamAssassin for email spam detection
 in private market asset management environments. Provides seamless integration with both
 command-line and daemon modes with extensive logging and monitoring capabilities.
 
 Features:
     - Multi-mode SpamAssassin integration (spamassassin command and spamc daemon)
-    - Comprehensive spam analysis with detailed scoring and rule breakdown
-    - Professional logging with detailed debugging capabilities
+    - Complete spam analysis with detailed scoring and rule breakdown
+    - logging with detailed debugging capabilities
     - Business-context email formatting for asset management workflows
     - Production-grade error handling and timeout management
     - Configurable thresholds and analysis parameters
@@ -21,14 +21,15 @@ Business Context:
     systems for continuous learning and adaptation.
 
 Technical Architecture: 
-    - Command-line mode: Uses spamassassin executable for comprehensive analysis
+    - Command-line mode: Uses spamassassin executable for complete analysis
     - Daemon mode: Uses spamc client for high-performance batch processing
     - Fallback mechanisms ensure reliability across deployment environments
     - Detailed output parsing for actionable spam intelligence
 
 Version: 1.0.0
-Author: Email Agent Development Team
-License: Private - Asset Management Use Only
+Author: Rick Bunker, rbunker@inveniam.io
+License: Private - Inveniam Capital Partners, LLC use only
+Copyright: 2025 Inveniam Capital Partners, LLC and Rick Bunker
 """
 
 import subprocess
@@ -54,7 +55,7 @@ logger = get_logger(__name__)
 
 class SpamAssassinMode(Enum):
     """SpamAssassin operation modes."""
-    COMMAND = "spamassassin"      # Command-line mode (comprehensive)
+    COMMAND = "spamassassin"      # Command-line mode (complete)
     DAEMON = "spamc"              # Daemon client mode (fast)
     UNAVAILABLE = "unavailable"   # SpamAssassin not available
 
@@ -69,7 +70,7 @@ class SpamConfidence(Enum):
 @dataclass
 class SpamAnalysisResult:
     """
-    Comprehensive SpamAssassin analysis result.
+    Complete SpamAssassin analysis result.
     
     Contains detailed scoring information, triggered rules, and business-context
     classification for informed decision-making in asset management environments.
@@ -115,16 +116,16 @@ class SpamAnalysisResult:
 
 class SpamAssassinIntegration:
     """
-    Professional SpamAssassin integration for email spam detection.
+    SpamAssassin integration for email spam detection.
     
-    Provides comprehensive spam analysis capabilities with business-context
+    Provides complete spam analysis capabilities with business-context
     classification designed for private market asset management environments
     where false positives have significant business impact.
     
     Features:
         - Multi-mode operation (command-line and daemon)
         - Configurable thresholds and business logic
-        - Comprehensive logging and monitoring
+        - Complete logging and monitoring
         - Production-grade error handling
         - Performance optimization for batch processing
         
@@ -142,7 +143,7 @@ class SpamAssassinIntegration:
     
     def __init__(self, threshold: float = DEFAULT_THRESHOLD) -> None:
         """
-        Initialize SpamAssassin integration with comprehensive environment detection.
+        Initialize SpamAssassin integration with complete environment detection.
         
         Automatically detects available SpamAssassin modes and validates
         configuration for optimal performance in the deployment environment.
@@ -189,7 +190,7 @@ class SpamAssassinIntegration:
         """
         available_modes = []
         
-        # Test spamassassin command (most comprehensive)
+        # Test spamassassin command (most complete)
         spamassassin_path = shutil.which('spamassassin')
         if spamassassin_path:
             try:
@@ -239,14 +240,14 @@ class SpamAssassinIntegration:
         """
         Select primary SpamAssassin mode based on availability and performance.
         
-        Prefers command-line mode for comprehensive analysis, falls back to
+        Prefers command-line mode for complete analysis, falls back to
         daemon mode for performance, or returns unavailable for graceful degradation.
         
         Returns:
             Primary SpamAssassin mode to use
         """
         if SpamAssassinMode.COMMAND in self.available_modes:
-            self.logger.info("Selected SpamAssassin command mode (comprehensive analysis)")
+            self.logger.info("Selected SpamAssassin command mode (complete analysis)")
             return SpamAssassinMode.COMMAND
         elif SpamAssassinMode.DAEMON in self.available_modes:
             self.logger.info("Selected SpamAssassin daemon mode (high performance)")
@@ -258,10 +259,10 @@ class SpamAssassinIntegration:
     @log_function()
     async def analyze_email(self, email_content: str, sender: str = "", subject: str = "") -> SpamAnalysisResult:
         """
-        Perform comprehensive SpamAssassin analysis of email content.
+        Perform complete SpamAssassin analysis of email content.
         
         Analyzes email content using the best available SpamAssassin mode
-        with comprehensive error handling and business-context classification.
+        with complete error handling and business-context classification.
         
         Args:
             email_content: Raw email content or formatted email message
@@ -269,7 +270,7 @@ class SpamAssassinIntegration:
             subject: Email subject line for enhanced analysis context
             
         Returns:
-            Comprehensive spam analysis result with business intelligence
+            Complete spam analysis result with business intelligence
             
         Raises:
             ValueError: If email_content is empty or invalid
@@ -334,7 +335,7 @@ class SpamAssassinIntegration:
     @log_function()
     async def _analyze_with_spamassassin_command(self, email_content: str) -> SpamAnalysisResult:
         """
-        Analyze email using spamassassin command with comprehensive output parsing.
+        Analyze email using spamassassin command with complete output parsing.
         
         Args:
             email_content: Formatted email content for analysis
@@ -347,7 +348,7 @@ class SpamAssassinIntegration:
             RuntimeError: If SpamAssassin execution fails
         """
         try:
-            # Use comprehensive spamassassin flags for detailed analysis
+            # Use complete spamassassin flags for detailed analysis
             process = subprocess.Popen(
                 ['spamassassin', '-D', '-t', '--cf', 'report_safe 0'],
                 stdin=subprocess.PIPE,
@@ -418,7 +419,7 @@ class SpamAssassinIntegration:
     @log_function()
     def _parse_spamassassin_output(self, stdout: str, stderr: str, exit_code: int, mode: SpamAssassinMode) -> SpamAnalysisResult:
         """
-        Parse comprehensive spamassassin command output.
+        Parse complete spamassassin command output.
         
         Extracts detailed scoring information, triggered rules, and analysis
         metadata from SpamAssassin command output format.
@@ -600,7 +601,7 @@ class SpamAssassinIntegration:
         Format email content for optimal SpamAssassin analysis.
         
         Creates properly formatted email message with headers that enable
-        SpamAssassin to perform comprehensive analysis including sender
+        SpamAssassin to perform complete analysis including sender
         reputation, subject analysis, and content inspection.
         
         Args:
@@ -671,7 +672,7 @@ class SpamAssassinIntegration:
     @log_function()
     def get_performance_stats(self) -> Dict[str, Any]:
         """
-        Get comprehensive performance and analysis statistics.
+        Get complete performance and analysis statistics.
         
         Provides operational metrics for monitoring SpamAssassin
         integration performance and reliability in production.
@@ -707,7 +708,7 @@ class SpamAssassinIntegration:
     @log_function()
     async def health_check(self) -> Dict[str, Any]:
         """
-        Perform comprehensive health check of SpamAssassin integration.
+        Perform complete health check of SpamAssassin integration.
         
         Tests SpamAssassin availability and basic functionality to ensure
         reliable operation in production environments.

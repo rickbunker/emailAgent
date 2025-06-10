@@ -1,7 +1,7 @@
 """
 Email Interface Factory for EmailAgent
 
-A comprehensive factory pattern implementation for creating email system interfaces
+A complete factory pattern implementation for creating email system interfaces
 in private market asset management environments. Provides unified instantiation,
 configuration management, and credential templates for all supported email systems.
 
@@ -9,8 +9,8 @@ Features:
     - Factory pattern for multiple email system types
     - Configuration-driven interface creation
     - Credential template generation for setup guidance
-    - Type safety with comprehensive validation
-    - Professional error handling and logging
+    - Type safety with complete validation
+    - error handling and logging
     - Support for Gmail, Microsoft Graph/Office 365 systems
 
 Business Context:
@@ -22,7 +22,7 @@ Technical Architecture:
     - Abstract factory pattern with type-safe enum-based system selection
     - Configuration-driven instantiation with validation
     - Credential template system for deployment guidance
-    - Comprehensive error handling with business-context messaging
+    - Complete error handling with business-context messaging
 
 Supported Systems:
     - Gmail: Google Workspace integration
@@ -31,8 +31,9 @@ Supported Systems:
     - Office365: Alias for Microsoft Graph
 
 Version: 1.0.0
-Author: Email Agent Development Team
-License: Private - Asset Management Use Only
+Author: Rick Bunker, rbunker@inveniam.io
+License: Private - Inveniam Capital Partners, LLC use only
+Copyright: 2025 Inveniam Capital Partners, LLC and Rick Bunker
 """
 
 from typing import Dict, Any, Optional, List, Union
@@ -72,9 +73,9 @@ class EmailSystemType(Enum):
 
 class EmailInterfaceFactory:
     """
-    Professional factory for creating email interface instances.
+    factory for creating email interface instances.
     
-    Provides comprehensive email system instantiation with configuration
+    Provides complete email system instantiation with configuration
     management, credential validation, and template generation designed
     for enterprise asset management environments.
     
@@ -82,7 +83,7 @@ class EmailInterfaceFactory:
         - Type-safe email system creation
         - Configuration-driven instantiation
         - Credential template generation
-        - Comprehensive error handling and validation
+        - Complete error handling and validation
         - Support for multiple authentication patterns
         
     Business Context:
@@ -114,7 +115,7 @@ class EmailInterfaceFactory:
         Create an email interface instance for the specified system type.
         
         Instantiates the appropriate email interface implementation with
-        comprehensive validation, logging, and error handling suitable
+        complete validation, logging, and error handling suitable
         for production asset management environments.
         
         Args:
@@ -175,7 +176,7 @@ class EmailInterfaceFactory:
         """
         Create an email interface from a configuration dictionary.
         
-        Provides configuration-driven interface instantiation with comprehensive
+        Provides configuration-driven interface instantiation with complete
         validation and structured parameter extraction for deployment scenarios
         in asset management environments.
         
@@ -236,7 +237,7 @@ class EmailInterfaceFactory:
     @log_function()
     def get_supported_types(cls) -> List[str]:
         """
-        Get comprehensive list of supported email system types.
+        Get complete list of supported email system types.
         
         Returns all supported email system identifiers including aliases
         for use in configuration validation and user interface generation.
@@ -259,7 +260,7 @@ class EmailInterfaceFactory:
         """
         Generate credentials configuration template for specified system type.
         
-        Provides comprehensive credential field templates with descriptions,
+        Provides complete credential field templates with descriptions,
         requirements, and examples to guide deployment configuration in
         asset management environments.
         
@@ -372,7 +373,7 @@ class EmailInterfaceFactory:
         """
         Validate credentials configuration against system requirements.
         
-        Performs comprehensive validation of credential configuration
+        Performs complete validation of credential configuration
         against system-specific requirements with detailed error reporting
         for deployment troubleshooting.
         
@@ -451,7 +452,7 @@ class EmailInterfaceFactory:
     @log_function() 
     def get_system_info(cls, system_type: str) -> Dict[str, Any]:
         """
-        Get comprehensive information about a specific email system type.
+        Get complete information about a specific email system type.
         
         Provides detailed system information including capabilities,
         requirements, and configuration guidance for deployment planning
@@ -490,7 +491,7 @@ class EmailInterfaceFactory:
                 'capabilities': [
                     'Email reading and sending',
                     'Label management',
-                    'Advanced search queries', 
+                    'search queries', 
                     'Attachment handling',
                     'Contact integration'
                 ],
@@ -514,7 +515,7 @@ class EmailInterfaceFactory:
                 'capabilities': [
                     'Email reading and sending',
                     'Folder management',
-                    'Advanced search and filtering',
+                    'search and filtering',
                     'Attachment handling',
                     'Calendar integration potential',
                     'User profile access'

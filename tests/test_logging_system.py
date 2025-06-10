@@ -2,24 +2,24 @@
 """
 Logging System Test Suite for EmailAgent
 
-Professional test suite for comprehensive logging system validation in
+test suite for complete logging system validation in
 private market asset management email automation environments. Provides
 thorough testing of logging capabilities, configurations, and performance
 with realistic asset management scenarios.
 
 Features:
-    - Comprehensive logging system testing and validation
-    - Professional logging configuration and pattern testing
+    - Complete logging system testing and validation
+    - logging configuration and pattern testing
     - Function decoration and argument filtering validation
     - Performance testing and optimization validation
-    - Professional error handling and recovery testing
+    - error handling and recovery testing
     - Asset management logging scenario verification
 
 Business Context:
-    Designed for asset management firms requiring robust
+    Designed for asset management firms requiring
     logging systems for email automation compliance, audit trails,
     operational monitoring, and business intelligence. Ensures
-    comprehensive logging for investment workflows, regulatory
+    complete logging for investment workflows, regulatory
     compliance, and operational efficiency.
 
 Test Categories:
@@ -31,8 +31,9 @@ Test Categories:
     - Integration Testing: Cross-system logging coordination
 
 Version: 1.0.0
-Author: Email Agent Development Team
-License: Private - Asset Management Use Only
+Author: Rick Bunker, rbunker@inveniam.io
+License: Private - Inveniam Capital Partners, LLC use only
+Copyright: 2025 Inveniam Capital Partners, LLC and Rick Bunker
 """
 
 import asyncio
@@ -57,15 +58,15 @@ logger = get_logger(__name__)
 
 class LoggingSystemTestSuite:
     """
-    Professional logging system test suite for asset management.
+    logging system test suite for asset management.
     
-    Provides comprehensive testing capabilities for logging system
+    Provides complete testing capabilities for logging system
     validation including configuration testing, function decoration,
     argument filtering, and performance validation for professional
     asset management email automation environments.
     
     Features:
-        - Comprehensive logging configuration testing
+        - Complete logging configuration testing
         - Function decoration and argument filtering validation
         - Performance testing and overhead measurement
         - Error handling and exception logging validation
@@ -102,11 +103,11 @@ class LoggingSystemTestSuite:
     @log_function()
     def setup_test_configurations(self) -> None:
         """
-        Setup various logging configurations for comprehensive testing.
+        Setup various logging configurations for complete testing.
         
         Creates multiple LogConfig instances with different settings
         to test various logging scenarios and configurations for
-        professional asset management environments.
+        asset management environments.
         """
         logger.info("Setting up test logging configurations")
         
@@ -115,7 +116,7 @@ class LoggingSystemTestSuite:
             level="DEBUG",
             log_to_file=True,
             log_to_stdout=True,
-            log_file="logs/test_debug_comprehensive.log",
+            log_file="logs/test_debug_complete.log",
             log_arguments=True,
             log_return_values=True,
             log_execution_time=True,
@@ -335,7 +336,7 @@ class LoggingSystemTestSuite:
         
         Validates that sensitive information is properly filtered
         from log output while maintaining useful debugging information
-        for professional asset management environments.
+        for asset management environments.
         
         Returns:
             True if sensitive data filtering tests passed, False otherwise
@@ -546,8 +547,8 @@ class LoggingSystemTestSuite:
         Test error handling and recovery in logging system.
         
         Validates proper error handling, exception logging, and
-        system recovery capabilities for robust operation in
-        professional asset management environments.
+        system recovery capabilities for operation in
+        asset management environments.
         
         Returns:
             True if error handling tests passed, False otherwise
@@ -666,17 +667,17 @@ class LoggingSystemTestSuite:
                 logger.warning(f"Failed to remove test file {file_path}: {e}")
 
     @log_function()
-    def run_comprehensive_tests(self) -> Dict[str, Any]:
+    def run_complete_tests(self) -> Dict[str, Any]:
         """
-        Run comprehensive logging system test suite.
+        Run complete logging system test suite.
         
-        Executes all logging system tests with professional coordination
+        Executes all logging system tests with coordination
         and result compilation for asset management validation.
         
         Returns:
-            Dictionary containing comprehensive test results and metrics
+            Dictionary containing complete test results and metrics
         """
-        logger.info("🚀 Running comprehensive logging system test suite")
+        logger.info("🚀 Running complete logging system test suite")
         
         self.test_stats['start_time'] = datetime.now(UTC)
         
@@ -765,11 +766,11 @@ class LoggingSystemTestSuite:
 @log_function()
 def run_logging_system_tests() -> bool:
     """
-    Main function to run comprehensive logging system tests.
+    Main function to run complete logging system tests.
     
     Executes complete logging system validation including configuration,
     decoration, filtering, performance, and error handling tests for
-    professional asset management environments.
+    asset management environments.
     
     Returns:
         True if all tests passed, False otherwise
@@ -778,9 +779,9 @@ def run_logging_system_tests() -> bool:
     
     try:
         test_suite = LoggingSystemTestSuite()
-        results = test_suite.run_comprehensive_tests()
+        results = test_suite.run_complete_tests()
         
-        # Display comprehensive results
+        # Display complete results
         print(f"\n🎯 EmailAgent Logging System Test Results")
         print(f"=" * 60)
         
@@ -822,11 +823,11 @@ def main() -> None:
     """
     Main entry point for logging system tests.
     
-    Provides professional command-line interface for logging system
-    test execution with comprehensive error handling and reporting.
+    Provides command-line interface for logging system
+    test execution with complete error handling and reporting.
     """
     print("🧪 EmailAgent Logging System Test Suite")
-    print("Professional Asset Management Email Automation")
+    print("Asset Management Email Automation")
     print("=" * 60)
     
     try:

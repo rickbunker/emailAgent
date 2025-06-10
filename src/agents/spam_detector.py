@@ -1,7 +1,7 @@
 """
-Spam Detection Agent for Intelligent Email Document Management
+Spam Detection Agent for Email Document Management
 
-A sophisticated hybrid spam detection system designed for private market asset
+A hybrid spam detection system designed for private market asset
 management professionals who need reliable email filtering without false positives
 that could block important business communications.
 
@@ -9,7 +9,7 @@ Architecture:
     The system combines multiple detection layers:
     1. Apache SpamAssassin for industry-standard spam scoring
     2. External blacklist checking against known malicious sources
-    3. Intelligent content analysis using pattern recognition
+    3. content analysis using pattern recognition
     4. Contact-aware filtering (trusted contacts get preferential treatment)
     5. Machine learning from user feedback for continuous improvement
 
@@ -19,7 +19,7 @@ Key Features:
     - Learning system that improves based on user feedback
     - Real-time blacklist checking against major RBLs
     - Confidence scoring with detailed reasoning
-    - Comprehensive logging for audit trails and debugging
+    - Complete logging for audit trails and debugging
     - Async architecture for high-performance processing
 
 Detection Methods:
@@ -36,8 +36,9 @@ Business Context:
     false positives while maintaining strong protection against threats.
 
 Version: 1.0.0
-Author: Email Agent Development Team  
-License: Private - Asset Management Use Only
+Author: Rick Bunker, rbunker@inveniam.io  
+License: Private - Inveniam Capital Partners, LLC use only
+Copyright: 2025 Inveniam Capital Partners, LLC and Rick Bunker
 """
 
 import asyncio
@@ -88,7 +89,7 @@ class EmailMessage:
     Email message data structure for spam analysis.
     
     Represents an email message with all necessary information for
-    comprehensive spam detection analysis.
+    complete spam detection analysis.
     
     Attributes:
         id: Unique identifier for the email
@@ -158,7 +159,7 @@ class SpamReason(Enum):
 @dataclass
 class SpamAnalysis:
     """
-    Comprehensive results of spam analysis with detailed metrics.
+    Complete results of spam analysis with detailed metrics.
     
     Contains all information about why an email was classified as spam
     or clean, including confidence levels, specific reasons, and
@@ -212,7 +213,7 @@ class SpamAnalysis:
 
 class SpamDetector:
     """
-    Hybrid spam detection agent with enterprise-grade capabilities.
+    Hybrid spam detection agent with business capabilities.
     
     Combines multiple detection methods and integrates with memory systems
     to provide intelligent, learning-based spam filtering suitable for
@@ -311,7 +312,7 @@ class SpamDetector:
     @log_function()
     async def analyze_spam(self, email: EmailMessage) -> SpamAnalysis:
         """
-        Main entry point for comprehensive spam analysis.
+        Main entry point for complete spam analysis.
         
         Performs multi-layered analysis to determine if an email is spam,
         including confidence scoring and detailed reasoning.
@@ -320,7 +321,7 @@ class SpamDetector:
             email: Email message to analyze
             
         Returns:
-            Comprehensive SpamAnalysis with classification and details
+            Complete SpamAnalysis with classification and details
             
         Raises:
             ValueError: If email data is invalid

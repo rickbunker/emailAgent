@@ -1,20 +1,20 @@
 """
-Contact Extraction Agent for Intelligent Email Document Management
+Contact Extraction Agent for Email Document Management
 
-This agent performs sophisticated contact extraction from emails, focusing on 
+This agent performs contact extraction from emails, focusing on 
 identifying genuine individual humans while filtering out automated systems,
 spam, and unwanted solicitations. The system is designed specifically for
 private market asset management professionals who need to build high-quality
 contact databases from their email communications.
 
 Key Features:
-    - Intelligent human vs. automated system detection
+    - human vs. automated system detection
     - Multi-layered filtering to eliminate spam and bulk emails
     - Contact information extraction from signatures and headers
     - Confidence scoring based on multiple factors
     - Memory integration for learning and pattern recognition
     - Contact type classification (personal, professional, family, vendor)
-    - Comprehensive logging and monitoring
+    - Complete logging and monitoring
 
 Detection Strategies:
     - Pattern matching for no-reply and automated addresses
@@ -37,8 +37,9 @@ Integration:
     processing of known contact types.
 
 Version: 1.0.0
-Author: Email Agent Development Team
-License: Private - Asset Management Use Only
+Author: Rick Bunker, rbunker@inveniam.io
+License: Private - Inveniam Capital Partners, LLC use only
+Copyright: 2025 Inveniam Capital Partners, LLC and Rick Bunker
 """
 
 import asyncio
@@ -100,7 +101,7 @@ class ContactConfidence(Enum):
 @dataclass
 class ContactInfo:
     """
-    Extracted contact information with comprehensive metadata.
+    Extracted contact information with complete metadata.
     
     Represents a complete contact profile extracted from email
     communications, including personal details, confidence metrics,
@@ -184,12 +185,12 @@ class ContactInfo:
 
 class ContactExtractor:
     """
-    Intelligent contact extraction agent for email document management.
+    contact extraction agent for email document management.
     
     Analyzes email messages to identify and extract real human contacts
     while filtering out automated systems, spam, and unwanted solicitations.
     Uses multiple detection layers and machine learning techniques to ensure
-    high-quality contact extraction suitable for professional environments.
+    high-quality contact extraction suitable for environments.
     
     The extractor integrates with the memory system to learn from patterns
     and improve accuracy over time, making it particularly effective for
@@ -273,7 +274,7 @@ class ContactExtractor:
         """
         Main entry point for contact extraction from an email message.
         
-        Performs comprehensive analysis to determine if the sender is a real
+        Performs complete analysis to determine if the sender is a real
         person and extracts their contact information if appropriate.
         
         Args:
@@ -728,7 +729,7 @@ class ContactExtractor:
         if any(term in content_lower for term in family_terms):
             return ContactType.FAMILY
         
-        # Professional indicators
+        # indicators
         business_terms = ['meeting', 'project', 'deadline', 'proposal', 'contract', 'business']
         if any(term in content_lower for term in business_terms):
             return ContactType.PROFESSIONAL

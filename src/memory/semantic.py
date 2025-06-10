@@ -1,9 +1,9 @@
 """
 Semantic Memory System for EmailAgent
 
-Professional semantic memory system for private market asset management environments.
+semantic memory system for private market asset management environments.
 Provides knowledge storage and retrieval for sender intelligence, email type classification,
-and domain expertise with sophisticated search and learning capabilities.
+and domain expertise with search and learning capabilities.
 
 Features:
     - Sender knowledge and relationship intelligence
@@ -11,10 +11,10 @@ Features:
     - Domain expertise and industry knowledge storage
     - Semantic search with business context filtering
     - Knowledge enrichment and refinement over time
-    - Professional confidence scoring and validation
+    - confidence scoring and validation
 
 Business Context:
-    Designed for asset management firms requiring sophisticated knowledge management
+    Designed for asset management firms requiring knowledge management
     about counterparties, communication patterns, and industry intelligence.
     Maintains semantic understanding of business relationships, email classifications,
     and operational knowledge for improved decision support and automation.
@@ -34,8 +34,9 @@ Knowledge Types:
     - Rule: Business rules and decision criteria
 
 Version: 1.0.0
-Author: Email Agent Development Team
-License: Private - Asset Management Use Only
+Author: Rick Bunker, rbunker@inveniam.io
+License: Private - Inveniam Capital Partners, LLC use only
+Copyright: 2025 Inveniam Capital Partners, LLC and Rick Bunker
 """
 
 import time
@@ -60,7 +61,7 @@ logger = get_logger(__name__)
 
 class KnowledgeType(Enum):
     """
-    Professional knowledge classification for semantic memory.
+    knowledge classification for semantic memory.
     
     Provides structured categorization of knowledge types for asset
     management environments with appropriate business context and
@@ -105,11 +106,11 @@ class KnowledgeConfidence(Enum):
 
 class SemanticMemory(BaseMemory):
     """
-    Professional semantic memory system for asset management environments.
+    semantic memory system for asset management environments.
     
-    Provides comprehensive knowledge storage and retrieval with semantic
+    Provides complete knowledge storage and retrieval with semantic
     understanding designed for private market asset management firms
-    requiring sophisticated intelligence about counterparties, communication
+    requiring intelligence about counterparties, communication
     patterns, and domain expertise.
     
     Features:
@@ -121,7 +122,7 @@ class SemanticMemory(BaseMemory):
         - Knowledge enrichment and learning capabilities
         
     Business Context:
-        Enables asset management firms to maintain sophisticated knowledge
+        Enables asset management firms to maintain knowledge
         bases about counterparties, communication patterns, industry
         intelligence, and operational expertise for improved decision
         support and automated processing.
@@ -131,7 +132,7 @@ class SemanticMemory(BaseMemory):
         - Knowledge categorization with confidence scoring
         - Vector semantic search with domain filtering
         - Knowledge lifecycle management and updates
-        - Professional audit trail and knowledge tracking
+        - audit trail and knowledge tracking
     """
     
     def __init__(
@@ -165,10 +166,10 @@ class SemanticMemory(BaseMemory):
         confidence: KnowledgeConfidence = KnowledgeConfidence.MEDIUM
     ) -> str:
         """
-        Add new knowledge to semantic memory with comprehensive metadata.
+        Add new knowledge to semantic memory with complete metadata.
         
         Creates knowledge entries with automatic categorization, confidence
-        scoring, and metadata enrichment for professional asset management
+        scoring, and metadata enrichment for asset management
         environments.
         
         Args:
@@ -201,7 +202,7 @@ class SemanticMemory(BaseMemory):
         if metadata is None:
             metadata = {}
         
-        # Set comprehensive knowledge metadata
+        # Set complete knowledge metadata
         metadata["type"] = "knowledge"
         metadata["knowledge_type"] = knowledge_type.value
         metadata["confidence"] = confidence.value
@@ -357,11 +358,11 @@ class SemanticMemory(BaseMemory):
         min_confidence: Optional[KnowledgeConfidence] = None
     ) -> List[MemoryItem]:
         """
-        Search semantic knowledge with comprehensive filtering.
+        Search semantic knowledge with complete filtering.
         
         Performs semantic search across knowledge base with knowledge type
         filtering, confidence thresholds, and business context matching
-        for professional asset management environments.
+        for asset management environments.
         
         Args:
             query: The search query for semantic matching
@@ -384,7 +385,7 @@ class SemanticMemory(BaseMemory):
         logger.info(f"Searching semantic knowledge: query='{query}', limit={limit}")
         
         try:
-            # Build comprehensive filter conditions
+            # Build complete filter conditions
             filter_conditions = {
                 "must": [
                     {"key": "metadata.type", "match": {"value": "knowledge"}}
@@ -503,7 +504,7 @@ class SemanticMemory(BaseMemory):
     @log_function()
     async def get_knowledge_statistics(self) -> Dict[str, Any]:
         """
-        Get comprehensive statistics about semantic knowledge.
+        Get complete statistics about semantic knowledge.
         
         Provides business intelligence metrics about knowledge patterns,
         types, and confidence for knowledge management and optimization.
@@ -595,7 +596,7 @@ async def demo_semantic_memory() -> None:
     """
     Demonstration of semantic memory system capabilities.
     
-    Showcases the professional semantic knowledge features including
+    Showcases the semantic knowledge features including
     sender intelligence, email type classification, domain expertise,
     and knowledge search for asset management environments.
     """

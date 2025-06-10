@@ -1,8 +1,8 @@
 """
 Procedural Memory System for EmailAgent
 
-Professional procedural memory system for private market asset management environments.
-Provides rule storage, procedure management, and workflow automation with sophisticated
+procedural memory system for private market asset management environments.
+Provides rule storage, procedure management, and workflow automation with
 pattern matching and business logic execution capabilities.
 
 Features:
@@ -11,10 +11,10 @@ Features:
     - Decision criteria and approval workflows
     - Compliance rule enforcement and validation
     - Process optimization and learning capabilities
-    - Professional rule confidence scoring
+    - rule confidence scoring
 
 Business Context:
-    Designed for asset management firms requiring sophisticated procedural
+    Designed for asset management firms requiring procedural
     knowledge management for investment workflows, compliance procedures,
     operational standards, and decision automation. Maintains institutional
     knowledge about business processes and decision criteria.
@@ -35,8 +35,9 @@ Rule Types:
     - Classification: Document and email classification rules
 
 Version: 1.0.0
-Author: Email Agent Development Team
-License: Private - Asset Management Use Only
+Author: Rick Bunker, rbunker@inveniam.io
+License: Private - Inveniam Capital Partners, LLC use only
+Copyright: 2025 Inveniam Capital Partners, LLC and Rick Bunker
 """
 
 import time
@@ -61,7 +62,7 @@ logger = get_logger(__name__)
 
 class RuleType(Enum):
     """
-    Professional rule classification for procedural memory.
+    rule classification for procedural memory.
     
     Provides structured categorization of business rules and procedures
     for asset management environments with appropriate business context
@@ -126,11 +127,11 @@ class RuleConfidence(Enum):
 
 class ProceduralMemory(BaseMemory):
     """
-    Professional procedural memory system for asset management environments.
+    procedural memory system for asset management environments.
     
-    Provides comprehensive rule storage and procedure management with
+    Provides complete rule storage and procedure management with
     business logic execution designed for private market asset management
-    firms requiring sophisticated workflow automation and decision support.
+    firms requiring workflow automation and decision support.
     
     Features:
         - Business rule storage and categorization
@@ -150,7 +151,7 @@ class ProceduralMemory(BaseMemory):
         - Rule categorization with priority and confidence scoring
         - Vector semantic search with business context filtering
         - Rule lifecycle management and versioning
-        - Professional audit trail and rule execution tracking
+        - audit trail and rule execution tracking
     """
     
     def __init__(
@@ -188,7 +189,7 @@ class ProceduralMemory(BaseMemory):
         Add new rule or procedure to procedural memory.
         
         Creates procedural entries with automatic categorization, priority
-        assignment, and confidence scoring for professional asset management
+        assignment, and confidence scoring for asset management
         environments.
         
         Args:
@@ -223,7 +224,7 @@ class ProceduralMemory(BaseMemory):
         if metadata is None:
             metadata = {}
         
-        # Set comprehensive rule metadata
+        # Set complete rule metadata
         metadata["type"] = "rule"
         metadata["rule_type"] = rule_type.value
         metadata["priority"] = priority.value
@@ -397,11 +398,11 @@ class ProceduralMemory(BaseMemory):
         active_only: bool = True
     ) -> List[MemoryItem]:
         """
-        Search procedural rules with comprehensive filtering.
+        Search procedural rules with complete filtering.
         
         Performs semantic search across rule base with rule type
         filtering, priority thresholds, and business context matching
-        for professional asset management environments.
+        for asset management environments.
         
         Args:
             query: The search query for semantic matching
@@ -426,7 +427,7 @@ class ProceduralMemory(BaseMemory):
         logger.info(f"Searching procedural rules: query='{query}', limit={limit}")
         
         try:
-            # Build comprehensive filter conditions
+            # Build complete filter conditions
             filter_conditions = {
                 "must": [
                     {"key": "metadata.type", "match": {"value": "rule"}}
@@ -584,7 +585,7 @@ class ProceduralMemory(BaseMemory):
     @log_function()
     async def get_rule_statistics(self) -> Dict[str, Any]:
         """
-        Get comprehensive statistics about procedural rules.
+        Get complete statistics about procedural rules.
         
         Provides business intelligence metrics about rule patterns,
         types, and priorities for rule management and optimization.
@@ -672,7 +673,7 @@ async def demo_procedural_memory() -> None:
     """
     Demonstration of procedural memory system capabilities.
     
-    Showcases the professional procedural rule features including
+    Showcases the procedural rule features including
     investment rules, compliance procedures, classification rules,
     and workflow automation for asset management environments.
     """

@@ -1,20 +1,20 @@
 """
 Memory Systems Package for EmailAgent
 
-Comprehensive memory management package for private market asset management environments.
-Provides sophisticated memory architectures including episodic, semantic, procedural,
-and contact memory systems with vector-based storage and intelligent retrieval.
+Complete memory management package for private market asset management environments.
+Provides memory architectures including episodic, semantic, procedural,
+and contact memory systems with vector-based storage and retrieval.
 
 Features:
     - Multi-modal memory architecture for different knowledge types
     - Vector-based storage with Qdrant integration
     - Semantic search and contextual retrieval
-    - Professional business context and intelligence
+    - business context and intelligence
     - Memory lifecycle management and optimization
-    - Enterprise-grade performance and scalability
+    - performance and scalability
 
 Business Context:
-    Designed for asset management firms requiring sophisticated memory systems
+    Designed for asset management firms requiring memory systems
     for relationship management, knowledge retention, process automation,
     and business intelligence. Maintains institutional memory across deal flow,
     investor relations, operational procedures, and decision support.
@@ -34,8 +34,9 @@ Memory Types:
     - Contact: Contact records and relationship management
 
 Version: 1.0.0
-Author: Email Agent Development Team
-License: Private - Asset Management Use Only
+Author: Rick Bunker, rbunker@inveniam.io
+License: Private - Inveniam Capital Partners, LLC use only
+Copyright: 2025 Inveniam Capital Partners, LLC and Rick Bunker
 """
 
 # Core logging system
@@ -158,7 +159,7 @@ def get_supported_memory_types() -> list:
 @log_function()
 def get_memory_system_info(memory_type: str) -> dict:
     """
-    Get comprehensive information about a specific memory system type.
+    Get complete information about a specific memory system type.
     
     Provides detailed information about memory system capabilities,
     use cases, and configuration options for deployment planning.
@@ -251,14 +252,14 @@ def get_memory_system_info(memory_type: str) -> dict:
                 'Interaction frequency analysis',
                 'Contact enrichment over time',
                 'Business context categorization',
-                'Professional confidence scoring'
+                'confidence scoring'
             ],
             'use_cases': [
                 'Investor relationship management',
                 'Counterparty contact tracking',
                 'Business development contacts',
                 'Vendor and service provider management',
-                'Professional network intelligence'
+                'network intelligence'
             ],
             'data_types': ['personal', 'professional', 'family', 'vendor', 'unknown']
         }
@@ -276,7 +277,7 @@ async def create_unified_memory_system(**kwargs) -> dict:
     Create a unified memory system with all memory types.
     
     Instantiates all memory system types in a coordinated configuration
-    for comprehensive memory management in asset management environments.
+    for complete memory management in asset management environments.
     
     Args:
         **kwargs: Common configuration parameters for all memory systems
@@ -307,12 +308,12 @@ async def create_unified_memory_system(**kwargs) -> dict:
         logger.error(f"Failed to create unified memory system: {e}")
         raise
 
-# Memory system factory class for advanced usage
+# Memory system factory class for usage
 class MemorySystemFactory:
     """
-    Advanced memory system factory for enterprise deployments.
+    memory system factory for enterprise deployments.
     
-    Provides sophisticated memory system instantiation with
+    Provides memory system instantiation with
     configuration management, validation, and optimization
     for large-scale asset management deployments.
     """

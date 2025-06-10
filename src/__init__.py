@@ -1,7 +1,7 @@
 """
-Email Agent - Intelligent Asset Document Management System
+Email Agent - Asset Document Management System
 
-A sophisticated LangGraph-based email management system specialized for asset document 
+A LangGraph-based email management system specialized for asset document 
 management in private market investments including commercial real estate, private equity, 
 private credit, and infrastructure investments.
 
@@ -10,19 +10,20 @@ Core Features:
     - AI-powered document classification (25+ categories)
     - ClamAV virus scanning and SpamAssassin spam detection  
     - Qdrant vector database memory system
-    - Comprehensive logging and monitoring
+    - Complete logging and monitoring
     - Async/await architecture for optimal performance
 
 Main Components:
     - agents: Core AI agents for document processing and classification
     - email_interface: Unified interface for Gmail and Microsoft Graph APIs
-    - memory: Qdrant-based vector database system for intelligent storage
+    - memory: Qdrant-based vector database system for storage
     - tools: Security and utility tools (virus scanning, spam detection)
-    - utils: Utility modules including comprehensive logging system
+    - utils: Utility modules including complete logging system
 
 Version: 1.0.0
-Author: Email Agent Development Team
-License: Private - Asset Management Use Only
+Author: Rick Bunker, rbunker@inveniam.io
+License: Private - Inveniam Capital Partners, LLC use only
+Copyright: 2025 Inveniam Capital Partners, LLC and Rick Bunker
 """
 
 from typing import Dict, Any, Optional, List
@@ -38,7 +39,7 @@ logger = get_logger(__name__)
 # Package version and metadata
 __version__ = "1.0.0"
 __author__ = "Email Agent Development Team"
-__description__ = "Intelligent Asset Document Management System"
+__description__ = "Asset Document Management System"
 
 # Main components
 __all__ = [
@@ -112,7 +113,7 @@ def initialize_package(log_level: str = "INFO", log_to_file: bool = True) -> Dic
 @log_function()
 def get_package_info() -> Dict[str, Any]:
     """
-    Get comprehensive package information.
+    Get complete package information.
     
     Returns:
         Dict containing package version, components, and system info
@@ -138,7 +139,7 @@ def get_package_info() -> Dict[str, Any]:
             "Virus scanning (ClamAV)",
             "Spam detection (SpamAssassin)",
             "Vector database memory",
-            "Comprehensive logging"
+            "Complete logging"
         ],
         "python_version": sys.version,
         "package_path": str(Path(__file__).parent)

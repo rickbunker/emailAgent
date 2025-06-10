@@ -1,17 +1,17 @@
 """
 Microsoft Graph Email Interface
 
-A comprehensive Microsoft Graph API integration for sophisticated email management
+A complete Microsoft Graph API integration for email management
 in private market asset management environments. Provides seamless Office 365/Exchange
-integration with professional-grade authentication, error handling, and monitoring.
+integration with business authentication, error handling, and monitoring.
 
 Features:
     - OAuth 2.0 authentication with interactive web-based flow
-    - Comprehensive email management (read, send, delete, labels)
-    - Advanced search capabilities with business-context filters
+    - Complete email management (read, send, delete, labels)
+    - search capabilities with business-context filters
     - Attachment handling with virus scanning integration
     - Production-grade error handling and retry logic
-    - Comprehensive logging and performance monitoring
+    - Complete logging and performance monitoring
     - Health checking and connection management
 
 Business Context:
@@ -23,7 +23,7 @@ Technical Architecture:
     - MSAL (Microsoft Authentication Library) for OAuth 2.0 flows
     - Async HTTP client for high-performance API interactions
     - Web server for interactive authentication callback handling
-    - Comprehensive error mapping and business-context exceptions
+    - Complete error mapping and business-context exceptions
     - Thread pool execution for blocking operations
 
 Integration Points:
@@ -33,8 +33,9 @@ Integration Points:
     - Memory systems for learning and adaptation
 
 Version: 1.0.0
-Author: Email Agent Development Team
-License: Private - Asset Management Use Only
+Author: Rick Bunker, rbunker@inveniam.io
+License: Private - Inveniam Capital Partners, LLC use only
+Copyright: 2025 Inveniam Capital Partners, LLC and Rick Bunker
 """
 
 import json
@@ -87,7 +88,7 @@ class AuthorizationHandler(http.server.SimpleHTTPRequestHandler):
     providing user-friendly feedback during the authentication process.
     
     Business Context:
-        Provides professional authentication experience for asset management
+        Provides authentication experience for asset management
         professionals accessing Microsoft 365 email systems securely.
     """
     
@@ -98,7 +99,7 @@ class AuthorizationHandler(http.server.SimpleHTTPRequestHandler):
         
         Processes the OAuth callback from Microsoft identity platform,
         extracts authorization code, and provides appropriate user feedback
-        with professional styling for business environments.
+        with styling for business environments.
         
         Raises:
             None: Gracefully handles all errors with appropriate HTTP responses
@@ -115,7 +116,7 @@ class AuthorizationHandler(http.server.SimpleHTTPRequestHandler):
                     
                     logger.info("OAuth authorization code received successfully")
                     
-                    # Send professional success response
+                    # Send success response
                     self.send_response(200)
                     self.send_header('Content-type', 'text/html')
                     self.end_headers()
@@ -170,7 +171,7 @@ class AuthorizationHandler(http.server.SimpleHTTPRequestHandler):
             self._send_error_response("Authentication processing error")
     
     def _send_error_response(self, error_message: str) -> None:
-        """Send professional error response to user."""
+        """Send error response to user."""
         self.send_response(400)
         self.send_header('Content-type', 'text/html')
         self.end_headers()
@@ -202,7 +203,7 @@ class AuthorizationHandler(http.server.SimpleHTTPRequestHandler):
         self.wfile.write(error_html.encode())
     
     def _send_waiting_response(self) -> None:
-        """Send professional waiting response to user."""
+        """Send waiting response to user."""
         self.send_response(200)
         self.send_header('Content-type', 'text/html')
         self.end_headers()
@@ -241,16 +242,16 @@ class AuthorizationHandler(http.server.SimpleHTTPRequestHandler):
 
 class MicrosoftGraphInterface(BaseEmailInterface):
     """
-    Professional Microsoft Graph API integration for email management.
+    Microsoft Graph API integration for email management.
     
-    Provides comprehensive email management capabilities through Microsoft Graph API
+    Provides complete email management capabilities through Microsoft Graph API
     with production-grade authentication, error handling, and monitoring designed
     for private market asset management environments.
     
     Features:
         - OAuth 2.0 authentication with interactive web flow
-        - Comprehensive email operations (CRUD, search, labels)
-        - Advanced attachment handling with metadata extraction
+        - Complete email operations (CRUD, search, labels)
+        - attachment handling with metadata extraction
         - Business-context error handling and retry logic
         - Performance monitoring and health checking
         - Async operations for high-throughput processing
@@ -264,8 +265,8 @@ class MicrosoftGraphInterface(BaseEmailInterface):
         - MSAL for OAuth 2.0 authentication flows
         - Async HTTP client for API interactions
         - Thread pool for blocking operations
-        - Comprehensive error mapping and handling
-        - Professional logging and monitoring
+        - Complete error mapping and handling
+        - logging and monitoring
     """
     
     # Microsoft Graph API configuration
@@ -286,10 +287,10 @@ class MicrosoftGraphInterface(BaseEmailInterface):
     
     def __init__(self, credentials_path: str = "examples/msgraph_credentials.json") -> None:
         """
-        Initialize Microsoft Graph interface with comprehensive configuration.
+        Initialize Microsoft Graph interface with complete configuration.
         
         Sets up the Microsoft Graph API client with OAuth 2.0 authentication,
-        async HTTP client configuration, and professional logging for production
+        async HTTP client configuration, and logging for production
         deployment in asset management environments.
         
         Args:
@@ -375,9 +376,9 @@ class MicrosoftGraphInterface(BaseEmailInterface):
         """
         Establish connection to Microsoft Graph using OAuth 2.0 authentication.
         
-        Performs comprehensive OAuth 2.0 authentication flow with Microsoft identity
+        Performs complete OAuth 2.0 authentication flow with Microsoft identity
         platform including token caching, refresh logic, and interactive authentication
-        when required. Provides professional user experience for business environments.
+        when required. Provides user experience for business environments.
         
         Returns:
             True if connection successful, False otherwise
@@ -461,7 +462,7 @@ class MicrosoftGraphInterface(BaseEmailInterface):
         Perform interactive OAuth 2.0 authentication with web browser.
         
         Launches interactive authentication flow using system web browser
-        with professional callback handling and user experience optimized
+        with callback handling and user experience optimized
         for business environments.
         
         Args:
@@ -568,7 +569,7 @@ class MicrosoftGraphInterface(BaseEmailInterface):
         Initialize async HTTP session for Microsoft Graph API calls.
         
         Creates configured aiohttp session with appropriate headers,
-        timeouts, and error handling for professional API interactions.
+        timeouts, and error handling for API interactions.
         """
         if self.session:
             await self.session.close()
@@ -596,7 +597,7 @@ class MicrosoftGraphInterface(BaseEmailInterface):
         Disconnect from Microsoft Graph and cleanup resources.
         
         Properly closes HTTP sessions, clears authentication tokens,
-        and resets connection state with comprehensive cleanup.
+        and resets connection state with complete cleanup.
         """
         self.logger.info("Disconnecting from Microsoft Graph")
         
@@ -624,7 +625,7 @@ class MicrosoftGraphInterface(BaseEmailInterface):
         """
         Retrieve user profile information from Microsoft Graph.
         
-        Gets comprehensive user profile including email address, display name,
+        Gets complete user profile including email address, display name,
         and other relevant information for business context and logging.
         
         Returns:

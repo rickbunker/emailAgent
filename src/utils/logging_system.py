@@ -1,5 +1,5 @@
 """
-Comprehensive logging system for the email agent.
+Complete logging system for the email agent.
 
 Provides decorators and utilities for logging function entry/exit, arguments,
 return values, and exceptions across different log levels and output destinations.

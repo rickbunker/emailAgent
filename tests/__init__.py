@@ -1,8 +1,8 @@
 """
 Main Test Package for EmailAgent
 
-Comprehensive testing infrastructure for private market asset management email automation.
-Provides professional test suites, integration testing, performance validation,
+Complete testing infrastructure for private market asset management email automation.
+Provides test suites, integration testing, performance validation,
 and quality assurance for production EmailAgent deployments.
 
 Features:
@@ -14,8 +14,8 @@ Features:
     - Business workflow testing for asset management scenarios
 
 Business Context:
-    Designed for asset management firms requiring enterprise-grade
-    testing and validation of email automation systems with comprehensive
+    Designed for asset management firms requiring business
+    testing and validation of email automation systems with complete
     quality assurance, regulatory compliance testing, and performance
     validation for mission-critical production environments.
 
@@ -34,8 +34,9 @@ Test Organization:
     - Security: Authentication, authorization, and security validation
 
 Version: 1.0.0
-Author: Email Agent Development Team
-License: Private - Asset Management Use Only
+Author: Rick Bunker, rbunker@inveniam.io
+License: Private - Inveniam Capital Partners, LLC use only
+Copyright: 2025 Inveniam Capital Partners, LLC and Rick Bunker
 """
 
 import os

@@ -1,16 +1,16 @@
 """
 Microsoft Graph Web Authentication Test Suite for EmailAgent
 
-Professional Microsoft Graph web authentication test suite for asset management.
-Validates comprehensive web-based OAuth authentication flows, token management,
+Microsoft Graph web authentication test suite for asset management.
+Validates complete web-based OAuth authentication flows, token management,
 and secure connection establishment for private market asset management environments.
 
 Features:
-    - Professional OAuth 2.0 authorization code flow implementation
-    - Comprehensive web server authentication handling
+    - OAuth 2.0 authorization code flow implementation
+    - Complete web server authentication handling
     - Asset management security context and compliance validation
-    - Advanced error handling and recovery mechanism testing
-    - Professional logging integration and audit trail validation
+    - error handling and recovery mechanism testing
+    - logging integration and audit trail validation
     - Token persistence and refresh mechanism validation
 
 Business Context:
@@ -35,8 +35,9 @@ Authentication Categories:
     - Error Recovery: Authentication failures and timeouts
 
 Version: 1.0.0
-Author: Email Agent Development Team
-License: Private - Asset Management Use Only
+Author: Rick Bunker, rbunker@inveniam.io
+License: Private - Inveniam Capital Partners, LLC use only
+Copyright: 2025 Inveniam Capital Partners, LLC and Rick Bunker
 """
 
 import asyncio
@@ -53,7 +54,7 @@ from datetime import datetime, UTC
 import http.server
 import socketserver
 
-# Add src to path for comprehensive imports
+# Add src to path for complete imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 # External imports
@@ -71,7 +72,7 @@ logger = get_logger(__name__)
 
 class AuthorizationHandler(http.server.SimpleHTTPRequestHandler):
     """
-    Professional OAuth authorization callback handler for asset management.
+    OAuth authorization callback handler for asset management.
     
     Handles OAuth 2.0 authorization code callbacks with professional
     security validation and user experience for asset management
@@ -79,18 +80,18 @@ class AuthorizationHandler(http.server.SimpleHTTPRequestHandler):
     
     Features:
         - Secure authorization code extraction and validation
-        - Professional HTML response pages with asset management branding
-        - Comprehensive error handling and user feedback
+        - HTML response pages with asset management branding
+        - Complete error handling and user feedback
         - Security validation including state parameter verification
-        - Professional logging of authentication events
+        - logging of authentication events
     """
     
     def do_GET(self) -> None:
         """
         Handle GET request with OAuth authorization code callback.
         
-        Processes OAuth 2.0 authorization callbacks with comprehensive
-        validation and professional user experience for asset management
+        Processes OAuth 2.0 authorization callbacks with complete
+        validation and user experience for asset management
         authentication flows.
         """
         try:
@@ -105,7 +106,7 @@ class AuthorizationHandler(http.server.SimpleHTTPRequestHandler):
                     
                     logger.info("OAuth authorization code received successfully")
                     
-                    # Send professional success response
+                    # Send success response
                     self.send_response(200)
                     self.send_header('Content-type', 'text/html')
                     self.end_headers()
@@ -172,7 +173,7 @@ class AuthorizationHandler(http.server.SimpleHTTPRequestHandler):
             self._send_error_response(f"Authentication handler error: {str(e)}")
     
     def _send_error_response(self, error_message: str) -> None:
-        """Send professional error response page."""
+        """Send error response page."""
         self.send_response(400)
         self.send_header('Content-type', 'text/html')
         self.end_headers()
@@ -213,7 +214,7 @@ class AuthorizationHandler(http.server.SimpleHTTPRequestHandler):
         self.wfile.write(error_html.encode())
     
     def _send_waiting_response(self) -> None:
-        """Send professional waiting page."""
+        """Send waiting page."""
         self.send_response(200)
         self.send_header('Content-type', 'text/html')
         self.end_headers()
@@ -255,23 +256,23 @@ class AuthorizationHandler(http.server.SimpleHTTPRequestHandler):
 
 class MicrosoftGraphWebAuthTestSuite:
     """
-    Professional Microsoft Graph web authentication test suite.
+    Microsoft Graph web authentication test suite.
     
-    Provides comprehensive testing of Microsoft Graph web-based OAuth
+    Provides complete testing of Microsoft Graph web-based OAuth
     authentication including authorization code flows, token management,
     and security validation for asset management environments.
     
     Features:
-        - Comprehensive OAuth 2.0 authorization code flow testing
-        - Professional web server authentication handling
+        - Complete OAuth 2.0 authorization code flow testing
+        - web server authentication handling
         - Asset management security context validation
         - Token persistence and refresh mechanism testing
-        - Professional error handling and recovery testing
+        - error handling and recovery testing
         
     Attributes:
         test_stats: Authentication test execution metrics and results
         test_credentials: Microsoft Graph OAuth credentials
-        authentication_results: Comprehensive authentication test results
+        authentication_results: Complete authentication test results
         oauth_server: Local OAuth callback server for testing
     """
     
@@ -300,9 +301,9 @@ class MicrosoftGraphWebAuthTestSuite:
     @log_function()
     def _setup_logging_configuration(self) -> None:
         """
-        Setup professional logging configuration for web authentication testing.
+        Setup logging configuration for web authentication testing.
         
-        Configures comprehensive logging for OAuth authentication testing
+        Configures complete logging for OAuth authentication testing
         with asset management security context and audit trail requirements.
         """
         logger.info("Setting up Microsoft Graph web authentication test logging configuration")
@@ -386,11 +387,11 @@ class MicrosoftGraphWebAuthTestSuite:
     @log_function()
     async def test_oauth_authorization_flow(self) -> bool:
         """
-        Test comprehensive OAuth 2.0 authorization code flow.
+        Test complete OAuth 2.0 authorization code flow.
         
         Validates complete OAuth authorization flow including authorization
         URL generation, interactive authentication, and authorization code
-        exchange with professional security validation.
+        exchange with security validation.
         
         Returns:
             True if OAuth authorization flow test passed successfully
@@ -644,7 +645,7 @@ class MicrosoftGraphWebAuthTestSuite:
         
         Validates token storage, retrieval, and automatic refresh
         capabilities for long-term asset management authentication
-        scenarios with professional security validation.
+        scenarios with security validation.
         
         Returns:
             True if token persistence and refresh test passed successfully
@@ -701,18 +702,18 @@ class MicrosoftGraphWebAuthTestSuite:
             return False
 
     @log_function()
-    async def run_comprehensive_web_auth_tests(self) -> Dict[str, Any]:
+    async def run_complete_web_auth_tests(self) -> Dict[str, Any]:
         """
-        Run comprehensive Microsoft Graph web authentication test suite.
+        Run complete Microsoft Graph web authentication test suite.
         
         Executes complete web authentication validation including OAuth flows,
         API access testing, and token management for asset management
-        environments with professional validation and reporting.
+        environments with validation and reporting.
         
         Returns:
-            Dictionary containing comprehensive web authentication test results
+            Dictionary containing complete web authentication test results
         """
-        logger.info("🚀 Running comprehensive Microsoft Graph web authentication test suite")
+        logger.info("🚀 Running complete Microsoft Graph web authentication test suite")
         
         self.test_stats['start_time'] = datetime.now(UTC)
         
@@ -805,22 +806,22 @@ class MicrosoftGraphWebAuthTestSuite:
 @log_function()
 async def run_msgraph_web_auth_tests() -> bool:
     """
-    Main function to run comprehensive Microsoft Graph web authentication tests.
+    Main function to run complete Microsoft Graph web authentication tests.
     
     Executes complete web authentication validation for asset management
-    email automation with professional OAuth flows and comprehensive
+    email automation with OAuth flows and complete
     validation for production environments.
     
     Returns:
         True if all web authentication tests passed, False otherwise
     """
-    logger.info("Initializing comprehensive Microsoft Graph web authentication test execution")
+    logger.info("Initializing complete Microsoft Graph web authentication test execution")
     
     try:
         test_suite = MicrosoftGraphWebAuthTestSuite()
-        results = await test_suite.run_comprehensive_web_auth_tests()
+        results = await test_suite.run_complete_web_auth_tests()
         
-        # Display comprehensive results
+        # Display complete results
         print(f"\n🎯 EmailAgent Microsoft Graph Web Authentication Test Results")
         print(f"=" * 70)
         
@@ -888,8 +889,8 @@ def main() -> None:
     """
     Main entry point for Microsoft Graph web authentication tests.
     
-    Provides professional command-line interface for web authentication
-    test execution with comprehensive error handling and reporting.
+    Provides command-line interface for web authentication
+    test execution with complete error handling and reporting.
     """
     print("🧪 EmailAgent Microsoft Graph Web Authentication Test Suite")
     print("Asset Management OAuth 2.0 Authentication Validation")

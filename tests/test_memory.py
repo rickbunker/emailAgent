@@ -1,21 +1,21 @@
 """
 Memory System Test Suite for EmailAgent
 
-Professional test suite for comprehensive memory system validation in
+test suite for complete memory system validation in
 private market asset management email automation environments. Provides
 thorough testing of procedural, semantic, and episodic memory systems
 with realistic asset management scenarios.
 
 Features:
-    - Comprehensive memory system testing and validation
+    - Complete memory system testing and validation
     - Realistic asset management test scenarios and data
-    - Professional test patterns and assertion validation
+    - test patterns and assertion validation
     - Memory system integration and coordination testing
     - Performance testing and optimization validation
-    - Professional error handling and recovery testing
+    - error handling and recovery testing
 
 Business Context:
-    Designed for asset management firms requiring robust
+    Designed for asset management firms requiring
     memory systems for email automation, relationship management,
     knowledge retention, and business intelligence. Tests
     real-world scenarios for investment workflows, compliance,
@@ -30,8 +30,9 @@ Test Categories:
     - Error Handling: Resilience and recovery testing
 
 Version: 1.0.0
-Author: Email Agent Development Team
-License: Private - Asset Management Use Only
+Author: Rick Bunker, rbunker@inveniam.io
+License: Private - Inveniam Capital Partners, LLC use only
+Copyright: 2025 Inveniam Capital Partners, LLC and Rick Bunker
 """
 
 import asyncio
@@ -60,16 +61,16 @@ logger = get_logger(__name__)
 
 class MemoryTestSuite:
     """
-    Professional memory system test suite for asset management.
+    memory system test suite for asset management.
     
-    Provides comprehensive testing capabilities for all memory systems
+    Provides complete testing capabilities for all memory systems
     including business rules, sender intelligence, conversation history,
-    and system integration for professional asset management environments.
+    and system integration for asset management environments.
     
     Features:
-        - Comprehensive test coverage for all memory types
+        - Complete test coverage for all memory types
         - Realistic asset management test scenarios
-        - Professional test patterns and validation
+        - test patterns and validation
         - Performance benchmarking and optimization
         - Error handling and recovery testing
         
@@ -106,7 +107,7 @@ class MemoryTestSuite:
         Setup clean test environment for memory system testing.
         
         Initializes clean memory instances and prepares test data
-        for comprehensive memory system validation.
+        for complete memory system validation.
         
         Raises:
             Exception: If test environment setup fails
@@ -159,9 +160,9 @@ async def test_procedural_memory() -> None:
     """
     Test procedural memory for business rules and procedures.
     
-    Validates comprehensive procedural memory capabilities including
+    Validates complete procedural memory capabilities including
     rule creation, retrieval, updates, deletion, and business logic
-    for professional asset management environments.
+    for asset management environments.
     
     Raises:
         AssertionError: If procedural memory tests fail
@@ -269,9 +270,9 @@ async def test_semantic_memory() -> None:
     """
     Test semantic memory for sender intelligence and knowledge management.
     
-    Validates comprehensive semantic memory capabilities including
+    Validates complete semantic memory capabilities including
     knowledge creation, retrieval, search, and business intelligence
-    for professional asset management environments.
+    for asset management environments.
     
     Raises:
         AssertionError: If semantic memory tests fail
@@ -387,9 +388,9 @@ async def test_episodic_memory() -> None:
     """
     Test episodic memory for conversation history and learning experiences.
     
-    Validates comprehensive episodic memory capabilities including
+    Validates complete episodic memory capabilities including
     conversation storage, retrieval, temporal search, and learning
-    for professional asset management environments.
+    for asset management environments.
     
     Raises:
         AssertionError: If episodic memory tests fail
@@ -520,7 +521,7 @@ async def test_memory_integration() -> None:
     
     Validates cross-memory system functionality including data
     consistency, integration patterns, and coordinated operations
-    for comprehensive asset management workflows.
+    for complete asset management workflows.
     
     Raises:
         AssertionError: If memory integration tests fail
@@ -725,14 +726,14 @@ async def cleanup_collections(force_cleanup: bool = False) -> None:
         logger.error(f"Collection cleanup failed: {e}")
 
 @log_function()
-async def run_comprehensive_test_suite() -> Dict[str, Any]:
+async def run_complete_test_suite() -> Dict[str, Any]:
     """
-    Run comprehensive memory system test suite.
+    Run complete memory system test suite.
     
     Returns:
         Dictionary containing test execution results and metrics
     """
-    logger.info("🚀 Running comprehensive memory system test suite")
+    logger.info("🚀 Running complete memory system test suite")
     
     test_results = {
         'start_time': datetime.now(UTC),
@@ -809,8 +810,8 @@ async def main(force_cleanup: bool = False) -> bool:
     logger.info("=" * 60)
     
     try:
-        # Run comprehensive test suite
-        results = await run_comprehensive_test_suite()
+        # Run complete test suite
+        results = await run_complete_test_suite()
         
         # Display results
         print(f"\n📊 Test Results Summary:")

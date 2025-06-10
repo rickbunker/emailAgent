@@ -1,7 +1,7 @@
 """
 Configuration Management for Email Agent System
 
-Centralized configuration management for the intelligent asset document management system.
+Centralized configuration management for the asset document management system.
 Handles environment variables, API keys, database connections, logging settings, and
 application-wide constants.
 

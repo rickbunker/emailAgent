@@ -1,9 +1,9 @@
 """
 Episodic Memory System for EmailAgent
 
-Professional episodic memory system for private market asset management environments.
+episodic memory system for private market asset management environments.
 Provides conversation history storage, event tracking, and temporal context management
-with sophisticated search and retrieval capabilities for business intelligence.
+with search and retrieval capabilities for business intelligence.
 
 Features:
     - Conversation history and event tracking
@@ -11,10 +11,10 @@ Features:
     - Time-based search and filtering capabilities
     - Business context categorization and tagging
     - Interaction pattern analysis and insights
-    - Professional feedback and learning integration
+    - feedback and learning integration
 
 Business Context:
-    Designed for asset management firms requiring comprehensive conversation
+    Designed for asset management firms requiring complete conversation
     and interaction tracking across client communications, deal discussions,
     investment committee meetings, and operational workflows. Maintains
     temporal context for relationship management and decision support.
@@ -34,8 +34,9 @@ Memory Types:
     - Event: Business events and milestone tracking
 
 Version: 1.0.0
-Author: Email Agent Development Team
-License: Private - Asset Management Use Only
+Author: Rick Bunker, rbunker@inveniam.io
+License: Private - Inveniam Capital Partners, LLC use only
+Copyright: 2025 Inveniam Capital Partners, LLC and Rick Bunker
 """
 
 import time
@@ -60,7 +61,7 @@ logger = get_logger(__name__)
 
 class EpisodicMemoryType(Enum):
     """
-    Professional episodic memory classification for business context.
+    episodic memory classification for business context.
     
     Provides structured categorization of episodic memories for asset
     management environments with appropriate business context and
@@ -87,22 +88,22 @@ class EpisodicMemoryType(Enum):
 
 class EpisodicMemory(BaseMemory):
     """
-    Professional episodic memory system for asset management environments.
+    episodic memory system for asset management environments.
     
-    Provides comprehensive conversation history and event tracking with
+    Provides complete conversation history and event tracking with
     temporal context management designed for private market asset management
-    firms requiring sophisticated interaction and decision tracking.
+    firms requiring interaction and decision tracking.
     
     Features:
         - Conversation history with temporal context
         - Business event tracking and categorization
         - Time-based search and filtering capabilities
         - Interaction pattern analysis and insights
-        - Professional feedback integration and learning
+        - feedback integration and learning
         - Decision audit trail and rationale tracking
         
     Business Context:
-        Enables asset management firms to maintain comprehensive records
+        Enables asset management firms to maintain complete records
         of client interactions, investment decisions, committee discussions,
         and operational events with temporal context for compliance,
         relationship management, and business intelligence.
@@ -145,11 +146,11 @@ class EpisodicMemory(BaseMemory):
         memory_type: EpisodicMemoryType = EpisodicMemoryType.CONVERSATION
     ) -> str:
         """
-        Add a new episodic memory with comprehensive metadata.
+        Add a new episodic memory with complete metadata.
         
         Creates episodic memory entries with automatic timestamp generation,
         business context categorization, and metadata enrichment for
-        professional asset management environments.
+        asset management environments.
         
         Args:
             content: The memory content to store (conversation, event, etc.)
@@ -183,7 +184,7 @@ class EpisodicMemory(BaseMemory):
         if "type" not in metadata:
             metadata["type"] = memory_type.value
         
-        # Add comprehensive temporal metadata
+        # Add complete temporal metadata
         current_timestamp = datetime.now(UTC).timestamp()
         metadata.setdefault("timestamp", current_timestamp)
         metadata.setdefault("iso_timestamp", datetime.now(UTC).isoformat())
@@ -349,11 +350,11 @@ class EpisodicMemory(BaseMemory):
         memory_type: Optional[EpisodicMemoryType] = None
     ) -> List[MemoryItem]:
         """
-        Search episodic memories with comprehensive filtering.
+        Search episodic memories with complete filtering.
         
         Performs semantic search across episodic memories with temporal
         filtering, business context categorization, and relevance ranking
-        for professional asset management environments.
+        for asset management environments.
         
         Args:
             query: The search query for semantic matching
@@ -379,7 +380,7 @@ class EpisodicMemory(BaseMemory):
         logger.info(f"Searching episodic memories: query='{query}', limit={limit}")
         
         try:
-            # Build comprehensive filter conditions
+            # Build complete filter conditions
             filter_conditions = {"must": []}
             
             # Memory type filter
@@ -547,7 +548,7 @@ class EpisodicMemory(BaseMemory):
     @log_function()
     async def get_memory_statistics(self) -> Dict[str, Any]:
         """
-        Get comprehensive statistics about episodic memory usage.
+        Get complete statistics about episodic memory usage.
         
         Provides business intelligence metrics about memory patterns,
         types, and usage for performance monitoring and optimization.
@@ -649,7 +650,7 @@ async def demo_episodic_memory() -> None:
     """
     Demonstration of episodic memory system capabilities.
     
-    Showcases the professional episodic memory features including
+    Showcases the episodic memory features including
     conversation tracking, decision recording, temporal search,
     and business intelligence for asset management environments.
     """

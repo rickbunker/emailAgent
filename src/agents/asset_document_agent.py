@@ -1,18 +1,18 @@
 """
 Asset Document E-Mail Ingestion Agent
 
-An intelligent email-driven document processing and filing agent for private market assets.
+An email-driven document processing and filing agent for private market assets.
 Handles automatic extraction, classification, and organization of email attachments with
-comprehensive logging, type safety, and production-grade error handling.
+complete logging, type safety, and production-grade error handling.
 
 Features:
     - Multi-phase document processing pipeline
-    - Comprehensive virus scanning with ClamAV integration
-    - Advanced asset classification for private market investments
-    - Qdrant vector database integration for intelligent storage
+    - Complete virus scanning with ClamAV integration
+    - asset classification for private market investments
+    - Qdrant vector database integration for storage
     - Sender-asset relationship mapping with confidence scoring
     - Duplicate detection via SHA256 hashing
-    - Comprehensive logging and monitoring
+    - Complete logging and monitoring
 
 Phase 1 Implementation: ✅ COMPLETE
     - Attachment extraction from emails
@@ -50,8 +50,9 @@ Document Categories:
     pattern-based classification and confidence scoring.
 
 Version: 1.0.0
-Author: Email Agent Development Team
-License: Private - Asset Management Use Only
+Author: Rick Bunker, rbunker@inveniam.io
+License: Private - Inveniam Capital Partners, LLC use only
+Copyright: 2025 Inveniam Capital Partners, LLC and Rick Bunker
 """
 
 import asyncio
@@ -297,8 +298,8 @@ class AssetDocumentAgent:
         """
         Initialize the Asset Document Agent.
         
-        Sets up the intelligent document processing pipeline with vector database
-        integration, antivirus scanning, and comprehensive logging.
+        Sets up the document processing pipeline with vector database
+        integration, antivirus scanning, and complete logging.
         
         Args:
             qdrant_client: Connected Qdrant client instance for vector storage

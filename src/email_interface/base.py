@@ -1,15 +1,15 @@
 """
-Base Email Interface for Intelligent Document Management
+Base Email Interface for Document Management
 
 This module provides the abstract interface that all email system integrations
 must implement, enabling the email agent to work seamlessly with different email
 systems (Gmail, Microsoft Graph, IMAP, Exchange, etc.) through a unified interface.
 
 Features:
-    - Unified email data models with comprehensive metadata
+    - Unified email data models with complete metadata
     - Async/await patterns for optimal performance
     - Type-safe interfaces with full type hint coverage
-    - Comprehensive logging for debugging and monitoring
+    - Complete logging for debugging and monitoring
     - Extensible attachment handling with lazy loading
     - Rich search capabilities with flexible criteria
     - Error handling with specific exception types
@@ -28,15 +28,16 @@ Email Data Models:
     - EmailAttachment: Attachment metadata with lazy content loading
     - Email: Complete email message with rich metadata
     - EmailSearchCriteria: Flexible search and filtering options
-    - EmailSendRequest: Comprehensive email composition structure
+    - EmailSendRequest: Complete email composition structure
 
 Implementation Requirements:
     All email system implementations must inherit from BaseEmailInterface
     and implement all abstract methods with proper error handling and logging.
 
 Version: 1.0.0
-Author: Email Agent Development Team
-License: Private - Asset Management Use Only
+Author: Rick Bunker, rbunker@inveniam.io
+License: Private - Inveniam Capital Partners, LLC use only
+Copyright: 2025 Inveniam Capital Partners, LLC and Rick Bunker
 """
 
 from abc import ABC, abstractmethod
@@ -144,7 +145,7 @@ class EmailImportance(Enum):
 @dataclass
 class Email:
     """
-    Represents a complete email message with comprehensive metadata.
+    Represents a complete email message with complete metadata.
     
     Provides a unified data structure that captures all relevant email
     information across different email systems, enabling consistent
@@ -170,7 +171,7 @@ class Email:
         labels: List of labels/folders (Gmail labels or folder names)
         message_id: RFC message ID for threading
         in_reply_to: Message ID this email replies to
-        raw_data: Original API response for debugging/advanced use
+        raw_data: Original API response for debugging/use
     """
     id: str
     thread_id: Optional[str]
@@ -221,7 +222,7 @@ class EmailSearchCriteria:
     """
     Flexible criteria for searching and filtering emails.
     
-    Provides a comprehensive set of search parameters that can be used
+    Provides a complete set of search parameters that can be used
     across different email systems to find specific emails based on
     content, metadata, dates, and other attributes.
     
@@ -261,7 +262,7 @@ class EmailSearchCriteria:
 @dataclass
 class EmailSendRequest:
     """
-    Request structure for sending emails with comprehensive options.
+    Request structure for sending emails with complete options.
     
     Encapsulates all information needed to compose and send an email,
     including recipients, content, attachments, and metadata.
@@ -305,7 +306,7 @@ class EmailSystemError(Exception):
     Base exception for email system errors.
     
     All email system-specific exceptions inherit from this base class,
-    allowing for comprehensive error handling across different email providers.
+    allowing for complete error handling across different email providers.
     """
     def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
         super().__init__(message)
@@ -371,7 +372,7 @@ class BaseEmailInterface(ABC):
     ensure consistent behavior across different email providers.
     
     All methods are async to support high-performance email processing
-    and include comprehensive logging for debugging and monitoring.
+    and include complete logging for debugging and monitoring.
     
     Attributes:
         is_connected: Boolean indicating connection status

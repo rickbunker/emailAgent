@@ -1,12 +1,12 @@
 """
 Microsoft Graph Spam Management System
 
-This script provides comprehensive spam detection and management for Microsoft 365/Outlook
+This script provides complete spam detection and management for Microsoft 365/Outlook
 using Microsoft Graph API. It integrates SpamAssassin for spam detection with automated
 actions like unsubscribing and moving emails to junk folders.
 
 Features:
-- SpamAssassin integration for advanced spam detection
+- SpamAssassin integration for spam detection
 - Multi-level whitelist protection (government, financial, news, personal contacts)
 - Microsoft Graph contacts integration for automatic protection
 - Automated unsubscribe attempts for legitimate senders
@@ -603,7 +603,7 @@ class EmailProcessingLogger:
             ])
     
     def generate_summary(self, total_emails, spam_count, clean_count, error_count, action_results):
-        """Generate a comprehensive summary report."""
+        """Generate a complete summary report."""
         # Calculate statistics
         spam_rate = (spam_count / (spam_count + clean_count) * 100) if (spam_count + clean_count) > 0 else 0
         

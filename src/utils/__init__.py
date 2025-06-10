@@ -1,41 +1,42 @@
 """
 Utility Systems Package for EmailAgent
 
-Comprehensive utility package for private market asset management environments.
+Complete utility package for private market asset management environments.
 Provides essential utility functions, logging systems, configuration management,
 and shared infrastructure for the EmailAgent system.
 
 Features:
-    - Professional logging system with structured output
+    - logging system with structured output
     - Configuration management and validation
     - Shared utility functions and helpers
     - Performance monitoring and optimization
     - Error handling and debugging support
-    - Professional development tools
+    - development tools
 
 Business Context:
-    Designed for asset management firms requiring enterprise-grade
-    utility infrastructure with professional logging, configuration
+    Designed for asset management firms requiring business
+    utility infrastructure with logging, configuration
     management, and shared services for email automation and
     document processing systems.
 
 Technical Architecture:
-    - LoggingSystem: Comprehensive logging with structured output
+    - LoggingSystem: Complete logging with structured output
     - Configuration: Centralized configuration management
     - Utilities: Shared helper functions and tools
     - Performance: Monitoring and optimization utilities
-    - Error Handling: Professional error management
+    - Error Handling: error management
 
 Components:
-    - logging_system: Professional logging infrastructure
+    - logging_system: logging infrastructure
     - config_utils: Configuration management utilities
     - performance_utils: Performance monitoring tools
     - error_handling: Error management and reporting
     - debugging_utils: Development and debugging support
 
 Version: 1.0.0
-Author: Email Agent Development Team
-License: Private - Asset Management Use Only
+Author: Rick Bunker, rbunker@inveniam.io
+License: Private - Inveniam Capital Partners, LLC use only
+Copyright: 2025 Inveniam Capital Partners, LLC and Rick Bunker
 """
 
 from .logging_system import get_logger, log_function, LogConfig
@@ -63,14 +64,14 @@ __all__ = [
 
 # Package initialization logging
 logger.info(f"Utils package initialized - Version {__version__}")
-logger.debug("Core logging system loaded with professional configuration")
+logger.debug("Core logging system loaded with configuration")
 logger.debug("Utility infrastructure ready for EmailAgent operations")
 
 # Package-level convenience functions
 @log_function()
 def get_package_info() -> dict:
     """
-    Get comprehensive package information and metadata.
+    Get complete package information and metadata.
     
     Provides detailed information about the utils package
     capabilities, version, and available utilities.
@@ -91,9 +92,9 @@ def get_package_info() -> dict:
         'version': __version__,
         'author': __author__,
         'license': __license__,
-        'description': 'Comprehensive utility package for private market asset management environments',
+        'description': 'Complete utility package for private market asset management environments',
         'capabilities': [
-            'Professional logging system',
+            'logging system',
             'Configuration management',
             'Performance monitoring',
             'Error handling and debugging',
@@ -118,10 +119,10 @@ def configure_logging(
     backup_count: int = 5
 ) -> LogConfig:
     """
-    Configure professional logging system with business context.
+    Configure logging system with business context.
     
     Provides convenient package-level logging configuration
-    with enterprise-grade settings for asset management environments.
+    with business settings for asset management environments.
     
     Args:
         level: Logging level ('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL')
@@ -156,7 +157,7 @@ def configure_logging(
 @log_function()
 def get_system_status() -> dict:
     """
-    Get comprehensive system status and health information.
+    Get complete system status and health information.
     
     Provides system health, performance metrics, and operational
     status for monitoring and troubleshooting asset management

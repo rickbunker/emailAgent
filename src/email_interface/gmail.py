@@ -1,17 +1,17 @@
 """
 Gmail Email Interface
 
-A comprehensive Gmail API integration for sophisticated email management in private market
+A complete Gmail API integration for email management in private market
 asset management environments. Provides seamless Google Workspace integration with
-professional-grade authentication, error handling, and monitoring capabilities.
+business authentication, error handling, and monitoring capabilities.
 
 Features:
     - OAuth 2.0 authentication with Google Identity platform
-    - Comprehensive email management (read, send, delete, labels)
-    - Advanced search capabilities with Gmail-specific filters
+    - Complete email management (read, send, delete, labels)
+    - search capabilities with Gmail-specific filters
     - Attachment handling with metadata extraction and processing
     - Production-grade error handling and retry logic
-    - Comprehensive logging and performance monitoring
+    - Complete logging and performance monitoring
     - Contacts integration for sender validation
 
 Business Context:
@@ -21,9 +21,9 @@ Business Context:
     
 Technical Architecture:
     - Google Auth library for OAuth 2.0 flows
-    - Gmail API v1 for comprehensive email operations
+    - Gmail API v1 for complete email operations
     - Async operations with thread pool execution for blocking calls
-    - Professional error mapping and business-context exceptions
+    - error mapping and business-context exceptions
     - Thread pool execution for blocking Google API calls
 
 Integration Points:
@@ -33,8 +33,9 @@ Integration Points:
     - Memory systems for learning and adaptation
 
 Version: 1.0.0
-Author: Email Agent Development Team
-License: Private - Asset Management Use Only
+Author: Rick Bunker, rbunker@inveniam.io
+License: Private - Inveniam Capital Partners, LLC use only
+Copyright: 2025 Inveniam Capital Partners, LLC and Rick Bunker
 """
 
 import base64
@@ -82,17 +83,17 @@ logger = get_logger(__name__)
 
 class GmailInterface(BaseEmailInterface):
     """
-    Professional Gmail API integration for email management.
+    Gmail API integration for email management.
     
-    Provides comprehensive email management capabilities through Gmail API v1
+    Provides complete email management capabilities through Gmail API v1
     with production-grade authentication, error handling, and monitoring designed
     for private market asset management environments using Google Workspace.
     
     Features:
         - OAuth 2.0 authentication with Google Identity platform
-        - Comprehensive email operations (CRUD, search, labels)
-        - Advanced Gmail search query support with filters
-        - Professional attachment handling with metadata extraction
+        - Complete email operations (CRUD, search, labels)
+        - Gmail search query support with filters
+        - attachment handling with metadata extraction
         - Business-context error handling and retry logic
         - Performance monitoring and health checking
         - Contacts integration for sender validation
@@ -100,17 +101,17 @@ class GmailInterface(BaseEmailInterface):
     Business Context:
         Designed for asset management firms requiring reliable Google Workspace
         integration for processing sensitive financial communications, investor
-        updates, and deal-related correspondence with enterprise-grade security.
+        updates, and deal-related correspondence with business security.
         
     Technical Architecture:
         - Google Auth libraries for OAuth 2.0 authentication
         - Gmail API v1 for email operations
         - Thread pool for blocking API operations
-        - Comprehensive error mapping and handling
-        - Professional logging and monitoring
+        - Complete error mapping and handling
+        - logging and monitoring
     """
     
-    # Gmail API scopes for comprehensive email access
+    # Gmail API scopes for complete email access
     SCOPES = [
         'https://www.googleapis.com/auth/gmail.readonly',
         'https://www.googleapis.com/auth/gmail.send',
@@ -126,10 +127,10 @@ class GmailInterface(BaseEmailInterface):
     
     def __init__(self) -> None:
         """
-        Initialize Gmail interface with comprehensive configuration.
+        Initialize Gmail interface with complete configuration.
         
         Sets up the Gmail API client with OAuth 2.0 authentication,
-        thread pool for blocking operations, and professional logging
+        thread pool for blocking operations, and logging
         for production deployment in asset management environments.
         
         Raises:
@@ -161,9 +162,9 @@ class GmailInterface(BaseEmailInterface):
         """
         Establish connection to Gmail using OAuth 2.0 authentication.
         
-        Performs comprehensive OAuth 2.0 authentication flow with Google Identity
+        Performs complete OAuth 2.0 authentication flow with Google Identity
         platform including token caching, refresh logic, and interactive authentication
-        when required. Provides professional user experience for business environments.
+        when required. Provides user experience for business environments.
         
         Args:
             credentials: Authentication configuration containing one of:
@@ -246,7 +247,7 @@ class GmailInterface(BaseEmailInterface):
         Perform interactive OAuth 2.0 flow with Google Identity platform.
         
         Launches interactive authentication flow using system web browser
-        with professional user experience optimized for business environments.
+        with user experience optimized for business environments.
         
         Args:
             credentials_file: Path to Google OAuth 2.0 credentials JSON file
@@ -286,7 +287,7 @@ class GmailInterface(BaseEmailInterface):
         Disconnect from Gmail and cleanup resources.
         
         Properly closes service connections, clears authentication tokens,
-        and resets connection state with comprehensive cleanup.
+        and resets connection state with complete cleanup.
         """
         self.logger.info("Disconnecting from Gmail")
         
@@ -309,7 +310,7 @@ class GmailInterface(BaseEmailInterface):
         """
         Retrieve user profile information from Gmail.
         
-        Gets comprehensive user profile including email address, display name,
+        Gets complete user profile including email address, display name,
         and Gmail-specific information for business context and logging.
         
         Returns:

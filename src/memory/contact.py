@@ -1,23 +1,23 @@
 """
 Contact Memory Management System for EmailAgent
 
-Professional contact memory system for private market asset management environments.
-Provides dedicated Qdrant-based storage for contact information with advanced
+contact memory system for private market asset management environments.
+Provides dedicated Qdrant-based storage for contact information with
 features including deduplication, relationship tracking, and contact enrichment.
 
 Features:
     - Persistent contact record management with deduplication
     - Contact information enrichment and updating over time
     - Relationship tracking and business context analysis
-    - Advanced search capabilities (name, email, organization, phone)
+    - search capabilities (name, email, organization, phone)
     - Contact interaction history and frequency tracking
     - Tag-based organization and categorization
-    - Professional confidence scoring and validation
+    - confidence scoring and validation
 
 Business Context:
-    Designed for asset management firms requiring comprehensive contact management
+    Designed for asset management firms requiring complete contact management
     across deal flow, investor relations, and business development activities.
-    Maintains professional relationship context and interaction history for
+    Maintains relationship context and interaction history for
     improved business intelligence and relationship management.
 
 Technical Architecture:
@@ -25,8 +25,8 @@ Technical Architecture:
     - Vector-based semantic search with embedding models
     - Contact deduplication by email address (primary key)
     - Incremental contact enrichment with confidence scoring  
-    - Professional relationship taxonomy and categorization
-    - Comprehensive audit trail and interaction tracking
+    - relationship taxonomy and categorization
+    - Complete audit trail and interaction tracking
 
 Contact Types:
     - Personal: Personal contacts and relationships
@@ -36,8 +36,9 @@ Contact Types:
     - Unknown: Unclassified contacts requiring review
 
 Version: 1.0.0
-Author: Email Agent Development Team
-License: Private - Asset Management Use Only
+Author: Rick Bunker, rbunker@inveniam.io
+License: Private - Inveniam Capital Partners, LLC use only
+Copyright: 2025 Inveniam Capital Partners, LLC and Rick Bunker
 """
 
 import os
@@ -65,7 +66,7 @@ logger = get_logger(__name__)
 
 class ContactType(Enum):
     """
-    Professional contact classification for business context.
+    contact classification for business context.
     
     Provides structured categorization of contacts for asset management
     environments with appropriate business context and relationship types.
@@ -102,9 +103,9 @@ class ContactConfidence(Enum):
 @dataclass
 class ContactRecord:
     """
-    Comprehensive contact record for asset management environments.
+    Complete contact record for asset management environments.
     
-    Professional contact data structure with complete information tracking,
+    contact data structure with complete information tracking,
     relationship context, and interaction history for business intelligence
     and relationship management in asset management firms.
     
@@ -116,9 +117,9 @@ class ContactRecord:
         last_name: Contact surname for formal addressing
         phone: Primary phone number
         organization: Company or organization affiliation
-        title: Professional title or position
+        title: title or position
         address: Physical or business address
-        contact_type: Professional contact classification
+        contact_type: contact classification
         confidence: Information accuracy confidence level
         relationship: Business relationship description
         notes: Additional contact notes and context
@@ -142,7 +143,7 @@ class ContactRecord:
     contact_type: ContactType = ContactType.UNKNOWN
     confidence: ContactConfidence = ContactConfidence.LOW
     
-    # Professional relationship and business context
+    # relationship and business context
     relationship: Optional[str] = None  # "colleague", "investor", "vendor", "counterparty"
     notes: Optional[str] = None
     tags: List[str] = field(default_factory=list)
@@ -209,7 +210,7 @@ class ContactRecord:
     
     def get_search_text(self) -> str:
         """
-        Generate comprehensive search text for vector indexing.
+        Generate complete search text for vector indexing.
         
         Creates searchable text representation combining all contact
         information for semantic vector search capabilities.
@@ -229,7 +230,7 @@ class ContactRecord:
         if self.last_name:
             parts.append(self.last_name)
             
-        # Professional context
+        # context
         if self.organization:
             parts.append(self.organization)
         if self.title:
@@ -250,32 +251,32 @@ class ContactRecord:
 
 class ContactMemory(BaseMemory):
     """
-    Professional contact memory system for asset management environments.
+    contact memory system for asset management environments.
     
-    Provides comprehensive contact management with deduplication, relationship
+    Provides complete contact management with deduplication, relationship
     tracking, and business intelligence features designed for private market
-    asset management firms requiring sophisticated contact relationship management.
+    asset management firms requiring contact relationship management.
     
     Features:
         - Contact deduplication by email address
         - Incremental contact information enrichment
         - Business relationship tracking and categorization
         - Interaction frequency and history tracking
-        - Advanced search with semantic and categorical filtering
-        - Professional confidence scoring and validation
+        - search with semantic and categorical filtering
+        - confidence scoring and validation
         - Tag-based organization and workflow integration
         
     Business Context:
-        Enables asset management firms to maintain comprehensive contact
+        Enables asset management firms to maintain complete contact
         databases across deal flow, investor relations, business development,
-        and operational activities with professional relationship context.
+        and operational activities with relationship context.
         
     Technical Implementation:
         - Dedicated Qdrant collection for contact persistence
         - Email-based primary key with automatic deduplication
         - Vector semantic search with embedding models
         - Incremental update workflow for contact enrichment
-        - Professional audit trail and interaction tracking
+        - audit trail and interaction tracking
     """
     
     def __init__(self, max_items: int = 5000, **kwargs):
@@ -304,9 +305,9 @@ class ContactMemory(BaseMemory):
         **kwargs
     ) -> str:
         """
-        Add or update a professional contact record.
+        Add or update a contact record.
         
-        Handles intelligent contact deduplication by email address with
+        Handles contact deduplication by email address with
         incremental information enrichment. If contact exists, updates
         with new information while preserving interaction history.
         
@@ -315,8 +316,8 @@ class ContactMemory(BaseMemory):
             name: Full contact name
             phone: Phone number
             organization: Company or organization name
-            title: Professional title or position
-            contact_type: Professional contact classification
+            title: title or position
+            contact_type: contact classification
             confidence: Information accuracy confidence level
             source_email_id: Email ID where contact was discovered
             **kwargs: Additional contact attributes for enrichment
@@ -373,14 +374,14 @@ class ContactMemory(BaseMemory):
         **kwargs
     ) -> str:
         """
-        Create new contact record with comprehensive initialization.
+        Create new contact record with complete initialization.
         
         Args:
             email: Contact email address
             name: Full contact name
             phone: Phone number
             organization: Organization name
-            title: Professional title
+            title: title
             contact_type: Contact classification
             confidence: Information confidence level
             source_email_id: Source email identifier
@@ -466,7 +467,7 @@ class ContactMemory(BaseMemory):
         """
         Update existing contact with new information and enrichment.
         
-        Performs intelligent merging of contact information with
+        Performs merging of contact information with
         confidence-based field updating and interaction tracking.
         
         Args:
@@ -643,8 +644,8 @@ class ContactMemory(BaseMemory):
         """
         Search contacts with semantic and categorical filtering.
         
-        Performs comprehensive contact search combining semantic vector
-        search with categorical filters for professional contact discovery.
+        Performs complete contact search combining semantic vector
+        search with categorical filters for contact discovery.
         
         Args:
             query: Search query text (names, organizations, titles, etc.)
@@ -975,7 +976,7 @@ async def demo_contact_memory() -> None:
     """
     Demonstration of contact memory system capabilities.
     
-    Showcases the professional contact management features including
+    Showcases the contact management features including
     contact creation, deduplication, search, and relationship tracking
     for asset management environments.
     """
@@ -985,7 +986,7 @@ async def demo_contact_memory() -> None:
     
     try:
         # Add sample contacts
-        logger.info("Adding sample professional contacts...")
+        logger.info("Adding sample contacts...")
         
         # Investment professional
         contact1_id = await contact_memory.add_contact(

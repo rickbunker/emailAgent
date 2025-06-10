@@ -1,8 +1,8 @@
 """
-Base Memory System for Intelligent Email Document Management
+Base Memory System for Email Document Management
 
 This module provides the foundation for different types of memory storage used
-throughout the email agent system, enabling intelligent learning and adaptation.
+throughout the email agent system, enabling learning and adaptation.
 
 Memory Types Supported:
     - Procedural Memory: Stores rules, procedures, and workflows for email handling
@@ -24,7 +24,7 @@ Key Features:
     - Automatic collection management and optimization
     - Memory item lifecycle tracking with timestamps
     - Async/await patterns for high-performance operations
-    - Comprehensive logging for debugging and monitoring
+    - Complete logging for debugging and monitoring
     - Type-safe interfaces with full validation
 
 Storage Technology:
@@ -34,8 +34,9 @@ Storage Technology:
     - Indexing: Cosine similarity with HNSW graphs
 
 Version: 1.0.0
-Author: Email Agent Development Team
-License: Private - Asset Management Use Only
+Author: Rick Bunker, rbunker@inveniam.io
+License: Private - Inveniam Capital Partners, LLC use only
+Copyright: 2025 Inveniam Capital Partners, LLC and Rick Bunker
 """
 
 import os
@@ -123,7 +124,7 @@ class BaseMemory:
     using Qdrant as the vector database backend. Each memory type (procedural, 
     semantic, episodic, contact) extends this class and adds type-specific functionality.
     
-    The memory system uses semantic embeddings to enable intelligent retrieval of
+    The memory system uses semantic embeddings to enable retrieval of
     relevant information based on context and similarity rather than exact matches.
     
     Attributes:

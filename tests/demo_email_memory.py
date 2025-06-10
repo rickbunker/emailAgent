@@ -1,20 +1,20 @@
 """
 Email Memory System Demonstration for EmailAgent
 
-Professional demonstration script showcasing the comprehensive memory system
+demonstration script showcasing the complete memory system
 capabilities for private market asset management email automation. Provides
 realistic data population and query demonstrations for enterprise environments.
 
 Features:
-    - Comprehensive memory system demonstration and validation
+    - Complete memory system demonstration and validation
     - Realistic asset management email scenarios and data
-    - Professional query patterns and business intelligence
+    - query patterns and business intelligence
     - Memory system integration and workflow demonstration
     - Performance benchmarking and optimization insights
-    - Professional error handling and logging integration
+    - error handling and logging integration
 
 Business Context:
-    Designed for asset management firms requiring sophisticated
+    Designed for asset management firms requiring
     memory systems for email automation, relationship management,
     knowledge retention, and business intelligence. Demonstrates
     real-world scenarios for investment workflows, compliance,
@@ -25,7 +25,7 @@ Technical Architecture:
     - Realistic data population with business context
     - Query pattern demonstration and performance validation
     - Memory system learning and adaptation capabilities
-    - Professional demonstration workflow and reporting
+    - demonstration workflow and reporting
 
 Demo Categories:
     - Procedural: Business rules and workflow automation
@@ -34,8 +34,9 @@ Demo Categories:
     - Integration: Cross-memory system coordination and insights
 
 Version: 1.0.0
-Author: Email Agent Development Team
-License: Private - Asset Management Use Only
+Author: Rick Bunker, rbunker@inveniam.io
+License: Private - Inveniam Capital Partners, LLC use only
+Copyright: 2025 Inveniam Capital Partners, LLC and Rick Bunker
 """
 
 import asyncio
@@ -60,15 +61,15 @@ logger = get_logger(__name__)
 
 class EmailMemoryDemo:
     """
-    Professional email memory system demonstration for asset management.
+    email memory system demonstration for asset management.
     
-    Provides comprehensive demonstration of memory system capabilities
+    Provides complete demonstration of memory system capabilities
     including data population, query patterns, and business intelligence
     for private market asset management email automation environments.
     
     Features:
         - Realistic asset management data population
-        - Professional query pattern demonstrations
+        - query pattern demonstrations
         - Memory system integration and coordination
         - Performance benchmarking and insights
         - Business intelligence and learning capabilities
@@ -105,7 +106,7 @@ class EmailMemoryDemo:
         """
         Populate the memory system with realistic asset management data.
         
-        Creates comprehensive demonstration data including business rules,
+        Creates complete demonstration data including business rules,
         sender intelligence, and conversation history for professional
         asset management email automation scenarios.
         
@@ -140,7 +141,7 @@ class EmailMemoryDemo:
     @log_function()
     async def _populate_procedural_memory(self) -> None:
         """
-        Add comprehensive business rules and procedures for asset management.
+        Add complete business rules and procedures for asset management.
         
         Populates procedural memory with investment rules, compliance procedures,
         operational standards, and decision criteria for professional
@@ -260,10 +261,10 @@ class EmailMemoryDemo:
     @log_function()
     async def _populate_semantic_memory(self) -> None:
         """
-        Add comprehensive sender intelligence and knowledge for asset management.
+        Add complete sender intelligence and knowledge for asset management.
         
         Populates semantic memory with relationship intelligence, communication
-        patterns, and domain expertise for professional counterparty
+        patterns, and domain expertise for counterparty
         management and business intelligence.
         """
         logger.info("🧠 Adding semantic memory (sender intelligence and knowledge)...")
@@ -380,7 +381,7 @@ class EmailMemoryDemo:
         
         Populates episodic memory with investment meeting records, decision
         audit trails, client interactions, and learning experiences for
-        professional business intelligence and process optimization.
+        business intelligence and process optimization.
         """
         logger.info("📝 Adding episodic memory (conversation history and experiences)...")
         
@@ -474,13 +475,13 @@ class EmailMemoryDemo:
     @log_function()
     async def run_demo_queries(self) -> None:
         """
-        Execute comprehensive demonstration queries across all memory systems.
+        Execute complete demonstration queries across all memory systems.
         
-        Demonstrates professional query patterns, business intelligence
+        Demonstrates query patterns, business intelligence
         capabilities, and memory system integration for asset management
         email automation environments.
         """
-        logger.info("🔍 Running comprehensive demo queries...")
+        logger.info("🔍 Running complete demo queries...")
         
         demo_sections = [
             ("Investment Decision Support", self._demo_investment_intelligence),
@@ -608,7 +609,7 @@ class EmailMemoryDemo:
     @log_function()
     async def generate_demo_report(self) -> Dict[str, Any]:
         """
-        Generate comprehensive demonstration report with metrics and insights.
+        Generate complete demonstration report with metrics and insights.
         
         Returns:
             Dictionary containing demo execution metrics and business insights
@@ -620,7 +621,7 @@ class EmailMemoryDemo:
         else:
             duration = 0
         
-        # Generate comprehensive memory statistics
+        # Generate complete memory statistics
         try:
             memory_stats = {
                 'procedural': await self.procedural.get_rule_statistics(),
@@ -660,18 +661,18 @@ class EmailMemoryDemo:
 
 # Demonstration execution function
 @log_function()
-async def run_comprehensive_demo() -> Dict[str, Any]:
+async def run_complete_demo() -> Dict[str, Any]:
     """
-    Execute comprehensive email memory system demonstration.
+    Execute complete email memory system demonstration.
     
     Runs complete demonstration workflow including data setup,
     query execution, and report generation for professional
     asset management environments.
     
     Returns:
-        Comprehensive demonstration report with metrics and insights
+        Complete demonstration report with metrics and insights
     """
-    logger.info("🚀 Starting comprehensive email memory system demonstration")
+    logger.info("🚀 Starting complete email memory system demonstration")
     
     try:
         # Initialize and run demonstration
@@ -683,7 +684,7 @@ async def run_comprehensive_demo() -> Dict[str, Any]:
         # Execute demonstration queries
         await demo.run_demo_queries()
         
-        # Generate comprehensive report
+        # Generate complete report
         report = await demo.generate_demo_report()
         
         logger.info("✅ Email memory system demonstration completed successfully")
@@ -703,7 +704,7 @@ async def main() -> bool:
     logger.info("=" * 60)
     
     try:
-        report = await run_comprehensive_demo()
+        report = await run_complete_demo()
         
         print("\n🎉 Demonstration completed successfully!")
         print(f"📊 Execution Summary:")

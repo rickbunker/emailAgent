@@ -1,10 +1,10 @@
 """
 Gmail Spam Management System
 
-This script connects to your Gmail account and runs comprehensive spam detection
+This script connects to your Gmail account and runs complete spam detection
 and management on your emails. It can:
 
-- Detect spam using SpamAssassin with intelligent whitelisting
+- Detect spam using SpamAssassin with whitelisting
 - Automatically unsubscribe from unwanted mailing lists  
 - Move spam emails to junk folder
 - Process large batches of emails (up to 2000)
@@ -83,7 +83,7 @@ class SimpleSpamDetector:
             'apple.com': -1.0,
             'paypal.com': -1.0
         }
-        # Personal/Professional contacts that should NEVER be spam
+        # Personal/contacts that should NEVER be spam
         self.trusted_personal_contacts = {
             'alan@bassmancpa.com': -10.0,     # Alan Bassman - Accountant
             'abassman@bassmancpa.com': -10.0,  # Alternative email
@@ -162,7 +162,7 @@ class SimpleSpamDetector:
             contact = self.contacts_cache[sender_email_lower]
             return contact['protection_score']
         
-        # Check personal/professional contacts second
+        # Check personal/contacts second
         if sender_email_lower in self.trusted_personal_contacts:
             return self.trusted_personal_contacts[sender_email_lower]
         
@@ -198,7 +198,7 @@ class SimpleSpamDetector:
         
         # Check personal contacts
         if sender_email_lower in self.trusted_personal_contacts:
-            return "Personal/Professional contact"
+            return "Personal/contact"
         
         domain = sender_email.split('@')[-1].lower()
         if domain in self.trusted_personal_contacts:
@@ -574,7 +574,7 @@ class EmailProcessingLogger:
             ])
     
     def generate_summary(self, total_emails, spam_count, clean_count, error_count, action_results):
-        """Generate a comprehensive summary report."""
+        """Generate a complete summary report."""
         # Calculate statistics
         spam_rate = (spam_count / (spam_count + clean_count) * 100) if (spam_count + clean_count) > 0 else 0
         
@@ -753,7 +753,7 @@ async def main():
         # Search for recent emails to test
         print("\n📬 Searching for emails...")
         criteria = EmailSearchCriteria(
-            max_results=2000,  # Process 2000 emails for comprehensive cleanup
+            max_results=2000,  # Process 2000 emails for complete cleanup
             date_after=datetime.now() - timedelta(days=180)  # Last 6 months
         )
         

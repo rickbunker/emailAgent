@@ -1,16 +1,16 @@
 """
 Gmail Integration Test Suite for EmailAgent
 
-Professional Gmail integration test suite for asset management email automation.
-Validates comprehensive Gmail API functionality, authentication, and email
+Gmail integration test suite for asset management email automation.
+Validates complete Gmail API functionality, authentication, and email
 processing capabilities within private market asset management environments.
 
 Features:
-    - Professional Gmail API authentication and connection testing
-    - Comprehensive email processing and retrieval validation
+    - Gmail API authentication and connection testing
+    - Complete email processing and retrieval validation
     - Asset management business scenario testing and validation
-    - Advanced error handling and recovery mechanism testing
-    - Professional logging integration and audit trail validation
+    - error handling and recovery mechanism testing
+    - logging integration and audit trail validation
     - Performance assessment and optimization validation
 
 Business Context:
@@ -21,7 +21,7 @@ Business Context:
     and counterparty communication automation.
 
 Technical Architecture:
-    - Gmail API Integration: Comprehensive authentication and email access
+    - Gmail API Integration: Complete authentication and email access
     - Business Intelligence: Asset management email classification
     - Compliance Systems: Audit trail and regulatory monitoring
     - Memory Integration: Email intelligence and learning capabilities
@@ -35,8 +35,9 @@ Testing Categories:
     - Error Recovery: Connection failures and retry mechanisms
 
 Version: 1.0.0
-Author: Email Agent Development Team
-License: Private - Asset Management Use Only
+Author: Rick Bunker, rbunker@inveniam.io
+License: Private - Inveniam Capital Partners, LLC use only
+Copyright: 2025 Inveniam Capital Partners, LLC and Rick Bunker
 """
 
 import asyncio
@@ -47,7 +48,7 @@ from pathlib import Path
 from typing import Dict, Any, List, Optional, Union, Tuple
 from datetime import datetime, UTC
 
-# Add src to path for comprehensive imports
+# Add src to path for complete imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 # Core imports
@@ -63,16 +64,16 @@ logger = get_logger(__name__)
 
 class GmailIntegrationTestSuite:
     """
-    Professional Gmail integration test suite for asset management.
+    Gmail integration test suite for asset management.
     
-    Provides comprehensive testing of Gmail API integration including
+    Provides complete testing of Gmail API integration including
     authentication, email processing, security validation, and business
     intelligence features specifically designed for asset management
     email automation and compliance monitoring.
     
     Features:
-        - Comprehensive Gmail API authentication testing
-        - Professional email processing and classification
+        - Complete Gmail API authentication testing
+        - email processing and classification
         - Asset management business scenario validation
         - Security and compliance integration testing
         - Memory system integration for email intelligence
@@ -81,7 +82,7 @@ class GmailIntegrationTestSuite:
         test_stats: Integration test execution metrics and results
         gmail_interface: Gmail interface instance for testing
         test_credentials: Gmail API credentials configuration
-        test_results: Comprehensive test results and validation data
+        test_results: Complete test results and validation data
     """
     
     def __init__(self):
@@ -109,10 +110,10 @@ class GmailIntegrationTestSuite:
     @log_function()
     def _setup_logging_configuration(self) -> None:
         """
-        Setup professional logging configuration for Gmail integration testing.
+        Setup logging configuration for Gmail integration testing.
         
-        Configures comprehensive logging for Gmail integration testing
-        with asset management context and professional audit trails.
+        Configures complete logging for Gmail integration testing
+        with asset management context and audit trails.
         """
         logger.info("Setting up Gmail integration test logging configuration")
         
@@ -141,7 +142,7 @@ class GmailIntegrationTestSuite:
         
         Searches for Gmail credentials in standard locations and validates
         their availability for integration testing in asset management
-        environments with professional credential management.
+        environments with credential management.
         
         Returns:
             Dictionary containing Gmail credential file paths and validation status
@@ -197,11 +198,11 @@ class GmailIntegrationTestSuite:
     @log_function()
     async def test_gmail_authentication(self) -> bool:
         """
-        Test comprehensive Gmail API authentication and connection.
+        Test complete Gmail API authentication and connection.
         
         Validates Gmail API authentication including credentials validation,
         token management, and secure connection establishment for asset
-        management email automation with professional error handling.
+        management email automation with error handling.
         
         Returns:
             True if Gmail authentication tests passed successfully
@@ -284,7 +285,7 @@ class GmailIntegrationTestSuite:
         
         Validates Gmail API profile access including user information,
         account details, and service capabilities for asset management
-        email automation with comprehensive validation.
+        email automation with complete validation.
         
         Returns:
             True if Gmail profile access tests passed successfully
@@ -356,11 +357,11 @@ class GmailIntegrationTestSuite:
     @log_function()
     async def test_gmail_email_retrieval(self) -> bool:
         """
-        Test comprehensive Gmail email retrieval and processing.
+        Test complete Gmail email retrieval and processing.
         
         Validates Gmail email retrieval including search criteria,
         email parsing, attachment handling, and asset management
-        email classification with professional validation.
+        email classification with validation.
         
         Returns:
             True if Gmail email retrieval tests passed successfully
@@ -500,7 +501,7 @@ class GmailIntegrationTestSuite:
         
         Validates Gmail labels retrieval and management capabilities
         for email organization and asset management categorization
-        with professional validation and error handling.
+        with validation and error handling.
         
         Returns:
             True if Gmail labels management tests passed successfully
@@ -598,7 +599,7 @@ class GmailIntegrationTestSuite:
         
         Validates Gmail interface error handling including connection
         failures, authentication errors, and API rate limiting with
-        professional recovery mechanisms and business continuity.
+        recovery mechanisms and business continuity.
         
         Returns:
             True if Gmail error handling tests passed successfully
@@ -765,18 +766,18 @@ class GmailIntegrationTestSuite:
             return {'error': str(e), 'acceptable_performance': False}
 
     @log_function()
-    async def run_comprehensive_gmail_integration_tests(self) -> Dict[str, Any]:
+    async def run_complete_gmail_integration_tests(self) -> Dict[str, Any]:
         """
-        Run comprehensive Gmail integration test suite.
+        Run complete Gmail integration test suite.
         
         Executes complete Gmail integration validation including
         authentication, email processing, error handling, and
         performance assessment for asset management environments.
         
         Returns:
-            Dictionary containing comprehensive integration test results
+            Dictionary containing complete integration test results
         """
-        logger.info("🚀 Running comprehensive Gmail integration test suite")
+        logger.info("🚀 Running complete Gmail integration test suite")
         
         self.test_stats['start_time'] = datetime.now(UTC)
         
@@ -882,22 +883,22 @@ class GmailIntegrationTestSuite:
 @log_function()
 async def run_gmail_integration_tests() -> bool:
     """
-    Main function to run comprehensive Gmail integration tests.
+    Main function to run complete Gmail integration tests.
     
     Executes complete Gmail integration validation for asset management
-    email automation with professional testing patterns and comprehensive
+    email automation with testing patterns and complete
     validation for production environments.
     
     Returns:
         True if all Gmail integration tests passed, False otherwise
     """
-    logger.info("Initializing comprehensive Gmail integration test execution")
+    logger.info("Initializing complete Gmail integration test execution")
     
     try:
         test_suite = GmailIntegrationTestSuite()
-        results = await test_suite.run_comprehensive_gmail_integration_tests()
+        results = await test_suite.run_complete_gmail_integration_tests()
         
-        # Display comprehensive results
+        # Display complete results
         print(f"\n🎯 EmailAgent Gmail Integration Test Results")
         print(f"=" * 60)
         
@@ -976,8 +977,8 @@ def main() -> None:
     """
     Main entry point for Gmail integration tests.
     
-    Provides professional command-line interface for Gmail integration
-    test execution with comprehensive error handling and reporting.
+    Provides command-line interface for Gmail integration
+    test execution with complete error handling and reporting.
     """
     print("🧪 EmailAgent Gmail Integration Test Suite")
     print("Asset Management Email Automation Gmail Validation")

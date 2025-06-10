@@ -1,8 +1,8 @@
 """
 Tools Package for EmailAgent
 
-Comprehensive tools and integrations package for private market asset management environments.
-Provides specialized utilities, external integrations, and processing tools for sophisticated
+Complete tools and integrations package for private market asset management environments.
+Provides specialized utilities, external integrations, and processing tools for
 email automation and document processing workflows.
 
 Features:
@@ -11,13 +11,13 @@ Features:
     - Document processing and classification utilities
     - External API integrations and connectors
     - Performance monitoring and optimization tools
-    - Professional validation and quality assurance
+    - validation and quality assurance
 
 Business Context:
-    Designed for asset management firms requiring enterprise-grade
+    Designed for asset management firms requiring business
     tools and integrations for email security, document processing,
     compliance validation, and operational automation. Maintains
-    professional standards for financial services environments.
+    standards for financial services environments.
 
 Technical Architecture:
     - SpamAssassin: Enterprise email security and spam detection
@@ -27,15 +27,16 @@ Technical Architecture:
     - Performance Tools: Monitoring and optimization utilities
 
 Components:
-    - spamassassin_integration: Professional spam detection and filtering
+    - spamassassin_integration: spam detection and filtering
     - security_tools: Security scanning and validation utilities
     - document_processors: Document analysis and classification
     - api_connectors: External service integration utilities
     - performance_monitors: System performance and health monitoring
 
 Version: 1.0.0
-Author: Email Agent Development Team
-License: Private - Asset Management Use Only
+Author: Rick Bunker, rbunker@inveniam.io
+License: Private - Inveniam Capital Partners, LLC use only
+Copyright: 2025 Inveniam Capital Partners, LLC and Rick Bunker
 """
 
 # Core logging system
@@ -79,7 +80,7 @@ __all__ = [
 
 # Package initialization logging
 logger.info(f"Tools package initialized - Version {__version__}")
-logger.debug("SpamAssassin integration loaded with professional configuration")
+logger.debug("SpamAssassin integration loaded with configuration")
 logger.debug("Security tools ready for EmailAgent operations")
 
 # Package-level convenience functions
@@ -110,7 +111,7 @@ def get_available_tools() -> list:
 @log_function()
 def get_tool_info(tool_name: str) -> dict:
     """
-    Get comprehensive information about a specific tool.
+    Get complete information about a specific tool.
     
     Provides detailed information about tool capabilities,
     configuration options, and usage for deployment planning.
@@ -128,7 +129,7 @@ def get_tool_info(tool_name: str) -> dict:
         >>> from tools import get_tool_info
         >>> info = get_tool_info('spamassassin')
         >>> print(info['description'])
-        'Enterprise-grade spam detection and email security'
+        'spam detection and email security'
     """
     tool_name = tool_name.lower().strip()
     logger.info(f"Retrieving tool information for: {tool_name}")
@@ -136,13 +137,13 @@ def get_tool_info(tool_name: str) -> dict:
     tool_info = {
         'spamassassin': {
             'name': 'SpamAssassin Integration',
-            'description': 'Enterprise-grade spam detection and email security',
+            'description': 'spam detection and email security',
             'capabilities': [
                 'Multi-mode spam detection (command-line and daemon)',
-                'Professional confidence scoring for asset management',
+                'confidence scoring for asset management',
                 'Business context spam analysis and filtering',
                 'Performance monitoring and health checking',
-                'Comprehensive error handling and recovery',
+                'Complete error handling and recovery',
                 'Asset management confidence levels'
             ],
             'use_cases': [
@@ -157,7 +158,7 @@ def get_tool_info(tool_name: str) -> dict:
         },
         'security_scanner': {
             'name': 'Security Scanner Integration',
-            'description': 'Comprehensive security scanning and validation',
+            'description': 'Complete security scanning and validation',
             'capabilities': [
                 'Virus and malware detection',
                 'Attachment security scanning',
@@ -176,7 +177,7 @@ def get_tool_info(tool_name: str) -> dict:
         },
         'document_processor': {
             'name': 'Document Processing Tools',
-            'description': 'Advanced document analysis and classification',
+            'description': 'document analysis and classification',
             'capabilities': [
                 'Document type classification',
                 'Content extraction and analysis',
@@ -242,7 +243,7 @@ def get_tool_info(tool_name: str) -> dict:
 @log_function()
 def get_package_info() -> dict:
     """
-    Get comprehensive package information and metadata.
+    Get complete package information and metadata.
     
     Provides detailed information about the tools package
     capabilities, version, and available utilities.
@@ -263,7 +264,7 @@ def get_package_info() -> dict:
         'version': __version__,
         'author': __author__,
         'license': __license__,
-        'description': 'Comprehensive tools and integrations for private market asset management',
+        'description': 'Complete tools and integrations for private market asset management',
         'capabilities': [
             'Enterprise spam detection and filtering',
             'Security scanning and validation',
@@ -286,7 +287,7 @@ async def validate_tool_configuration(tool_name: str) -> dict:
     """
     Validate tool configuration and availability.
     
-    Performs comprehensive validation of tool configuration,
+    Performs complete validation of tool configuration,
     dependencies, and operational readiness for deployment.
     
     Args:
