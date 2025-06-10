@@ -49,7 +49,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 # Core logging system imports
 from utils.logging_system import (
     LogConfig, configure_logging, get_logger, log_function, 
-    log_debug, log_info, log_error
+    log_debug, log_info
 )
 
 # Initialize logger for this test module
@@ -119,7 +119,7 @@ class LoggingSystemTestSuite:
             log_arguments=True,
             log_return_values=True,
             log_execution_time=True,
-            max_log_file_size=10 * 1024 * 1024,  # 10MB
+            max_file_size=10 * 1024 * 1024,  # 10MB
             backup_count=3
         )
         
@@ -132,7 +132,7 @@ class LoggingSystemTestSuite:
             log_arguments=False,
             log_return_values=False,
             log_execution_time=True,
-            max_log_file_size=50 * 1024 * 1024,  # 50MB
+            max_file_size=50 * 1024 * 1024,  # 50MB
             backup_count=5
         )
         
@@ -145,7 +145,7 @@ class LoggingSystemTestSuite:
             log_arguments=True,
             log_return_values=False,
             log_execution_time=True,
-            max_log_file_size=100 * 1024 * 1024,  # 100MB
+            max_file_size=100 * 1024 * 1024,  # 100MB
             backup_count=10
         )
         
@@ -158,7 +158,7 @@ class LoggingSystemTestSuite:
             log_arguments=False,
             log_return_values=False,
             log_execution_time=False,
-            max_log_file_size=10 * 1024 * 1024,
+            max_file_size=10 * 1024 * 1024,
             backup_count=2
         )
         

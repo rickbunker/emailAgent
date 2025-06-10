@@ -445,7 +445,7 @@ class ContactMemory(BaseMemory):
             metadata=contact.to_dict()
         )
         
-        await super().add_item(memory_item)
+        await super().add(memory_item.content, memory_item.metadata)
         
         logger.info(f"Created new contact: {email} (ID: {contact_id})")
         return contact_id
@@ -571,7 +571,7 @@ class ContactMemory(BaseMemory):
                 metadata=existing.to_dict()
             )
             
-            await super().update_item(existing.id, memory_item)
+            await super().update(existing.id, memory_item.content, memory_item.metadata)
             
             logger.info(f"Updated contact {existing.email}: {len(changes)} changes")
             logger.debug(f"Contact changes: {changes}")
@@ -615,7 +615,7 @@ class ContactMemory(BaseMemory):
             results = await super().search(
                 query=normalized_email,
                 limit=1,
-                filter=filter_condition
+                filter_conditions=filter_condition
             )
             
             if results:
