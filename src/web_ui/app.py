@@ -18,7 +18,7 @@ from pathlib import Path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from flask import Flask, render_template, request, jsonify, redirect, url_for, flash
-from human_review import review_queue
+from .human_review import review_queue
 from agents.asset_document_agent import (
     AssetDocumentAgent, Asset, AssetType, DocumentCategory,
     AssetSenderMapping, ConfidenceLevel
