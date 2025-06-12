@@ -124,13 +124,13 @@ def cleanup_file(file_path):
             ]
             
             license_patterns = [
-                (r'License: Private - Inveniam Capital Partners, LLC use only
-                (r'@license Private - Inveniam Capital Partners, LLC use only
+                (r'License -- for Inveniam use only
+                (r'License -- for Inveniam use only
             ]
             
             copyright_patterns = [
-                (r'Copyright: 2025 Inveniam Capital Partners, LLC and Rick Bunker
-                (r'@copyright 2025 Inveniam Capital Partners, LLC
+                (r'Copyright 2025 by Inveniam Capital Partners, LLC and Rick Bunker
+                (r'Copyright 2025 by Inveniam Capital Partners, LLC and Rick Bunker
                 (r'\(c\).*\d{4}.*', '(c) 2025 Inveniam Capital Partners, LLC and Rick Bunker
             ]
             

@@ -36,8 +36,8 @@ Authentication Categories:
 
 Version: 1.0.0
 Author: Rick Bunker, rbunker@inveniam.io
-License: Private - Inveniam Capital Partners, LLC use only
-Copyright: 2025 Inveniam Capital Partners, LLC and Rick Bunker
+License -- for Inveniam use only
+Copyright 2025 by Inveniam Capital Partners, LLC and Rick Bunker
 """
 
 import asyncio

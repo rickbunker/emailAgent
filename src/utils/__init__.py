@@ -35,8 +35,8 @@ Components:
 
 Version: 1.0.0
 Author: Rick Bunker, rbunker@inveniam.io
-License: Private - Inveniam Capital Partners, LLC use only
-Copyright: 2025 Inveniam Capital Partners, LLC and Rick Bunker
+License -- for Inveniam use only
+Copyright 2025 by Inveniam Capital Partners, LLC and Rick Bunker
 """
 
 from .logging_system import get_logger, log_function, LogConfig
@@ -44,7 +44,7 @@ from .logging_system import get_logger, log_function, LogConfig
 # Package metadata
 __version__ = "1.0.0"
 __author__ = "Email Agent Development Team"
-__license__ = "Private - Asset Management Use Only"
+__license__ = "for Inveniam use only"
 
 # Initialize package logger
 logger = get_logger(__name__)

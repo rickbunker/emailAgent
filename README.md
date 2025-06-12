@@ -318,7 +318,7 @@ python tests/simple_phase3_test.py          # Test document classification
 
 ## 🤝 Contributing
 
-This project follows comprehensive coding standards for professional development:
+This project follows coding standards:
 
 ### 📋 **Development Standards**
 - **Type hints** throughout the codebase for better IDE support and error prevention
