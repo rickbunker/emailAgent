@@ -29,9 +29,8 @@
                             <th>Asset</th>
                             <th>Confidence</th>
                             <th>Document Types</th>
-                            <th>Created</th>
-                            <th>Last Activity</th>
                             <th>Email Count</th>
+                            <th>Created</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -42,15 +41,22 @@
                                 <strong>{{ mapping.sender_email }}</strong>
                             </td>
                             <td>
-                                {{ mapping.asset_name }}
-                                <br>
-                                <small class="text-muted">{{ mapping.asset_id[:8] }}...</small>
+                                <div>
+                                    <strong>{{ mapping.asset_name }}</strong>
+                                    <br>
+                                    <small class="text-muted">{{ mapping.asset_type.replace('_', ' ').title() }}</small>
+                                    <br>
+                                    <small class="text-muted">ID: {{ mapping.asset_id[:8] }}...</small>
+                                </div>
                             </td>
                             <td>
-                                {% set confidence_color = 'success' if mapping.confidence >= 0.8 else 'warning' if mapping.confidence >= 0.6 else 'danger' %}
-                                <span class="badge bg-{{ confidence_color }}">
-                                    {{ (mapping.confidence * 100)|round }}%
-                                </span>
+                                {% if mapping.confidence >= 0.8 %}
+                                    <span class="badge bg-success">{{ (mapping.confidence * 100)|round }}%</span>
+                                {% elif mapping.confidence >= 0.6 %}
+                                    <span class="badge bg-warning">{{ (mapping.confidence * 100)|round }}%</span>
+                                {% else %}
+                                    <span class="badge bg-danger">{{ (mapping.confidence * 100)|round }}%</span>
+                                {% endif %}
                             </td>
                             <td>
                                 {% if mapping.document_types %}
@@ -61,30 +67,29 @@
                                         <span class="text-muted">+{{ mapping.document_types|length - 2 }}</span>
                                     {% endif %}
                                 {% else %}
-                                    <span class="text-muted">None specified</span>
+                                    <span class="text-muted">Any</span>
                                 {% endif %}
-                            </td>
-                            <td>
-                                <small class="text-muted">
-                                    {{ mapping.created_date.strftime('%Y-%m-%d') if mapping.created_date else 'Unknown' }}
-                                </small>
-                            </td>
-                            <td>
-                                <small class="text-muted">
-                                    {{ mapping.last_activity.strftime('%Y-%m-%d') if mapping.last_activity else 'Never' }}
-                                </small>
                             </td>
                             <td>
                                 <span class="badge bg-info">{{ mapping.email_count }}</span>
                             </td>
                             <td>
+                                <small class="text-muted">
+                                    {{ mapping.created_date[:10] if mapping.created_date else 'Unknown' }}
+                                </small>
+                            </td>
+                            <td>
                                 <div class="btn-group" role="group">
-                                    <button class="btn btn-outline-primary btn-sm" title="Edit">
+                                    <button class="btn btn-outline-secondary btn-sm" title="Edit Mapping">
                                         <i class="bi bi-pencil"></i>
                                     </button>
-                                    <button class="btn btn-outline-danger btn-sm" title="Delete">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
+                                    <form method="POST" action="{{ url_for('delete_sender_mapping', mapping_id=mapping.mapping_id) }}" 
+                                          style="display: inline;" 
+                                          onsubmit="return confirmDelete('{{ mapping.sender_email }}')">
+                                        <button type="submit" class="btn btn-outline-danger btn-sm" title="Delete Mapping">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
                                 </div>
                             </td>
                         </tr>
@@ -105,4 +110,12 @@
         {% endif %}
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function confirmDelete(senderEmail) {
+    return confirm(`Are you sure you want to delete the sender mapping for "${senderEmail}"?\n\nThis action cannot be undone.`);
+}
+</script>
 {% endblock %} 

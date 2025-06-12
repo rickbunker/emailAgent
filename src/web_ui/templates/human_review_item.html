@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Human Review Item - Email Agent</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+    
+    <style>
+        .email-content {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .system-analysis {
+            background-color: #e9ecef;
+            border-left: 4px solid #6c757d;
+            padding: 1rem;
+            border-radius: 0.25rem;
+        }
+        .system-suggestion {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            border-radius: 0.25rem;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .system-suggestion:hover {
+            background-color: #b8daff;
+            border-color: #7abaff;
+        }
+        .system-suggestion.selected {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+            border-width: 2px;
+        }
+        .confidence-high { border-left-color: #28a745; }
+        .confidence-medium { border-left-color: #ffc107; }
+        .confidence-low { border-left-color: #dc3545; }
+        .reasoning-box {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 0.25rem;
+            padding: 0.75rem;
+        }
+        .learning-insight {
+            background-color: #f0f0f0;
+            border-left: 3px solid #007bff;
+            padding: 0.5rem;
+            margin: 0.25rem 0;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('index') }}">
+                <i class="bi bi-envelope-check"></i> Email Agent
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="{{ url_for('index') }}">Dashboard</a>
+                <a class="nav-link" href="{{ url_for('list_assets') }}">Assets</a>
+                <a class="nav-link" href="{{ url_for('list_senders') }}">Senders</a>
+                <a class="nav-link" href="{{ url_for('email_processing') }}">Email Processing</a>
+                <a class="nav-link" href="{{ url_for('human_review_queue') }}">Human Review</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <!-- Header with Navigation -->
+        <div class="row mb-4">
+            <div class="col">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="{{ url_for('human_review_queue') }}">Human Review</a></li>
+                        <li class="breadcrumb-item active">Review Item</li>
+                    </ol>
+                </nav>
+                <h1 class="h3 mb-0">
+                    <i class="bi bi-person-check text-primary"></i>
+                    Human Review: {{ review_item.attachment_filename }}
+                </h1>
+                <p class="text-muted mb-0">Review and correct the asset classification for this attachment</p>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Left Column: Email Context -->
+            <div class="col-lg-6">
+                <!-- Email Information -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-envelope"></i> Email Context
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-sm-3"><strong>Subject:</strong></div>
+                            <div class="col-sm-9">{{ review_item.email_subject or 'No Subject' }}</div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-sm-3"><strong>From:</strong></div>
+                            <div class="col-sm-9">
+                                {% if review_item.sender_name %}
+                                    {{ review_item.sender_name }} &lt;{{ review_item.sender_email }}&gt;
+                                {% else %}
+                                    {{ review_item.sender_email }}
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-sm-3"><strong>Date:</strong></div>
+                            <div class="col-sm-9">
+                                <span class="email-date" data-utc="{{ review_item.email_date }}">
+                                    {{ review_item.email_date }}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-sm-3"><strong>Attachment:</strong></div>
+                            <div class="col-sm-9">
+                                <code>{{ review_item.attachment_filename }}</code>
+                            </div>
+                        </div>
+                        
+                        {% if review_item.email_body %}
+                        <div class="row">
+                            <div class="col-sm-3"><strong>Body:</strong></div>
+                            <div class="col-sm-9">
+                                <div class="email-content">
+                                    {{ review_item.email_body | replace('\n', '<br>') | safe }}
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- System Analysis -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-cpu"></i> System Analysis
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="system-analysis confidence-{% if review_item.system_confidence >= 0.7 %}high{% elif review_item.system_confidence >= 0.4 %}medium{% else %}low{% endif %}">
+                            <div class="row mb-2">
+                                <div class="col-sm-4"><strong>Confidence:</strong></div>
+                                <div class="col-sm-8">
+                                    <span class="badge bg-{% if review_item.system_confidence >= 0.7 %}success{% elif review_item.system_confidence >= 0.4 %}warning{% else %}danger{% endif %}">
+                                        {{ "%.1f"|format(review_item.system_confidence * 100) }}%
+                                    </span>
+                                </div>
+                            </div>
+                            
+                            {% if review_item.document_category %}
+                            <div class="row mb-2">
+                                <div class="col-sm-4"><strong>Category:</strong></div>
+                                <div class="col-sm-8">{{ review_item.document_category }}</div>
+                            </div>
+                            {% endif %}
+                            
+                            {% if review_item.confidence_level %}
+                            <div class="row mb-2">
+                                <div class="col-sm-4"><strong>Level:</strong></div>
+                                <div class="col-sm-8">
+                                    <span class="badge bg-secondary">{{ review_item.confidence_level.replace('_', ' ').title() }}</span>
+                                </div>
+                            </div>
+                            {% endif %}
+                            
+                            <div class="row">
+                                <div class="col-sm-4"><strong>Reasoning:</strong></div>
+                                <div class="col-sm-8">{{ review_item.system_reasoning }}</div>
+                            </div>
+                        </div>
+
+                        {% if review_item.system_asset_suggestions %}
+                        <h6 class="mt-3 mb-2">System Asset Suggestions:</h6>
+                        <div id="system-suggestions">
+                            {% for suggestion in review_item.system_asset_suggestions %}
+                            <div class="system-suggestion" 
+                                 data-asset-id="{{ suggestion.asset_id }}"
+                                 onclick="selectSystemSuggestion(this)">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <strong>{{ suggestion.get('asset_name', 'Unknown Asset') }}</strong>
+                                        <br>
+                                        <small class="text-muted">ID: {{ suggestion.asset_id[:8] }}...</small>
+                                        {% if suggestion.get('asset_type') %}
+                                        <br>
+                                        <small class="text-muted">Type: {{ suggestion.asset_type.replace('_', ' ').title() }}</small>
+                                        {% endif %}
+                                    </div>
+                                    <div class="text-end">
+                                        <span class="badge bg-{% if suggestion.confidence >= 0.7 %}success{% elif suggestion.confidence >= 0.4 %}warning{% else %}danger{% endif %}">
+                                            {{ "%.1f"|format(suggestion.confidence * 100) }}%
+                                        </span>
+                                        <br>
+                                        <small class="text-muted">{{ suggestion.get('reasoning', 'System match') }}</small>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Human Review Form -->
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-person-fill"></i> Human Review & Correction
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="reviewForm">
+                            <!-- Asset Selection -->
+                            <div class="mb-4">
+                                <label class="form-label"><strong>Select Correct Asset:</strong></label>
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="radio" name="asset_source" id="system_suggestion" value="system">
+                                    <label class="form-check-label" for="system_suggestion">
+                                        Use System Suggestion (select from above)
+                                    </label>
+                                </div>
+                                <div class="form-check mb-3">
+                                    <input class="form-check-input" type="radio" name="asset_source" id="manual_selection" value="manual" checked>
+                                    <label class="form-check-label" for="manual_selection">
+                                        Choose from all assets
+                                    </label>
+                                </div>
+                                
+                                <div id="manual-asset-selection">
+                                    <select class="form-select" id="asset_id" name="asset_id" required>
+                                        <option value="">Select an asset...</option>
+                                        {% for asset in assets %}
+                                        <option value="{{ asset.deal_id }}">
+                                            {{ asset.deal_name }} ({{ asset.asset_type.value.replace('_', ' ').title() }})
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                
+                                <input type="hidden" id="selected_asset_id" name="selected_asset_id">
+                            </div>
+
+                            <!-- Document Category -->
+                            <div class="mb-4">
+                                <label for="document_category" class="form-label"><strong>Document Category:</strong></label>
+                                <select class="form-select" id="document_category" name="document_category" required>
+                                    <option value="">Select category...</option>
+                                    {% for category in document_categories %}
+                                    <option value="{{ category.value }}" 
+                                            {% if review_item.document_category == category.value %}selected{% endif %}>
+                                        {{ category.value.replace('_', ' ').title() }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <!-- Human Reasoning -->
+                            <div class="mb-4">
+                                <label for="reasoning" class="form-label"><strong>Why is this the correct match?</strong></label>
+                                <textarea class="form-control" id="reasoning" name="reasoning" rows="3" 
+                                          placeholder="Explain your reasoning for this asset match..."></textarea>
+                                <div class="form-text">
+                                    Help the system learn by explaining your decision process.
+                                </div>
+                            </div>
+
+                            <!-- Learning Insights -->
+                            <div class="mb-4">
+                                <label class="form-label"><strong>What could help the system get this right?</strong></label>
+                                <div class="reasoning-box">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="filename_pattern">
+                                        <label class="form-check-label" for="filename_pattern">
+                                            Look for specific patterns in filename
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="sender_pattern">
+                                        <label class="form-check-label" for="sender_pattern">
+                                            Remember this sender for this asset
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="subject_pattern">
+                                        <label class="form-check-label" for="subject_pattern">
+                                            Look for keywords in email subject
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="content_pattern">
+                                        <label class="form-check-label" for="content_pattern">
+                                            Analyze email body content
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Additional Feedback -->
+                            <div class="mb-4">
+                                <label for="feedback" class="form-label"><strong>Additional Feedback:</strong></label>
+                                <textarea class="form-control" id="feedback" name="feedback" rows="2" 
+                                          placeholder="Any additional notes or suggestions for improvement..."></textarea>
+                            </div>
+
+                            <!-- Action Buttons -->
+                            <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                                <a href="{{ url_for('human_review_queue') }}" class="btn btn-outline-secondary">
+                                    <i class="bi bi-arrow-left"></i> Back to Queue
+                                </a>
+                                <button type="button" class="btn btn-outline-warning" onclick="skipReview()">
+                                    <i class="bi bi-skip-forward"></i> Skip for Now
+                                </button>
+                                <button type="submit" class="btn btn-success">
+                                    <i class="bi bi-check-circle"></i> Submit Review
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Learning Insights Preview -->
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0">
+                            <i class="bi bi-lightbulb"></i> System Learning Preview
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <p class="small text-muted mb-2">Based on your review, the system will learn:</p>
+                        <div id="learning-preview">
+                            <div class="learning-insight">
+                                <i class="bi bi-arrow-right"></i> Sender pattern: {{ review_item.sender_email.split('@')[1] if '@' in review_item.sender_email else review_item.sender_email }}
+                            </div>
+                            <div class="learning-insight">
+                                <i class="bi bi-arrow-right"></i> Filename pattern: {{ review_item.attachment_filename.split('.')[-1].upper() }} files
+                            </div>
+                            {% if 'loan' in review_item.attachment_filename.lower() or 'credit' in review_item.attachment_filename.lower() %}
+                            <div class="learning-insight">
+                                <i class="bi bi-arrow-right"></i> Keyword pattern: Contains loan/credit indicators
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        let selectedSystemAssetId = null;
+
+        // Convert UTC dates to local time
+        document.addEventListener('DOMContentLoaded', function() {
+            const dateElements = document.querySelectorAll('.email-date');
+            dateElements.forEach(element => {
+                const utcDate = element.getAttribute('data-utc');
+                if (utcDate) {
+                    const localDate = new Date(utcDate);
+                    element.textContent = localDate.toLocaleString();
+                }
+            });
+        });
+
+        // Handle asset source selection
+        document.querySelectorAll('input[name="asset_source"]').forEach(radio => {
+            radio.addEventListener('change', function() {
+                const manualSelection = document.getElementById('manual-asset-selection');
+                const assetSelect = document.getElementById('asset_id');
+                
+                if (this.value === 'system') {
+                    manualSelection.style.display = 'none';
+                    assetSelect.required = false;
+                    // Use system suggestion if one is selected
+                    if (selectedSystemAssetId) {
+                        document.getElementById('selected_asset_id').value = selectedSystemAssetId;
+                    }
+                } else {
+                    manualSelection.style.display = 'block';
+                    assetSelect.required = true;
+                    document.getElementById('selected_asset_id').value = '';
+                }
+            });
+        });
+
+        // Handle manual asset selection
+        document.getElementById('asset_id').addEventListener('change', function() {
+            document.getElementById('selected_asset_id').value = this.value;
+        });
+
+        // Select system suggestion
+        function selectSystemSuggestion(element) {
+            // Remove previous selections
+            document.querySelectorAll('.system-suggestion').forEach(el => {
+                el.classList.remove('selected');
+            });
+            
+            // Select this one
+            element.classList.add('selected');
+            selectedSystemAssetId = element.dataset.assetId;
+            
+            // If system suggestion is selected as source, update the value
+            if (document.getElementById('system_suggestion').checked) {
+                document.getElementById('selected_asset_id').value = selectedSystemAssetId;
+            }
+        }
+
+        // Handle form submission
+        document.getElementById('reviewForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const assetId = document.getElementById('selected_asset_id').value || formData.get('asset_id');
+            
+            if (!assetId) {
+                alert('Please select an asset');
+                return;
+            }
+
+            // Gather learning insights
+            const learningInsights = [];
+            if (document.getElementById('filename_pattern').checked) {
+                learningInsights.push('filename_pattern');
+            }
+            if (document.getElementById('sender_pattern').checked) {
+                learningInsights.push('sender_pattern');
+            }
+            if (document.getElementById('subject_pattern').checked) {
+                learningInsights.push('subject_pattern');
+            }
+            if (document.getElementById('content_pattern').checked) {
+                learningInsights.push('content_pattern');
+            }
+
+            const reviewData = {
+                asset_id: assetId,
+                document_category: formData.get('document_category'),
+                reasoning: formData.get('reasoning'),
+                feedback: formData.get('feedback') + '\n\nLearning insights: ' + learningInsights.join(', '),
+                reviewed_by: 'web_user'
+            };
+
+            // Submit the review
+            fetch(`/api/human-review/{{ review_item.review_id }}/submit`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(reviewData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Review submitted successfully! The system has learned from your correction.');
+                    window.location.href = '{{ url_for("human_review_queue") }}';
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while submitting the review.');
+            });
+        });
+
+        // Skip review function
+        function skipReview() {
+            if (confirm('Are you sure you want to skip this review? It will remain in the queue.')) {
+                window.location.href = '{{ url_for("human_review_queue") }}';
+            }
+        }
+    </script>
+</body>
+</html>

@@ -285,7 +285,7 @@ class MicrosoftGraphInterface(BaseEmailInterface):
     REQUEST_TIMEOUT = 30
     AUTH_TIMEOUT = 300  # 5 minutes for authentication
     
-    def __init__(self, credentials_path: str = "examples/msgraph_credentials.json") -> None:
+    def __init__(self, credentials_path: str = "config/msgraph_credentials.json") -> None:
         """
         Initialize Microsoft Graph interface with complete configuration.
         
@@ -715,6 +715,10 @@ class MicrosoftGraphInterface(BaseEmailInterface):
                 '$orderby': 'receivedDateTime desc'
             }
             
+            # If searching for attachments, expand to include attachment data
+            if criteria.has_attachments:
+                params['$expand'] = 'attachments'
+            
             if filters:
                 # Microsoft Graph requires: properties in $orderby must also appear in $filter
                 # AND properties in $orderby must appear FIRST in $filter
@@ -754,9 +758,10 @@ class MicrosoftGraphInterface(BaseEmailInterface):
                 
                 # Convert to Email objects
                 emails = []
+                include_attachments = criteria.has_attachments  # Include attachments if we searched for them
                 for msg in messages:
                     try:
-                        email_obj = self._parse_graph_message(msg)
+                        email_obj = self._parse_graph_message(msg, include_attachments)
                         emails.append(email_obj)
                     except Exception as e:
                         print(f"[WARN] Failed to parse message {msg.get('id')}: {e}")
@@ -964,6 +969,28 @@ class MicrosoftGraphInterface(BaseEmailInterface):
         """Move email from folder back to inbox."""
         # For simplicity, we move back to inbox when removing a "label"
         return await self.add_label(email_id, "Inbox")
+    
+    async def download_attachment(self, email_id: str, attachment_id: str) -> bytes:
+        """Download attachment content from Microsoft Graph."""
+        if not self.session:
+            raise ConnectionError("Not connected to Microsoft Graph")
+        
+        try:
+            url = f"{self.GRAPH_ENDPOINT}/me/messages/{email_id}/attachments/{attachment_id}/$value"
+            
+            async with self.session.get(url) as response:
+                if response.status == 401:
+                    raise AuthenticationError("Microsoft Graph token expired or invalid")
+                elif response.status == 404:
+                    raise EmailNotFoundError(f"Attachment {attachment_id} not found in email {email_id}")
+                elif response.status != 200:
+                    raise EmailSystemError(f"Failed to download attachment: HTTP {response.status}")
+                
+                content = await response.read()
+                return content
+                
+        except aiohttp.ClientError as e:
+            raise EmailSystemError(f"Failed to download Microsoft Graph attachment: {e}")
     
     # Helper methods
     async def _run_in_executor(self, func: Callable, *args: Any, **kwargs: Any) -> Any:

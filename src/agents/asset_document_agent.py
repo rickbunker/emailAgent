@@ -97,7 +97,7 @@ try:
     from qdrant_client import QdrantClient
     from qdrant_client.models import (
         CollectionConfig, VectorParams, Distance, 
-        PointStruct, Filter, FieldCondition, MatchValue
+        PointStruct, Filter, FieldCondition, MatchValue, PointIdsList
     )
     logger.info("Qdrant client library loaded successfully")
 except ImportError:
@@ -1014,6 +1014,104 @@ class AssetDocumentAgent:
             print(f"❌ Failed to get sender assets: {e}")
             
         return assets
+    
+    async def list_asset_sender_mappings(self) -> List[Dict[str, Any]]:
+        """List all asset-sender mappings."""
+        mappings = []
+        
+        if not self.qdrant:
+            return mappings
+            
+        try:
+            search_result = self.qdrant.scroll(
+                collection_name=self.COLLECTIONS['asset_sender_mappings'],
+                limit=100
+            )
+            
+            for point in search_result[0]:
+                payload = point.payload
+                mappings.append({
+                    'mapping_id': payload['mapping_id'],
+                    'asset_id': payload['asset_id'],
+                    'sender_email': payload['sender_email'],
+                    'confidence': payload['confidence'],
+                    'document_types': payload.get('document_types', []),
+                    'created_date': payload['created_date'],
+                    'last_activity': payload['last_activity'],
+                    'email_count': payload.get('email_count', 0)
+                })
+                
+        except Exception as e:
+            print(f"❌ Failed to list sender mappings: {e}")
+            
+        return mappings
+    
+    async def delete_asset_sender_mapping(self, mapping_id: str) -> bool:
+        """Delete an asset-sender mapping by mapping_id."""
+        if not self.qdrant:
+            print(f"❌ Qdrant client not available for deletion")
+            return False
+            
+        print(f"🗑️ Attempting to delete sender mapping: {mapping_id}")
+        
+        try:
+            # First verify the mapping exists
+            search_result = self.qdrant.scroll(
+                collection_name=self.COLLECTIONS['asset_sender_mappings'],
+                scroll_filter=Filter(
+                    must=[
+                        FieldCondition(
+                            key="mapping_id",
+                            match=MatchValue(value=mapping_id)
+                        )
+                    ]
+                ),
+                limit=1
+            )
+            
+            if not search_result[0]:
+                print(f"❌ Sender mapping not found in database: {mapping_id}")
+                return False
+                
+            print(f"✓ Found mapping to delete: {mapping_id}")
+            
+            # Delete by point ID (which should be the mapping_id)
+            delete_result = self.qdrant.delete(
+                collection_name=self.COLLECTIONS['asset_sender_mappings'],
+                points_selector=PointIdsList(
+                    points=[mapping_id]
+                )
+            )
+            
+            print(f"✅ Delete operation completed for mapping: {mapping_id}")
+            print(f"✅ Delete result: {delete_result}")
+            
+            # Verify deletion
+            verify_result = self.qdrant.scroll(
+                collection_name=self.COLLECTIONS['asset_sender_mappings'],
+                scroll_filter=Filter(
+                    must=[
+                        FieldCondition(
+                            key="mapping_id",
+                            match=MatchValue(value=mapping_id)
+                        )
+                    ]
+                ),
+                limit=1
+            )
+            
+            if not verify_result[0]:
+                print(f"✅ Confirmed: Sender mapping successfully deleted: {mapping_id}")
+                return True
+            else:
+                print(f"❌ Deletion verification failed - mapping still exists: {mapping_id}")
+                return False
+            
+        except Exception as e:
+            print(f"❌ Failed to delete sender mapping {mapping_id}: {e}")
+            import traceback
+            print(f"❌ Full error traceback: {traceback.format_exc()}")
+            return False
     
     async def check_duplicate(self, file_hash: str) -> Optional[str]:
         """

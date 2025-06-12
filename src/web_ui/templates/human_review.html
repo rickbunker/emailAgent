@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Human Review Queue - Email Agent</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+    
+    <style>
+        .stats-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .review-item-card {
+            border-left: 4px solid #007bff;
+            transition: all 0.3s ease;
+        }
+        .review-item-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .confidence-badge {
+            font-size: 0.75rem;
+        }
+        .system-suggestion {
+            background-color: #f8f9fa;
+            border-left: 3px solid #28a745;
+            padding: 8px;
+            margin: 4px 0;
+        }
+        .email-preview {
+            max-height: 100px;
+            overflow-y: auto;
+            font-size: 0.9rem;
+            color: #666;
+        }
+        .priority-high { border-left-color: #dc3545 !important; }
+        .priority-medium { border-left-color: #ffc107 !important; }
+        .priority-low { border-left-color: #28a745 !important; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('index') }}">
+                <i class="bi bi-envelope-check"></i> Email Agent
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="{{ url_for('index') }}">Dashboard</a>
+                <a class="nav-link" href="{{ url_for('list_assets') }}">Assets</a>
+                <a class="nav-link" href="{{ url_for('list_senders') }}">Senders</a>
+                <a class="nav-link" href="{{ url_for('email_processing') }}">Email Processing</a>
+                <a class="nav-link active" href="{{ url_for('human_review_queue') }}">Human Review</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <!-- Page Header -->
+        <div class="row mb-4">
+            <div class="col">
+                <h1 class="h3 mb-0">
+                    <i class="bi bi-person-check text-primary"></i>
+                    Human Review Queue
+                </h1>
+                <p class="text-muted mb-0">Review and correct attachment classifications that need human attention</p>
+            </div>
+        </div>
+
+        <!-- Statistics Cards -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card stats-card text-center">
+                    <div class="card-body">
+                        <h2 class="h4 mb-1">{{ stats.total_items }}</h2>
+                        <small>Total Items</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-warning text-white text-center">
+                    <div class="card-body">
+                        <h2 class="h4 mb-1">{{ stats.pending }}</h2>
+                        <small>Pending Review</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-success text-white text-center">
+                    <div class="card-body">
+                        <h2 class="h4 mb-1">{{ stats.completed }}</h2>
+                        <small>Completed</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-info text-white text-center">
+                    <div class="card-body">
+                        <h2 class="h4 mb-1">{{ "%.1f"|format(stats.completion_rate) }}%</h2>
+                        <small>Completion Rate</small>
+                    </div>
+                </div>
+            </div>
+        </row>
+
+        <!-- Pending Items -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-list-task"></i>
+                            Pending Reviews ({{ pending_items|length }})
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        {% if pending_items %}
+                            {% for item in pending_items %}
+                            <div class="card review-item-card mb-3 {% if item.system_confidence < 0.3 %}priority-high{% elif item.system_confidence < 0.6 %}priority-medium{% else %}priority-low{% endif %}">
+                                <div class="card-body">
+                                    <div class="row">
+                                        <!-- Left Column: Email Info -->
+                                        <div class="col-md-4">
+                                            <h6 class="card-title text-truncate">
+                                                <i class="bi bi-envelope"></i>
+                                                {{ item.email_subject or 'No Subject' }}
+                                            </h6>
+                                            <p class="mb-1">
+                                                <strong>From:</strong> 
+                                                {% if item.sender_name %}
+                                                    {{ item.sender_name }} &lt;{{ item.sender_email }}&gt;
+                                                {% else %}
+                                                    {{ item.sender_email }}
+                                                {% endif %}
+                                            </p>
+                                            <p class="mb-1">
+                                                <strong>Date:</strong> 
+                                                <span class="email-date" data-utc="{{ item.email_date }}">
+                                                    {{ item.email_date }}
+                                                </span>
+                                            </p>
+                                            <p class="mb-2">
+                                                <strong>Attachment:</strong> 
+                                                <code>{{ item.attachment_filename }}</code>
+                                            </p>
+                                            
+                                            {% if item.email_body %}
+                                            <div class="email-preview">
+                                                <strong>Preview:</strong><br>
+                                                {{ item.email_body[:200] }}{% if item.email_body|length > 200 %}...{% endif %}
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                        
+                                        <!-- Middle Column: System Analysis -->
+                                        <div class="col-md-4">
+                                            <h6>System Analysis</h6>
+                                            <p class="mb-1">
+                                                <strong>Confidence:</strong>
+                                                <span class="badge bg-{% if item.system_confidence >= 0.7 %}success{% elif item.system_confidence >= 0.4 %}warning{% else %}danger{% endif %} confidence-badge">
+                                                    {{ "%.1f"|format(item.system_confidence * 100) }}%
+                                                </span>
+                                            </p>
+                                            
+                                            {% if item.document_category %}
+                                            <p class="mb-1">
+                                                <strong>Category:</strong> {{ item.document_category }}
+                                            </p>
+                                            {% endif %}
+                                            
+                                            {% if item.confidence_level %}
+                                            <p class="mb-2">
+                                                <strong>Level:</strong> 
+                                                <span class="badge bg-secondary">{{ item.confidence_level.replace('_', ' ').title() }}</span>
+                                            </p>
+                                            {% endif %}
+                                            
+                                            {% if item.system_asset_suggestions %}
+                                            <h6 class="mt-2">System Suggestions:</h6>
+                                            {% for suggestion in item.system_asset_suggestions[:2] %}
+                                            <div class="system-suggestion">
+                                                <small>
+                                                    <strong>{{ suggestion.asset_id[:8] }}...</strong>
+                                                    ({{ "%.1f"|format(suggestion.confidence * 100) }}%)
+                                                </small>
+                                            </div>
+                                            {% endfor %}
+                                            {% endif %}
+                                        </div>
+                                        
+                                        <!-- Right Column: Actions -->
+                                        <div class="col-md-4">
+                                            <h6>Actions</h6>
+                                            <div class="d-grid gap-2">
+                                                <a href="{{ url_for('human_review_item', review_id=item.review_id) }}" 
+                                                   class="btn btn-primary btn-sm">
+                                                    <i class="bi bi-eye"></i> Review Item
+                                                </a>
+                                                
+                                                {% if item.system_asset_suggestions %}
+                                                <button class="btn btn-outline-success btn-sm" 
+                                                        onclick="quickApprove('{{ item.review_id }}', '{{ item.system_asset_suggestions[0].asset_id }}')">
+                                                    <i class="bi bi-check-circle"></i> Quick Approve Top Match
+                                                </button>
+                                                {% endif %}
+                                                
+                                                <button class="btn btn-outline-danger btn-sm" 
+                                                        onclick="markAsSkip('{{ item.review_id }}')">
+                                                    <i class="bi bi-skip-forward"></i> Skip for Now
+                                                </button>
+                                            </div>
+                                            
+                                            <div class="mt-2">
+                                                <small class="text-muted">
+                                                    <i class="bi bi-clock"></i>
+                                                    Created: <span class="review-date" data-utc="{{ item.created_at }}">{{ item.created_at }}</span>
+                                                </small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="text-center py-5">
+                                <i class="bi bi-check-circle-fill text-success" style="font-size: 3rem;"></i>
+                                <h4 class="mt-3">No items pending review!</h4>
+                                <p class="text-muted">All attachments have been processed successfully or there are no items to review.</p>
+                                <a href="{{ url_for('email_processing') }}" class="btn btn-primary">
+                                    <i class="bi bi-envelope-plus"></i> Process More Emails
+                                </a>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // Convert UTC dates to local time
+        document.addEventListener('DOMContentLoaded', function() {
+            const dateElements = document.querySelectorAll('.email-date, .review-date');
+            dateElements.forEach(element => {
+                const utcDate = element.getAttribute('data-utc');
+                if (utcDate) {
+                    const localDate = new Date(utcDate);
+                    element.textContent = localDate.toLocaleString();
+                }
+            });
+        });
+        
+        // Quick approve function
+        function quickApprove(reviewId, assetId) {
+            if (!confirm('Are you sure you want to approve this top system suggestion?')) {
+                return;
+            }
+            
+            fetch(`/api/human-review/${reviewId}/submit`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    asset_id: assetId,
+                    document_category: 'financial_statements', // Default
+                    reasoning: 'Quick approved - top system suggestion',
+                    feedback: 'Approved via quick action'
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Review submitted successfully!');
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while submitting the review.');
+            });
+        }
+        
+        // Skip function (placeholder)
+        function markAsSkip(reviewId) {
+            alert('Skip functionality not yet implemented');
+        }
+        
+        // Auto-refresh stats every 30 seconds
+        setInterval(function() {
+            fetch('/api/human-review/stats')
+                .then(response => response.json())
+                .then(data => {
+                    // Update stats without refreshing the page
+                    document.querySelector('.stats-card .h4').textContent = data.total_items;
+                    // Could update other stats too
+                })
+                .catch(error => console.error('Error refreshing stats:', error));
+        }, 30000);
+    </script>
+</body>
+</html> 

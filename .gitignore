@@ -48,6 +48,12 @@ venv.bak/
 .env.local
 .env.production
 
+# Configuration Directory - Contains sensitive credentials
+config/
+config/*
+!config/.gitkeep
+!config/README.md
+
 # Email Data & Logs
 *.eml
 email_processing_*.json
@@ -99,4 +105,70 @@ data/*
 
 # Script outputs
 scripts/*.log
-scripts/output/ 
+scripts/output/
+
+# ================================
+# CRUFT PREVENTION (Added during cleanup)
+# ================================
+
+# Processing Artifacts - Prevent accumulation of processing results
+*_results_*.json
+*_processing_*.json
+*_processing_*.csv
+attachment_processing_results_*.json
+email_processing_summary_*.csv
+
+# Asset Storage - Prevent test assets from being committed
+assets/
+test_assets/
+test_assets_phase2/
+examples/assets/
+examples/test_assets/
+examples/test_assets_phase2/
+
+# Processing Directories - These should be runtime-only
+processed_attachments/
+msgraph_processed_attachments/
+gmail_processed_attachments/
+examples/processed_attachments/
+examples/gmail_processed_attachments/
+examples/msgraph_processed_attachments/
+
+# Log Directories - Prevent log accumulation
+logs/
+examples/logs/
+tests/logs/
+src/logs/
+
+# Debug and Test Files - Prevent scattered test files
+examples/test_*.py
+examples/debug_*.py
+examples/*_test.py
+scripts/test_*.py  
+scripts/debug_*.py
+
+# Client Secrets and Auth Files - Expanded patterns
+client_secret_*.json
+gmail_client_*
+*_client_secret
+*_client_id
+
+# Temporary Directories Used During Development
+to_be_reviewed/
+very_low_confidence/
+quarantine/
+
+# Jupyter Notebooks (if any are created)
+*.ipynb
+.ipynb_checkpoints/
+
+# Performance and Profiling Files
+*.prof
+*.pstats
+performance_*.json
+
+# Additional System Files
+*.lnk
+*.url
+desktop.ini
+.directory 

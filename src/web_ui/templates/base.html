@@ -67,9 +67,21 @@
                             </a>
                         </li>
                         <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'email_processing' %}active{% endif %}" href="{{ url_for('email_processing') }}">
+                                <i class="bi bi-envelope-plus"></i>
+                                Email Processing
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link {% if request.endpoint in ['list_senders', 'create_sender_mapping'] %}active{% endif %}" href="{{ url_for('list_senders') }}">
                                 <i class="bi bi-people"></i>
                                 Sender Mappings
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint in ['human_review_queue', 'human_review_item'] %}active{% endif %}" href="{{ url_for('human_review_queue') }}">
+                                <i class="bi bi-person-check"></i>
+                                Human Review
                             </a>
                         </li>
                     </ul>

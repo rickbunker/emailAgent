@@ -33,7 +33,7 @@ async def test_msgraph_connection():
     
     try:
         # Load credentials
-        creds_path = Path('examples/msgraph_credentials.json')
+        creds_path = Path('config/msgraph_credentials.json')
         if not creds_path.exists():
             print("❌ Credentials file not found")
             return
