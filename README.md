@@ -436,12 +436,34 @@ Business intelligence and operational insights:
 
 ## 🤝 Contributing
 
-This project follows clean architecture principles with:
-- **Type hints** throughout the codebase
-- **Async/await** patterns for performance
+This project follows comprehensive coding standards for professional development:
+
+### 📋 **Development Standards**
+- **Type hints** throughout the codebase for better IDE support and error prevention
+- **Google-style docstrings** for all functions and classes  
+- **Async/await** patterns for optimal performance
+- **Configuration system** integration for all settings
+- **Structured logging** with project logging framework
 - **Abstract base classes** for extensibility
-- **Complete error handling** and logging
-- **documentation** and testing
+- **Pre-commit hooks** for automated code quality
+
+### 🛠️ **Getting Started with Development**
+```bash
+# Install development tools
+pip install -r requirements-dev.txt
+
+# Set up pre-commit hooks
+pre-commit install
+
+# Review coding standards
+see docs/CODING_STANDARDS.md
+see docs/DEVELOPMENT_SETUP.md
+```
+
+### 📚 **Documentation**
+- **[Coding Standards](docs/CODING_STANDARDS.md)** - Comprehensive guidelines for code quality
+- **[Development Setup](docs/DEVELOPMENT_SETUP.md)** - IDE setup and development workflow  
+- **[Deployment Guide](docs/DEPLOYMENT_GUIDE.md)** - Production deployment instructions
 
 ## 📄 License
 
