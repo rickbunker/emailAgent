@@ -76,7 +76,7 @@ show_error_codes = true
 
 # Exclude problematic directories
 exclude = [
-    "\.emailagent/",
+    "\\.emailagent/",
     "build/",
     "dist/",
 ]
@@ -158,8 +158,8 @@ exclude_lines = [
     "raise NotImplementedError",
     "if 0:",
     "if __name__ == .__main__.:",
-    "class .*\\bProtocol\\):",
-    "@(abc\\.)?abstractmethod",
+    "class .*\\\\bProtocol\\\\):",
+    "@(abc\\\\.)?abstractmethod",
 ]
 
 [tool.bandit]
