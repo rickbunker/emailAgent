@@ -32,23 +32,22 @@ License -- for Inveniam use only
 Copyright 2025 by Inveniam Capital Partners, LLC and Rick Bunker
 """
 
-import subprocess
-import re
-import tempfile
-import os
 import asyncio
-from typing import Optional, Tuple, List, Dict, Any, Union
-from dataclasses import dataclass, field
-from pathlib import Path
-from enum import Enum
-import shutil
 import datetime
+import os
+import re
+import shutil
+import subprocess
 
 # Logging system
 import sys
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Any
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from utils.logging_system import get_logger, log_function, log_debug, log_info
+from utils.logging_system import get_logger, log_function
 
 # Initialize logger
 logger = get_logger(__name__)
@@ -62,7 +61,7 @@ class SpamAssassinMode(Enum):
 class SpamConfidence(Enum):
     """Spam detection confidence levels for business context."""
     DEFINITELY_SPAM = "definitely_spam"      # Score >= 10.0 - Block immediately
-    LIKELY_SPAM = "likely_spam"             # Score >= 5.0 - Standard spam threshold  
+    LIKELY_SPAM = "likely_spam"             # Score >= 5.0 - Standard spam threshold
     SUSPICIOUS = "suspicious"               # Score >= 2.0 - Requires review
     LEGITIMATE = "legitimate"               # Score < 2.0 - Pass through
     UNKNOWN = "unknown"                     # Analysis failed
@@ -99,18 +98,18 @@ class SpamAnalysisResult:
     is_spam: bool
     confidence: SpamConfidence
     details: str
-    rules_hit: List[str] = field(default_factory=list)
-    rule_scores: Dict[str, float] = field(default_factory=dict)
+    rules_hit: list[str] = field(default_factory=list)
+    rule_scores: dict[str, float] = field(default_factory=dict)
     raw_output: str = ""
     processing_time: float = 0.0
     mode_used: SpamAssassinMode = SpamAssassinMode.UNAVAILABLE
-    error_message: Optional[str] = None
-    
+    error_message: str | None = None
+
     def __post_init__(self) -> None:
         """Validate analysis result data integrity."""
         if self.score < 0 and not self.error_message:
             logger.warning(f"Negative spam score detected: {self.score}")
-        
+
         if self.is_spam and self.score < self.threshold:
             logger.warning(f"Spam classification inconsistency: is_spam={self.is_spam}, score={self.score}, threshold={self.threshold}")
 
@@ -134,13 +133,13 @@ class SpamAssassinIntegration:
         asset management communications where legitimate business emails
         must never be incorrectly classified as spam.
     """
-    
+
     # Standard SpamAssassin configuration
     DEFAULT_THRESHOLD = 5.0
     HIGH_CONFIDENCE_THRESHOLD = 10.0
     SUSPICIOUS_THRESHOLD = 2.0
     ANALYSIS_TIMEOUT = 60  # seconds
-    
+
     def __init__(self, threshold: float = DEFAULT_THRESHOLD) -> None:
         """
         Initialize SpamAssassin integration with complete environment detection.
@@ -160,25 +159,25 @@ class SpamAssassinIntegration:
         """
         if threshold <= 0:
             raise ValueError(f"Spam threshold must be positive, got: {threshold}")
-            
+
         self.logger = get_logger(f"{__name__}.SpamAssassinIntegration")
         self.threshold = threshold
         self.high_threshold = max(threshold * 2, self.HIGH_CONFIDENCE_THRESHOLD)
         self.suspicious_threshold = min(threshold * 0.4, self.SUSPICIOUS_THRESHOLD)
-        
+
         # Detection and validation
         self.available_modes = self._detect_spamassassin_modes()
         self.primary_mode = self._select_primary_mode()
-        
+
         # Performance tracking
         self.analysis_count = 0
         self.total_processing_time = 0.0
         self.error_count = 0
-        
+
         self.logger.info(f"SpamAssassin integration initialized - threshold: {threshold}, primary_mode: {self.primary_mode.value}")
-    
+
     @log_function()
-    def _detect_spamassassin_modes(self) -> List[SpamAssassinMode]:
+    def _detect_spamassassin_modes(self) -> list[SpamAssassinMode]:
         """
         Detect available SpamAssassin modes on the system.
         
@@ -189,7 +188,7 @@ class SpamAssassinIntegration:
             List of available SpamAssassin modes
         """
         available_modes = []
-        
+
         # Test spamassassin command (most complete)
         spamassassin_path = shutil.which('spamassassin')
         if spamassassin_path:
@@ -208,7 +207,7 @@ class SpamAssassinIntegration:
                     self.logger.warning(f"SpamAssassin command test failed: {result.stderr}")
             except (subprocess.SubprocessError, FileNotFoundError, subprocess.TimeoutExpired) as e:
                 self.logger.warning(f"SpamAssassin command detection failed: {e}")
-        
+
         # Test spamc daemon client (fastest for batch processing)
         spamc_path = shutil.which('spamc')
         if spamc_path:
@@ -227,14 +226,14 @@ class SpamAssassinIntegration:
                     self.logger.warning(f"SpamAssassin daemon client test failed: {result.stderr}")
             except (subprocess.SubprocessError, FileNotFoundError, subprocess.TimeoutExpired) as e:
                 self.logger.warning(f"SpamAssassin daemon client detection failed: {e}")
-        
+
         if not available_modes:
             self.logger.warning("SpamAssassin not available on system")
             self.logger.info("Install SpamAssassin: 'apt-get install spamassassin' (Ubuntu) or 'brew install spamassassin' (macOS)")
             available_modes.append(SpamAssassinMode.UNAVAILABLE)
-        
+
         return available_modes
-    
+
     @log_function()
     def _select_primary_mode(self) -> SpamAssassinMode:
         """
@@ -255,7 +254,7 @@ class SpamAssassinIntegration:
         else:
             self.logger.warning("SpamAssassin unavailable - spam detection disabled")
             return SpamAssassinMode.UNAVAILABLE
-    
+
     @log_function()
     async def analyze_email(self, email_content: str, sender: str = "", subject: str = "") -> SpamAnalysisResult:
         """
@@ -283,44 +282,44 @@ class SpamAssassinIntegration:
         """
         if not email_content or not email_content.strip():
             raise ValueError("Email content cannot be empty")
-        
+
         start_time = asyncio.get_event_loop().time()
-        
+
         # Format email for analysis if additional context provided
         if sender or subject:
             formatted_content = self._format_email_for_analysis(email_content, sender, subject)
         else:
             formatted_content = email_content
-        
+
         # Perform analysis based on available mode
         if self.primary_mode == SpamAssassinMode.UNAVAILABLE:
             self.logger.warning("SpamAssassin unavailable - returning default legitimate classification")
             return self._create_unavailable_result(start_time)
-        
+
         try:
             if self.primary_mode == SpamAssassinMode.COMMAND:
                 result = await self._analyze_with_spamassassin_command(formatted_content)
             else:  # DAEMON mode
                result = await self._analyze_with_spamc_daemon(formatted_content)
-            
+
             # Calculate processing time
             processing_time = asyncio.get_event_loop().time() - start_time
             result.processing_time = processing_time
-            
+
             # Update statistics
             self.analysis_count += 1
             self.total_processing_time += processing_time
-            
+
             self.logger.debug(f"SpamAssassin analysis complete - score: {result.score}, confidence: {result.confidence.value}, time: {processing_time:.3f}s")
-            
+
             return result
-            
+
         except Exception as e:
             self.error_count += 1
             processing_time = asyncio.get_event_loop().time() - start_time
-            
+
             self.logger.error(f"SpamAssassin analysis failed: {e}")
-            
+
             return SpamAnalysisResult(
                 score=0.0,
                 threshold=self.threshold,
@@ -331,7 +330,7 @@ class SpamAssassinIntegration:
                 mode_used=self.primary_mode,
                 error_message=str(e)
             )
-    
+
     @log_function()
     async def _analyze_with_spamassassin_command(self, email_content: str) -> SpamAnalysisResult:
         """
@@ -356,11 +355,11 @@ class SpamAssassinIntegration:
                 stderr=subprocess.PIPE,
                 text=True
             )
-            
+
             stdout, stderr = process.communicate(input=email_content, timeout=self.ANALYSIS_TIMEOUT)
-            
+
             return self._parse_spamassassin_output(stdout, stderr, process.returncode, SpamAssassinMode.COMMAND)
-            
+
         except subprocess.TimeoutExpired:
             process.kill()
             self.logger.error(f"SpamAssassin command timeout after {self.ANALYSIS_TIMEOUT} seconds")
@@ -368,7 +367,7 @@ class SpamAssassinIntegration:
         except Exception as e:
             self.logger.error(f"SpamAssassin command execution failed: {e}")
             raise RuntimeError(f"SpamAssassin execution error: {e}")
-    
+
     @log_function()
     async def _analyze_with_spamc_daemon(self, email_content: str) -> SpamAnalysisResult:
         """
@@ -393,9 +392,9 @@ class SpamAssassinIntegration:
                 stderr=subprocess.PIPE,
                 text=True
             )
-            
+
             stdout, stderr = process.communicate(input=email_content, timeout=self.ANALYSIS_TIMEOUT)
-            
+
             # Check for daemon availability
             if len(stdout.strip()) < 10 or stdout.strip() == "0/0":
                 self.logger.warning("spamc returned minimal output - daemon may not be running")
@@ -405,9 +404,9 @@ class SpamAssassinIntegration:
                     return await self._analyze_with_spamassassin_command(email_content)
                 else:
                     raise RuntimeError("SpamAssassin daemon unavailable and no command fallback")
-            
+
             return self._parse_spamc_output(stdout, stderr, SpamAssassinMode.DAEMON)
-            
+
         except subprocess.TimeoutExpired:
             process.kill()
             self.logger.error(f"SpamAssassin daemon timeout after {self.ANALYSIS_TIMEOUT} seconds")
@@ -415,7 +414,7 @@ class SpamAssassinIntegration:
         except Exception as e:
             self.logger.error(f"SpamAssassin daemon execution failed: {e}")
             raise RuntimeError(f"SpamAssassin daemon error: {e}")
-    
+
     @log_function()
     def _parse_spamassassin_output(self, stdout: str, stderr: str, exit_code: int, mode: SpamAssassinMode) -> SpamAnalysisResult:
         """
@@ -438,13 +437,13 @@ class SpamAssassinIntegration:
         rules_hit = []
         rule_scores = {}
         details = ""
-        
+
         lines = stdout.split('\n')
-        
+
         # Parse X-Spam-Status header (may span multiple lines)
         spam_status_section = []
         in_spam_status = False
-        
+
         for line in lines:
             if line.startswith('X-Spam-Status:'):
                 in_spam_status = True
@@ -453,24 +452,24 @@ class SpamAssassinIntegration:
                 spam_status_section.append(line)
             elif in_spam_status:
                 break
-        
+
         spam_status_line = ' '.join(spam_status_section)
-        
+
         if spam_status_line:
             # Extract score: X-Spam-Status: Yes, score=8.5 required=5.0 tests=RULE1,RULE2
             score_match = re.search(r'score=([-\d\.]+)', spam_status_line)
             threshold_match = re.search(r'required=([\d\.]+)', spam_status_line)
             tests_match = re.search(r'tests=([^\s]+)', spam_status_line)
-            
+
             if score_match:
                 score = float(score_match.group(1))
             if threshold_match:
                 threshold = float(threshold_match.group(1))
             if tests_match and tests_match.group(1) != 'none':
                 rules_hit = [rule.strip() for rule in tests_match.group(1).split(',') if rule.strip()]
-            
+
             details = spam_status_line.replace('X-Spam-Status:', '').strip()
-        
+
         # Extract individual rule scores from X-Spam-Report if available
         for line in lines:
             if line.startswith('X-Spam-Report:') or (line.startswith(' ') and 'pts rule name' in line):
@@ -478,11 +477,11 @@ class SpamAssassinIntegration:
                 rule_matches = re.findall(r'\*\s+([-\d\.]+)\s+([A-Z_][A-Z0-9_]*)', line)
                 for rule_score_str, rule_name in rule_matches:
                     rule_scores[rule_name] = float(rule_score_str)
-        
+
         # Determine business confidence level
         confidence = self._calculate_confidence_level(score)
         is_spam = score >= threshold
-        
+
         return SpamAnalysisResult(
             score=score,
             threshold=threshold,
@@ -494,7 +493,7 @@ class SpamAssassinIntegration:
             raw_output=stdout,
             mode_used=mode
         )
-    
+
     @log_function()
     def _parse_spamc_output(self, stdout: str, stderr: str, mode: SpamAssassinMode) -> SpamAnalysisResult:
         """
@@ -516,26 +515,26 @@ class SpamAssassinIntegration:
         rules_hit = []
         rule_scores = {}
         details = ""
-        
+
         lines = stdout.split('\n')
-        
+
         for line in lines:
             if line.startswith('X-Spam-Status:'):
                 # Parse: X-Spam-Status: No, score=-0.1 required=5.0 tests=DKIM_SIGNED,DKIM_VALID
                 score_match = re.search(r'score=([-\d\.]+)', line)
                 threshold_match = re.search(r'required=([\d\.]+)', line)
                 tests_match = re.search(r'tests=([^\s]+)', line)
-                
+
                 if score_match:
                     score = float(score_match.group(1))
                 if threshold_match:
                     threshold = float(threshold_match.group(1))
                 if tests_match and tests_match.group(1) != 'none':
                     rules_hit = [rule.strip() for rule in tests_match.group(1).split(',') if rule.strip()]
-                
+
                 details = line.replace('X-Spam-Status:', '').strip()
                 break
-        
+
         # Look for X-Spam-Report for detailed rule scores
         in_report = False
         for line in lines:
@@ -549,11 +548,11 @@ class SpamAssassinIntegration:
                     rule_scores[rule_name] = float(rule_score_str)
             elif in_report and not line.startswith(' '):
                 break
-        
+
         # Determine business confidence level
         confidence = self._calculate_confidence_level(score)
         is_spam = score >= threshold
-        
+
         return SpamAnalysisResult(
             score=score,
             threshold=threshold,
@@ -565,7 +564,7 @@ class SpamAssassinIntegration:
             raw_output=stdout,
             mode_used=mode
         )
-    
+
     @log_function()
     def _calculate_confidence_level(self, score: float) -> SpamConfidence:
         """
@@ -594,7 +593,7 @@ class SpamAssassinIntegration:
             return SpamConfidence.SUSPICIOUS
         else:
             return SpamConfidence.LEGITIMATE
-    
+
     @log_function()
     def _format_email_for_analysis(self, content: str, sender: str = "", subject: str = "") -> str:
         """
@@ -616,17 +615,17 @@ class SpamAssassinIntegration:
         if content.startswith(('From:', 'To:', 'Subject:', 'Date:', 'Return-Path:')):
             self.logger.debug("Email content already contains headers")
             return content
-        
+
         # Build minimal headers for analysis
         headers = []
-        
+
         if sender:
             headers.append(f"From: {sender}")
             headers.append(f"Return-Path: <{sender}>")
-        
+
         if subject:
             headers.append(f"Subject: {subject}")
-        
+
         # Add standard headers for better analysis
         headers.extend([
             "Date: " + str(datetime.datetime.now().strftime('%a, %d %b %Y %H:%M:%S %z')),
@@ -635,13 +634,13 @@ class SpamAssassinIntegration:
             "Content-Type: text/plain; charset=utf-8",
             ""  # Empty line to separate headers from body
         ])
-        
+
         formatted_email = '\n'.join(headers) + '\n' + content
-        
+
         self.logger.debug(f"Formatted email for analysis - headers: {len(headers)-1}, body_length: {len(content)}")
-        
+
         return formatted_email
-    
+
     @log_function()
     def _create_unavailable_result(self, start_time: float) -> SpamAnalysisResult:
         """
@@ -657,7 +656,7 @@ class SpamAssassinIntegration:
             Default legitimate classification result
         """
         processing_time = asyncio.get_event_loop().time() - start_time
-        
+
         return SpamAnalysisResult(
             score=0.0,
             threshold=self.threshold,
@@ -668,9 +667,9 @@ class SpamAssassinIntegration:
             mode_used=SpamAssassinMode.UNAVAILABLE,
             error_message="SpamAssassin not available on system"
         )
-    
+
     @log_function()
-    def get_performance_stats(self) -> Dict[str, Any]:
+    def get_performance_stats(self) -> dict[str, Any]:
         """
         Get complete performance and analysis statistics.
         
@@ -681,15 +680,15 @@ class SpamAssassinIntegration:
             Dictionary containing performance metrics and statistics
         """
         avg_processing_time = (
-            self.total_processing_time / self.analysis_count 
+            self.total_processing_time / self.analysis_count
             if self.analysis_count > 0 else 0.0
         )
-        
+
         error_rate = (
-            self.error_count / self.analysis_count * 100 
+            self.error_count / self.analysis_count * 100
             if self.analysis_count > 0 else 0.0
         )
-        
+
         return {
             'total_analyses': self.analysis_count,
             'total_processing_time': round(self.total_processing_time, 3),
@@ -704,9 +703,9 @@ class SpamAssassinIntegration:
                 'suspicious_threshold': self.suspicious_threshold
             }
         }
-    
+
     @log_function()
-    async def health_check(self) -> Dict[str, Any]:
+    async def health_check(self) -> dict[str, Any]:
         """
         Perform complete health check of SpamAssassin integration.
         
@@ -728,11 +727,11 @@ class SpamAssassinIntegration:
             'test_analysis_successful': False,
             'error_message': None
         }
-        
+
         if self.primary_mode == SpamAssassinMode.UNAVAILABLE:
             health_status['error_message'] = "SpamAssassin not available on system"
             return health_status
-        
+
         # Test with minimal legitimate email
         test_email = """From: test@example.com
 Subject: Test Message
@@ -740,23 +739,23 @@ Date: """ + str(datetime.datetime.now().strftime('%a, %d %b %Y %H:%M:%S %z')) + 
 
 This is a test message for SpamAssassin health check.
 """
-        
+
         try:
             result = await self.analyze_email(test_email)
             if result.error_message is None:
                 health_status['test_analysis_successful'] = True
             else:
                 health_status['error_message'] = result.error_message
-                
+
         except Exception as e:
             health_status['error_message'] = f"Health check failed: {str(e)}"
-        
+
         return health_status
 
 # Convenience function for simple spam checking
 @log_function()
-async def check_email_spam(sender: str, subject: str, content: str, 
-                          threshold: float = 5.0) -> Optional[SpamAnalysisResult]:
+async def check_email_spam(sender: str, subject: str, content: str,
+                          threshold: float = 5.0) -> SpamAnalysisResult | None:
     """
     Convenience function for quick email spam analysis.
     
@@ -782,17 +781,17 @@ async def check_email_spam(sender: str, subject: str, content: str,
         ...     print("Email is legitimate business communication")
     """
     logger.info(f"Quick spam check for email from {sender}")
-    
+
     integration = SpamAssassinIntegration(threshold=threshold)
-    
+
     if integration.primary_mode == SpamAssassinMode.UNAVAILABLE:
         logger.warning("SpamAssassin unavailable for quick spam check")
         return None
-    
+
     try:
         result = await integration.analyze_email(content, sender, subject)
         logger.info(f"Quick spam check complete - score: {result.score}, confidence: {result.confidence.value}")
         return result
     except Exception as e:
         logger.error(f"Quick spam check failed: {e}")
-        return None 
+        return None

@@ -51,7 +51,7 @@ python test_msgraph_connection.py
 
 ### 3. **Run Spam Detection**
 ```bash
-# Update credentials in msgraph_spam_test.py first  
+# Update credentials in msgraph_spam_test.py first
 python msgraph_spam_test.py
 ```
 
@@ -65,7 +65,7 @@ The system applies multiple layers of protection to prevent false positives:
 
 ### **Government/Educational (-5 to -2 points)**
 - `.gov` domains: -5 points
-- `.edu` domains: -2 points  
+- `.edu` domains: -2 points
 - `.mil` domains: -3 points
 
 ### **Financial Institutions (-2 points)**
@@ -133,7 +133,7 @@ Found 500 emails to analyze
    📧 Moving email to Junk Email folder
    ✅ Successfully moved to Junk Email
 
-📧 Email 2/500  
+📧 Email 2/500
    From: John Smith <john.smith@company.com>
    Subject: Meeting tomorrow at 2 PM
    Result: ✅ CLEAN (Score: -8.5)
@@ -246,4 +246,4 @@ Potential improvements for the Microsoft Graph implementation:
 ---
 
 For detailed setup instructions, see `MSGRAPH_SETUP.md`.
-For questions or issues, refer to the main project documentation. 
+For questions or issues, refer to the main project documentation.

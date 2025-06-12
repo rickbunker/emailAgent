@@ -22,9 +22,9 @@ import os
 import sys
 import uuid
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
@@ -47,28 +47,28 @@ class ReviewItem:
     email_subject: str
     email_body: str
     sender_email: str
-    sender_name: Optional[str]
+    sender_name: str | None
     email_date: str
 
     # System's analysis
     system_confidence: float
-    system_asset_suggestions: List[Dict[str, Any]]
+    system_asset_suggestions: list[dict[str, Any]]
     system_reasoning: str
-    document_category: Optional[str]
+    document_category: str | None
     confidence_level: str
 
     # Review metadata
     created_at: str
     status: str = "pending"  # pending, in_review, completed, rejected
-    assigned_to: Optional[str] = None
+    assigned_to: str | None = None
 
     # Human correction (filled when reviewed)
-    human_asset_id: Optional[str] = None
-    human_document_category: Optional[str] = None
-    human_reasoning: Optional[str] = None
-    human_feedback: Optional[str] = None
-    reviewed_at: Optional[str] = None
-    reviewed_by: Optional[str] = None
+    human_asset_id: str | None = None
+    human_document_category: str | None = None
+    human_reasoning: str | None = None
+    human_feedback: str | None = None
+    reviewed_at: str | None = None
+    reviewed_by: str | None = None
 
 
 class HumanReviewQueue:
@@ -108,7 +108,7 @@ class HumanReviewQueue:
                 json.dump(
                     {
                         "items": self.queue,
-                        "last_updated": datetime.now(timezone.utc).isoformat(),
+                        "last_updated": datetime.now(UTC).isoformat(),
                     },
                     f,
                     indent=2,
@@ -120,8 +120,8 @@ class HumanReviewQueue:
         self,
         email_id: str,
         mailbox_id: str,
-        attachment_data: Dict[str, Any],
-        email_data: Dict[str, Any],
+        attachment_data: dict[str, Any],
+        email_data: dict[str, Any],
         processing_result: Any,
     ) -> str:
         """Add an attachment for human review"""
@@ -156,7 +156,7 @@ class HumanReviewQueue:
             email_body=email_data.get("body", ""),
             sender_email=email_data.get("sender_email", ""),
             sender_name=email_data.get("sender_name"),
-            email_date=email_data.get("date", datetime.now(timezone.utc).isoformat()),
+            email_date=email_data.get("date", datetime.now(UTC).isoformat()),
             system_confidence=getattr(processing_result, "asset_confidence", 0.0),
             system_asset_suggestions=system_suggestions,
             system_reasoning=getattr(
@@ -174,7 +174,7 @@ class HumanReviewQueue:
                 and processing_result.confidence_level
                 else "unknown"
             ),
-            created_at=datetime.now(timezone.utc).isoformat(),
+            created_at=datetime.now(UTC).isoformat(),
         )
 
         # Convert to dict for JSON storage (excluding binary content for now)
@@ -195,12 +195,12 @@ class HumanReviewQueue:
         )
         return review_id
 
-    def get_pending_items(self, limit: int = 50) -> List[Dict[str, Any]]:
+    def get_pending_items(self, limit: int = 50) -> list[dict[str, Any]]:
         """Get items pending review"""
         pending = [item for item in self.queue if item["status"] == "pending"]
         return pending[:limit]
 
-    def get_item(self, review_id: str) -> Optional[Dict[str, Any]]:
+    def get_item(self, review_id: str) -> dict[str, Any] | None:
         """Get specific review item"""
         for item in self.queue:
             if item["review_id"] == review_id:
@@ -239,7 +239,7 @@ class HumanReviewQueue:
         item["human_document_category"] = human_document_category
         item["human_reasoning"] = human_reasoning
         item["human_feedback"] = human_feedback
-        item["reviewed_at"] = datetime.now(timezone.utc).isoformat()
+        item["reviewed_at"] = datetime.now(UTC).isoformat()
         item["reviewed_by"] = reviewed_by
         item["status"] = "completed"
 
@@ -250,7 +250,7 @@ class HumanReviewQueue:
         logger.info(f"Review completed for item: {review_id}")
         return True
 
-    async def _store_learning_experience(self, review_item: Dict[str, Any]) -> None:
+    async def _store_learning_experience(self, review_item: dict[str, Any]) -> None:
         """Store the learning experience in episodic memory"""
 
         # Create comprehensive learning content
@@ -321,7 +321,7 @@ LEARNING INSIGHTS:
         except Exception as e:
             logger.error(f"Failed to store learning experience: {e}")
 
-    def _format_system_suggestions(self, suggestions: List[Dict[str, Any]]) -> str:
+    def _format_system_suggestions(self, suggestions: list[dict[str, Any]]) -> str:
         """Format system suggestions for learning content"""
         if not suggestions:
             return "No asset suggestions provided"
@@ -334,7 +334,7 @@ LEARNING INSIGHTS:
 
         return "\n".join(formatted)
 
-    def _generate_learning_insights(self, review_item: Dict[str, Any]) -> str:
+    def _generate_learning_insights(self, review_item: dict[str, Any]) -> str:
         """Generate learning insights from the correction"""
         insights = []
 
@@ -362,7 +362,7 @@ LEARNING INSIGHTS:
 
         return "\n".join(insights)
 
-    def _determine_correction_type(self, review_item: Dict[str, Any]) -> str:
+    def _determine_correction_type(self, review_item: dict[str, Any]) -> str:
         """Determine the type of correction made"""
         if not review_item["system_asset_suggestions"]:
             return "no_suggestions_provided"
@@ -373,7 +373,7 @@ LEARNING INSIGHTS:
         else:
             return "completely_different_asset"
 
-    def _calculate_learning_priority(self, review_item: Dict[str, Any]) -> str:
+    def _calculate_learning_priority(self, review_item: dict[str, Any]) -> str:
         """Calculate learning priority based on correction type"""
         if review_item["system_confidence"] > 0.7:
             return "high"  # System was confident but wrong
@@ -382,7 +382,7 @@ LEARNING INSIGHTS:
         else:
             return "low"  # System wasn't confident anyway
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get review queue statistics"""
         total = len(self.queue)
         pending = sum(1 for item in self.queue if item["status"] == "pending")

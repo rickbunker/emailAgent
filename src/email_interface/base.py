@@ -40,19 +40,21 @@ License -- for Inveniam use only
 Copyright 2025 by Inveniam Capital Partners, LLC and Rick Bunker
 """
 
+import os
+
+# Logging system integration
+import sys
 from abc import ABC, abstractmethod
-from typing import List, Optional, Dict, Any, AsyncGenerator, Union, Tuple
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
+from typing import Any
 
-# Logging system integration
-import sys
-import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from utils.logging_system import get_logger, log_function, log_debug, log_info
+from utils.logging_system import get_logger, log_function
 
 # Initialize logger
 logger = get_logger(__name__)
@@ -72,13 +74,13 @@ class EmailAddress:
         name: Optional display name (e.g., 'John Doe')
     """
     address: str
-    name: Optional[str] = None
-    
+    name: str | None = None
+
     def __post_init__(self) -> None:
         """Validate email address format after initialization."""
         if not self.address or '@' not in self.address:
             raise ValueError(f"Invalid email address: {self.address}")
-    
+
     def __str__(self) -> str:
         """
         Format email address for display.
@@ -109,21 +111,21 @@ class EmailAttachment:
     filename: str
     content_type: str
     size: int
-    attachment_id: Optional[str] = None
-    content: Optional[bytes] = None
-    
+    attachment_id: str | None = None
+    content: bytes | None = None
+
     def __post_init__(self) -> None:
         """Validate attachment metadata after initialization."""
         if not self.filename:
             raise ValueError("Attachment filename cannot be empty")
         if self.size < 0:
             raise ValueError("Attachment size cannot be negative")
-    
+
     @property
     def is_loaded(self) -> bool:
         """Check if attachment content has been loaded."""
         return self.content is not None
-    
+
     @property
     def file_extension(self) -> str:
         """Get file extension from filename."""
@@ -174,43 +176,43 @@ class Email:
         raw_data: Original API response for debugging/use
     """
     id: str
-    thread_id: Optional[str]
+    thread_id: str | None
     subject: str
     sender: EmailAddress
-    recipients: List[EmailAddress] = field(default_factory=list)
-    cc: List[EmailAddress] = field(default_factory=list)
-    bcc: List[EmailAddress] = field(default_factory=list)
-    body_text: Optional[str] = None
-    body_html: Optional[str] = None
-    attachments: List[EmailAttachment] = field(default_factory=list)
+    recipients: list[EmailAddress] = field(default_factory=list)
+    cc: list[EmailAddress] = field(default_factory=list)
+    bcc: list[EmailAddress] = field(default_factory=list)
+    body_text: str | None = None
+    body_html: str | None = None
+    attachments: list[EmailAttachment] = field(default_factory=list)
     importance: EmailImportance = EmailImportance.NORMAL
     is_read: bool = False
     is_flagged: bool = False
-    sent_date: Optional[datetime] = None
-    received_date: Optional[datetime] = None
-    headers: Dict[str, str] = field(default_factory=dict)
-    labels: List[str] = field(default_factory=list)
-    message_id: Optional[str] = None
-    in_reply_to: Optional[str] = None
-    raw_data: Optional[Dict[str, Any]] = None
-    
+    sent_date: datetime | None = None
+    received_date: datetime | None = None
+    headers: dict[str, str] = field(default_factory=dict)
+    labels: list[str] = field(default_factory=list)
+    message_id: str | None = None
+    in_reply_to: str | None = None
+    raw_data: dict[str, Any] | None = None
+
     def __post_init__(self) -> None:
         """Validate email data after initialization."""
         if not self.id:
             raise ValueError("Email ID cannot be empty")
         if not self.subject:
             logger.warning(f"Email {self.id} has empty subject")
-    
+
     @property
     def has_attachments(self) -> bool:
         """Check if email has attachments."""
         return len(self.attachments) > 0
-    
+
     @property
     def total_attachment_size(self) -> int:
         """Calculate total size of all attachments in bytes."""
         return sum(att.size for att in self.attachments)
-    
+
     @property
     def body_content(self) -> str:
         """Get the best available body content (HTML preferred, then text)."""
@@ -239,18 +241,18 @@ class EmailSearchCriteria:
         labels: Filter by labels/folders
         max_results: Maximum number of results to return
     """
-    query: Optional[str] = None
-    sender: Optional[str] = None
-    recipient: Optional[str] = None
-    subject: Optional[str] = None
-    has_attachments: Optional[bool] = None
-    is_unread: Optional[bool] = None
-    is_flagged: Optional[bool] = None
-    date_after: Optional[datetime] = None
-    date_before: Optional[datetime] = None
-    labels: List[str] = field(default_factory=list)
+    query: str | None = None
+    sender: str | None = None
+    recipient: str | None = None
+    subject: str | None = None
+    has_attachments: bool | None = None
+    is_unread: bool | None = None
+    is_flagged: bool | None = None
+    date_after: datetime | None = None
+    date_before: datetime | None = None
+    labels: list[str] = field(default_factory=list)
     max_results: int = 50
-    
+
     def __post_init__(self) -> None:
         """Validate search criteria after initialization."""
         if self.max_results <= 0:
@@ -279,17 +281,17 @@ class EmailSendRequest:
         reply_to_message_id: ID of message being replied to
         thread_id: Thread/conversation ID for threading
     """
-    to: List[EmailAddress]
+    to: list[EmailAddress]
     subject: str
-    body_text: Optional[str] = None
-    body_html: Optional[str] = None
-    cc: List[EmailAddress] = field(default_factory=list)
-    bcc: List[EmailAddress] = field(default_factory=list)
-    attachments: List[EmailAttachment] = field(default_factory=list)
+    body_text: str | None = None
+    body_html: str | None = None
+    cc: list[EmailAddress] = field(default_factory=list)
+    bcc: list[EmailAddress] = field(default_factory=list)
+    attachments: list[EmailAttachment] = field(default_factory=list)
     importance: EmailImportance = EmailImportance.NORMAL
-    reply_to_message_id: Optional[str] = None
-    thread_id: Optional[str] = None
-    
+    reply_to_message_id: str | None = None
+    thread_id: str | None = None
+
     def __post_init__(self) -> None:
         """Validate email send request after initialization."""
         if not self.to:
@@ -308,7 +310,7 @@ class EmailSystemError(Exception):
     All email system-specific exceptions inherit from this base class,
     allowing for complete error handling across different email providers.
     """
-    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+    def __init__(self, message: str, details: dict[str, Any] | None = None):
         super().__init__(message)
         self.details = details or {}
 
@@ -379,18 +381,18 @@ class BaseEmailInterface(ABC):
         user_email: Email address of the authenticated user
         display_name: Display name of the authenticated user
     """
-    
+
     def __init__(self) -> None:
         """Initialize the email interface."""
         self.is_connected: bool = False
-        self.user_email: Optional[str] = None
-        self.display_name: Optional[str] = None
+        self.user_email: str | None = None
+        self.display_name: str | None = None
         self.logger = get_logger(f"{__name__}.{self.__class__.__name__}")
         self.logger.info("Initializing email interface")
-    
+
     @abstractmethod
     @log_function()
-    async def connect(self, credentials: Dict[str, Any]) -> bool:
+    async def connect(self, credentials: dict[str, Any]) -> bool:
         """
         Connect to the email system using provided credentials.
         
@@ -411,7 +413,7 @@ class BaseEmailInterface(ABC):
             ValueError: If credentials format is invalid
         """
         pass
-    
+
     @abstractmethod
     @log_function()
     async def disconnect(self) -> None:
@@ -422,10 +424,10 @@ class BaseEmailInterface(ABC):
         tokens or session data.
         """
         pass
-    
+
     @abstractmethod
     @log_function()
-    async def get_profile(self) -> Dict[str, Any]:
+    async def get_profile(self) -> dict[str, Any]:
         """
         Get user profile information.
         
@@ -444,10 +446,10 @@ class BaseEmailInterface(ABC):
             PermissionError: If insufficient permissions to access profile
         """
         pass
-    
+
     @abstractmethod
     @log_function()
-    async def list_emails(self, criteria: EmailSearchCriteria) -> List[Email]:
+    async def list_emails(self, criteria: EmailSearchCriteria) -> list[Email]:
         """
         List emails matching the given criteria.
         
@@ -466,7 +468,7 @@ class BaseEmailInterface(ABC):
             ValueError: If search criteria are invalid
         """
         pass
-    
+
     @abstractmethod
     @log_function()
     async def get_email(self, email_id: str, include_attachments: bool = False) -> Email:
@@ -489,7 +491,7 @@ class BaseEmailInterface(ABC):
             ConnectionError: If not connected to email system
         """
         pass
-    
+
     @abstractmethod
     @log_function()
     async def send_email(self, request: EmailSendRequest) -> str:
@@ -512,7 +514,7 @@ class BaseEmailInterface(ABC):
             QuotaExceededError: If sending quota exceeded
         """
         pass
-    
+
     @abstractmethod
     @log_function()
     async def mark_as_read(self, email_id: str) -> bool:
@@ -533,7 +535,7 @@ class BaseEmailInterface(ABC):
             PermissionError: If insufficient permissions to modify email
         """
         pass
-    
+
     @abstractmethod
     @log_function()
     async def mark_as_unread(self, email_id: str) -> bool:
@@ -554,7 +556,7 @@ class BaseEmailInterface(ABC):
             PermissionError: If insufficient permissions to modify email
         """
         pass
-    
+
     @abstractmethod
     @log_function()
     async def delete_email(self, email_id: str) -> bool:
@@ -575,10 +577,10 @@ class BaseEmailInterface(ABC):
             PermissionError: If insufficient permissions to delete email
         """
         pass
-    
+
     @abstractmethod
     @log_function()
-    async def get_labels(self) -> List[str]:
+    async def get_labels(self) -> list[str]:
         """
         Get available labels/folders.
         
@@ -593,7 +595,7 @@ class BaseEmailInterface(ABC):
             ConnectionError: If not connected to email system
         """
         pass
-    
+
     @abstractmethod
     @log_function()
     async def add_label(self, email_id: str, label: str) -> bool:
@@ -616,7 +618,7 @@ class BaseEmailInterface(ABC):
             ValueError: If label name is invalid
         """
         pass
-    
+
     @abstractmethod
     @log_function()
     async def remove_label(self, email_id: str, label: str) -> bool:
@@ -639,7 +641,7 @@ class BaseEmailInterface(ABC):
             ValueError: If label name is invalid
         """
         pass
-    
+
     @log_function()
     async def stream_emails(self, criteria: EmailSearchCriteria) -> AsyncGenerator[Email, None]:
         """
@@ -661,7 +663,7 @@ class BaseEmailInterface(ABC):
         emails = await self.list_emails(criteria)
         for email in emails:
             yield email
-    
+
     @log_function()
     def _parse_email_address(self, address_str: str) -> EmailAddress:
         """
@@ -681,7 +683,7 @@ class BaseEmailInterface(ABC):
         """
         if not address_str:
             raise ValueError("Email address string cannot be empty")
-        
+
         # Handle format: "Display Name <email@domain.com>"
         if '<' in address_str and '>' in address_str:
             parts = address_str.split('<')
@@ -689,10 +691,10 @@ class BaseEmailInterface(ABC):
                 name = parts[0].strip().strip('"\'')
                 email = parts[1].strip().rstrip('>')
                 return EmailAddress(address=email, name=name if name else None)
-        
+
         # Handle simple format: "email@domain.com"
         return EmailAddress(address=address_str.strip())
-    
+
     @log_function()
     def _format_email_address(self, email_addr: EmailAddress) -> str:
         """
@@ -708,7 +710,7 @@ class BaseEmailInterface(ABC):
             Formatted email address string
         """
         return str(email_addr)
-    
+
     @log_function()
     async def get_attachment_content(self, email_id: str, attachment_id: str) -> bytes:
         """
@@ -733,11 +735,11 @@ class BaseEmailInterface(ABC):
         for attachment in email.attachments:
             if attachment.attachment_id == attachment_id and attachment.content:
                 return attachment.content
-        
+
         raise EmailNotFoundError(f"Attachment {attachment_id} not found in email {email_id}")
-    
+
     @log_function()
-    async def health_check(self) -> Dict[str, Any]:
+    async def health_check(self) -> dict[str, Any]:
         """
         Perform health check on email system connection.
         
@@ -759,7 +761,7 @@ class BaseEmailInterface(ABC):
                     "last_check": datetime.now().isoformat(),
                     "error": "Not connected"
                 }
-            
+
             profile = await self.get_profile()
             return {
                 "connected": True,
@@ -768,7 +770,7 @@ class BaseEmailInterface(ABC):
                 "last_check": datetime.now().isoformat(),
                 "profile_accessible": True
             }
-            
+
         except Exception as e:
             self.logger.error(f"Health check failed: {e}")
             return {
@@ -776,4 +778,4 @@ class BaseEmailInterface(ABC):
                 "user_email": self.user_email,
                 "last_check": datetime.now().isoformat(),
                 "error": str(e)
-            } 
+            }

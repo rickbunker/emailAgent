@@ -15,7 +15,7 @@ This document establishes the coding standards and best practices for the Email 
 def process_email(email_id: str, config: Dict[str, Any]) -> Optional[ProcessingResult]:
     pass
 
-# ❌ Bad  
+# ❌ Bad
 def process_email(email_id, config):
     pass
 ```
@@ -29,23 +29,23 @@ def process_email(email_id, config):
 ```python
 # ✅ Good
 def enhanced_process_attachment(
-    self, 
-    attachment_data: Dict[str, Any], 
+    self,
+    attachment_data: Dict[str, Any],
     email_data: Dict[str, Any]
 ) -> AttachmentProcessingResult:
     """
     Process an email attachment with AI classification.
-    
+
     Args:
         attachment_data: Dictionary containing 'filename' and 'content'
         email_data: Dictionary with sender, subject, date, and body info
-        
+
     Returns:
         AttachmentProcessingResult with classification and confidence scores
-        
+
     Raises:
         ProcessingError: If attachment cannot be processed
-        
+
     Example:
         >>> result = agent.enhanced_process_attachment(
         ...     {"filename": "report.pdf", "content": pdf_bytes},
@@ -73,11 +73,11 @@ logger = get_logger(__name__)
 def process_mailbox(mailbox_id: str) -> ProcessingStats:
     """Process emails from specified mailbox."""
     logger.info(f"Processing mailbox: {mailbox_id}")
-    
+
     # Use configuration
     hours_back = config.default_hours_back
     max_emails = config.max_emails_per_batch
-    
+
     # ... processing logic
 ```
 
@@ -139,7 +139,7 @@ async def process_multiple_attachments(
 ) -> List[ProcessingResult]:
     """Process multiple attachments in parallel."""
     tasks = [
-        process_single_attachment(attachment) 
+        process_single_attachment(attachment)
         for attachment in attachments
     ]
     return await asyncio.gather(*tasks, return_exceptions=True)
@@ -163,12 +163,12 @@ class ProcessingResult:
     file_path: Optional[Path]
     confidence_score: float
     error_message: Optional[str] = None
-    
+
     @classmethod
     def success_result(cls, name: str, path: Path, confidence: float) -> 'ProcessingResult':
         return cls(True, name, path, confidence)
-    
-    @classmethod  
+
+    @classmethod
     def error_result(cls, name: str, error: str) -> 'ProcessingResult':
         return cls(False, name, None, 0.0, error)
 ```
@@ -198,10 +198,10 @@ async def test_process_attachment_with_valid_pdf_returns_success():
     # Arrange
     attachment_data = {"filename": "test.pdf", "content": valid_pdf_bytes}
     email_data = {"sender_email": "test@example.com"}
-    
+
     # Act
     result = await agent.process_attachment(attachment_data, email_data)
-    
+
     # Assert
     assert result.success is True
     assert result.confidence_score > 0.5
@@ -214,7 +214,7 @@ async def test_process_attachment_with_valid_pdf_returns_success():
 ```
 src/
 ├── agents/          # AI processing agents
-├── email_interface/ # Email system integrations  
+├── email_interface/ # Email system integrations
 ├── memory/          # Memory and storage systems
 ├── tools/           # Utility tools and scripts
 ├── utils/           # Shared utilities (config, logging)
@@ -279,16 +279,16 @@ Before committing code, verify:
 
 ### Recommended VS Code Extensions
 - Python (Microsoft)
-- Pylance (Microsoft) 
+- Pylance (Microsoft)
 - autoDocstring (Python Docstring Generator)
 - GitLens
 
 ### Code Formatting
 - Use `black` for code formatting
-- Use `isort` for import sorting  
+- Use `isort` for import sorting
 - Use `mypy` for type checking
 - Use `pylint` for code quality
 
 ---
 
-**These standards ensure the Email Agent codebase remains maintainable and scalable. When in doubt, follow these guidelines.** 
+**These standards ensure the Email Agent codebase remains maintainable and scalable. When in doubt, follow these guidelines.**

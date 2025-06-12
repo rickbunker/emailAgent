@@ -42,42 +42,38 @@ Copyright 2025 by Inveniam Capital Partners, LLC and Rick Bunker
 """
 
 import asyncio
-import re
-import subprocess
-import tempfile
 import os
-from typing import Dict, List, Optional, Any, Tuple, Union, Set
-from dataclasses import dataclass, field
-from enum import Enum
+import re
 import socket
-import hashlib
-from datetime import datetime, UTC
-from urllib.parse import urlparse
-import json
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from enum import Enum
+from typing import Any
 
 # External dependencies (install with pip if needed)
 try:
-    import requests
     import dns.resolver
+    import requests
 except ImportError:
     # Graceful degradation if optional dependencies not available
     requests = None
     dns = None
 
 # Memory system integration
+# Logging system integration
+import sys
+
+from ..memory.contact import ContactMemory
+from ..memory.episodic import EpisodicMemory
 from ..memory.procedural import ProceduralMemory
 from ..memory.semantic import SemanticMemory
-from ..memory.episodic import EpisodicMemory
-from ..memory.contact import ContactMemory
 
 # SpamAssassin integration
 from ..tools.spamassassin_integration import SpamAssassinIntegration
 
-# Logging system integration
-import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from utils.logging_system import get_logger, log_function, log_debug, log_info
+from utils.logging_system import get_logger, log_function
 
 # Initialize logger
 logger = get_logger(__name__)
@@ -105,11 +101,11 @@ class EmailMessage:
     sender: str
     subject: str
     content: str
-    headers: Dict[str, str] = field(default_factory=dict)
-    received_date: Optional[datetime] = None
-    size: Optional[int] = None
-    attachments: List[str] = field(default_factory=list)
-    
+    headers: dict[str, str] = field(default_factory=dict)
+    received_date: datetime | None = None
+    size: int | None = None
+    attachments: list[str] = field(default_factory=list)
+
     def __post_init__(self) -> None:
         """Validate email data after initialization."""
         if not self.id:
@@ -180,22 +176,22 @@ class SpamAnalysis:
     is_spam: bool
     confidence: SpamConfidence
     spam_score: float  # 0-100 scale
-    spamassassin_score: Optional[float] = None
-    reasons: List[SpamReason] = field(default_factory=list)
-    blacklist_hits: List[str] = field(default_factory=list)
-    content_flags: List[str] = field(default_factory=list)
+    spamassassin_score: float | None = None
+    reasons: list[SpamReason] = field(default_factory=list)
+    blacklist_hits: list[str] = field(default_factory=list)
+    content_flags: list[str] = field(default_factory=list)
     recommendation: str = ""
-    details: Dict[str, Any] = field(default_factory=dict)
+    details: dict[str, Any] = field(default_factory=dict)
     processing_time: float = 0.0
-    
+
     def __post_init__(self) -> None:
         """Validate spam analysis data after initialization."""
         if not 0.0 <= self.spam_score <= 100.0:
             raise ValueError(f"Spam score must be 0-100, got {self.spam_score}")
         if self.processing_time < 0:
             raise ValueError("Processing time cannot be negative")
-    
-    def to_dict(self) -> Dict[str, Any]:
+
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for storage or serialization."""
         return {
             'is_spam': self.is_spam,
@@ -234,7 +230,7 @@ class SpamDetector:
         contact_memory: Stores trusted contact information
         spamassassin: SpamAssassin integration for core detection
     """
-    
+
     def __init__(self, spamassassin_threshold: float = 5.0) -> None:
         """
         Initialize the spam detection agent.
@@ -247,11 +243,11 @@ class SpamDetector:
         self.semantic_memory = SemanticMemory(max_items=1000)
         self.episodic_memory = EpisodicMemory(max_items=1000)
         self.contact_memory = ContactMemory(max_items=5000)
-        
+
         # Initialize logger
         self.logger = get_logger(f"{__name__}.{self.__class__.__name__}")
         self.logger.info("Initializing Spam Detection Agent")
-        
+
         # Spam trigger patterns from research and experience
         self.spam_words = [
             'free', 'earn', 'money', 'winner', 'cash', 'prize', 'urgent',
@@ -261,10 +257,10 @@ class SpamDetector:
             'lose weight', 'viagra', 'cialis', 'pharmacy', 'debt relief',
             'work from home', 'make money fast', 'get rich quick'
         ]
-        
+
         self.suspicious_patterns = [
             r'\$+',                # Multiple dollar signs
-            r'%+',                 # Multiple percent signs  
+            r'%+',                 # Multiple percent signs
             r'@+',                 # Multiple @ symbols
             r'[!]{2,}',            # Multiple exclamation marks
             r'[\?]{2,}',           # Multiple question marks
@@ -273,7 +269,7 @@ class SpamDetector:
             r'FREE\s*[!]+',        # FREE with emphasis
             r'URGENT[!]*',         # Urgent with emphasis
         ]
-        
+
         # DNS blacklists to check (major reputation services)
         self.blacklists = [
             'zen.spamhaus.org',           # Spamhaus composite
@@ -287,7 +283,7 @@ class SpamDetector:
             'css.spamhaus.org',           # CSS reputation
             'xbl.spamhaus.org',           # Exploits Block List
         ]
-        
+
         # Initialize SpamAssassin integration
         try:
             self.spamassassin = SpamAssassinIntegration(threshold=spamassassin_threshold)
@@ -295,7 +291,7 @@ class SpamDetector:
         except Exception as e:
             self.logger.warning(f"SpamAssassin initialization failed: {e}")
             self.spamassassin = None
-        
+
         # Phishing indicators
         self.phishing_patterns = [
             r'verify\s+your\s+account',
@@ -306,9 +302,9 @@ class SpamDetector:
             r'security.*?alert',
             r'unauthorized.*?access',
         ]
-        
+
         self.logger.info("Spam Detection Agent initialized successfully")
-    
+
     @log_function()
     async def analyze_spam(self, email: EmailMessage) -> SpamAnalysis:
         """
@@ -328,7 +324,7 @@ class SpamDetector:
         """
         start_time = datetime.now()
         self.logger.info(f"Analyzing spam for email from {email.sender}")
-        
+
         try:
             # Initialize analysis with defaults
             analysis = SpamAnalysis(
@@ -336,14 +332,14 @@ class SpamDetector:
                 confidence=SpamConfidence.LIKELY_CLEAN,
                 spam_score=0.0
             )
-            
+
             # Step 1: Check if sender is a trusted contact (high priority)
             trusted_contact = await self._check_trusted_contact(email.sender)
             if trusted_contact:
                 analysis.spam_score -= 30  # Significant trust bonus
                 analysis.details['trusted_contact'] = trusted_contact
                 self.logger.info(f"Trusted contact detected: {trusted_contact}")
-            
+
             # Step 2: Check spam history for this sender
             spam_history = await self._check_spam_history(email.sender)
             if spam_history:
@@ -351,7 +347,7 @@ class SpamDetector:
                 analysis.reasons.append(SpamReason.USER_PREVIOUS_SPAM)
                 analysis.details['spam_history'] = spam_history
                 self.logger.warning(f"Previous spam detected from {email.sender}")
-            
+
             # Step 3: Run SpamAssassin analysis if available
             if self.spamassassin:
                 sa_result = await self._run_spamassassin(email)
@@ -365,66 +361,66 @@ class SpamDetector:
                     self.logger.debug(f"SpamAssassin score: {sa_score}")
             else:
                 self.logger.debug("SpamAssassin not available, skipping")
-            
+
             # Step 4: Check sender IP/domain against blacklists
             blacklist_results = await self._check_blacklists(email.sender)
             if blacklist_results:
                 analysis.blacklist_hits.extend(blacklist_results)
                 analysis.spam_score += len(blacklist_results) * 20  # Significant penalty
-                
+
                 # Categorize by type of blacklist hit
                 domain_hits = [hit for hit in blacklist_results if 'domain' in hit.lower()]
                 ip_hits = [hit for hit in blacklist_results if hit not in domain_hits]
-                
+
                 if domain_hits:
                     analysis.reasons.append(SpamReason.BLACKLISTED_DOMAIN)
                 if ip_hits:
                     analysis.reasons.append(SpamReason.BLACKLISTED_IP)
-                
+
                 self.logger.warning(f"Blacklist hits: {len(blacklist_results)}")
-            
+
             # Step 5: Analyze email content
             content_score, content_flags = self._analyze_content(email)
             analysis.spam_score += content_score
             analysis.content_flags.extend(content_flags)
-            
+
             if content_score > 20:
                 analysis.reasons.append(SpamReason.SUSPICIOUS_CONTENT)
-            
+
             # Step 6: Check for phishing indicators
             phishing_score = self._check_phishing_indicators(email)
             if phishing_score > 15:
                 analysis.spam_score += phishing_score
                 analysis.reasons.append(SpamReason.PHISHING_INDICATORS)
                 analysis.content_flags.append("phishing_patterns")
-            
+
             # Step 7: Check email authentication
             auth_score = self._check_authentication(email)
             analysis.spam_score += auth_score
             if auth_score > 10:
                 analysis.reasons.append(SpamReason.NO_AUTHENTICATION)
-            
+
             # Step 8: Apply learned spam rules from memory
             rules_score = await self._apply_spam_rules(email, analysis)
             analysis.spam_score += rules_score
-            
+
             # Step 9: Classify final spam score and set confidence
             analysis = self._classify_spam_score(analysis)
-            
+
             # Step 10: Store analysis for learning
             await self._store_spam_analysis(email, analysis)
-            
+
             # Calculate processing time
             end_time = datetime.now()
             analysis.processing_time = (end_time - start_time).total_seconds()
-            
+
             self.logger.info(
                 f"Spam analysis complete: {analysis.confidence.value} "
                 f"(score: {analysis.spam_score:.1f}, time: {analysis.processing_time:.3f}s)"
             )
-            
+
             return analysis
-            
+
         except Exception as e:
             self.logger.error(f"Spam analysis failed for {email.sender}: {e}")
             # Return safe default
@@ -436,9 +432,9 @@ class SpamDetector:
                 details={'error': str(e)},
                 processing_time=(datetime.now() - start_time).total_seconds()
             )
-    
+
     @log_function()
-    async def _check_trusted_contact(self, sender_email: str) -> Optional[str]:
+    async def _check_trusted_contact(self, sender_email: str) -> str | None:
         """
         Check if the sender is a known trusted contact.
         
@@ -456,26 +452,26 @@ class SpamDetector:
                 query=sender_email,
                 limit=1
             )
-            
+
             if search_results:
                 memory_item, score = search_results[0]
                 if score > 0.8:  # High confidence match
                     contact_data = memory_item.metadata
                     confidence = contact_data.get('confidence', 'unknown')
                     contact_type = contact_data.get('contact_type', 'unknown')
-                    
+
                     # Return trust information
                     if confidence in ['high', 'medium'] and contact_type != 'vendor':
                         return f"{contact_type}_{confidence}"
-            
+
             return None
-            
+
         except Exception as e:
             self.logger.warning(f"Failed to check trusted contact for {sender_email}: {e}")
             return None
-    
+
     @log_function()
-    async def _check_spam_history(self, sender_email: str) -> Optional[Dict[str, Any]]:
+    async def _check_spam_history(self, sender_email: str) -> dict[str, Any] | None:
         """
         Check if this sender has been marked as spam before.
         
@@ -493,16 +489,16 @@ class SpamDetector:
                 query=f"spam {sender_email}",
                 limit=3
             )
-            
+
             spam_count = 0
             recent_spam = False
-            
+
             for memory_item, score in search_results:
                 if score > 0.7:  # Good match
                     metadata = memory_item.metadata
                     if metadata.get('classification') == 'spam':
                         spam_count += 1
-                        
+
                         # Check if recent (last 30 days)
                         classification_date = metadata.get('date')
                         if classification_date:
@@ -513,22 +509,22 @@ class SpamDetector:
                                     recent_spam = True
                             except:
                                 pass
-            
+
             if spam_count > 0:
                 return {
                     'spam_count': spam_count,
                     'recent_spam': recent_spam,
                     'sender': sender_email
                 }
-            
+
             return None
-            
+
         except Exception as e:
             self.logger.warning(f"Failed to check spam history for {sender_email}: {e}")
             return None
-    
+
     @log_function()
-    async def _run_spamassassin(self, email: EmailMessage) -> Optional[Tuple[float, str]]:
+    async def _run_spamassassin(self, email: EmailMessage) -> tuple[float, str] | None:
         """
         Run SpamAssassin analysis on the email.
         
@@ -540,7 +536,7 @@ class SpamDetector:
         """
         if not self.spamassassin:
             return None
-        
+
         try:
             # Create temporary file with email content
             email_content = f"From: {email.sender}\n"
@@ -548,21 +544,21 @@ class SpamDetector:
             for header, value in email.headers.items():
                 email_content += f"{header}: {value}\n"
             email_content += f"\n{email.content}"
-            
+
             # Run SpamAssassin analysis
             result = await self.spamassassin.check_spam(email_content)
-            
+
             if result:
                 return (result['score'], result.get('summary', ''))
-            
+
             return None
-            
+
         except Exception as e:
             self.logger.warning(f"SpamAssassin analysis failed: {e}")
             return None
-    
+
     @log_function()
-    async def _check_blacklists(self, sender_email: str) -> List[str]:
+    async def _check_blacklists(self, sender_email: str) -> list[str]:
         """
         Check sender against DNS blacklists.
         
@@ -575,10 +571,10 @@ class SpamDetector:
         if not dns:
             self.logger.debug("DNS module not available, skipping blacklist check")
             return []
-        
+
         hits = []
         domain = sender_email.split('@')[1] if '@' in sender_email else sender_email
-        
+
         try:
             # Get IP address for domain
             try:
@@ -588,25 +584,25 @@ class SpamDetector:
             except socket.gaierror:
                 self.logger.debug(f"Could not resolve IP for domain {domain}")
                 return hits
-            
+
             # Check each blacklist
             for blacklist in self.blacklists:
                 try:
                     query = f"{reversed_ip}.{blacklist}"
                     result = dns.resolver.resolve(query, 'A')
-                    
+
                     # If we get a result, the IP is blacklisted
                     if result:
                         hits.append(f"{blacklist} (IP: {ip_result})")
                         self.logger.debug(f"Blacklist hit: {blacklist} for IP {ip_result}")
-                
+
                 except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer):
                     # Not found in this blacklist (good)
                     continue
                 except Exception as e:
                     self.logger.debug(f"Blacklist check failed for {blacklist}: {e}")
                     continue
-            
+
             # Also check domain-based blacklists
             domain_blacklists = ['dbl.spamhaus.org', 'multi.surbl.org']
             for blacklist in domain_blacklists:
@@ -616,21 +612,21 @@ class SpamDetector:
                     if result:
                         hits.append(f"{blacklist} (domain: {domain})")
                         self.logger.debug(f"Domain blacklist hit: {blacklist} for {domain}")
-                
+
                 except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer):
                     continue
                 except Exception as e:
                     self.logger.debug(f"Domain blacklist check failed for {blacklist}: {e}")
                     continue
-            
+
             return hits
-            
+
         except Exception as e:
             self.logger.warning(f"Blacklist checking failed: {e}")
             return []
-    
+
     @log_function()
-    def _analyze_content(self, email: EmailMessage) -> Tuple[float, List[str]]:
+    def _analyze_content(self, email: EmailMessage) -> tuple[float, list[str]]:
         """
         Analyze email content for spam indicators.
         
@@ -643,17 +639,17 @@ class SpamDetector:
         content = f"{email.subject} {email.content}".lower()
         flags = []
         score = 0.0
-        
+
         # Check for spam words
         spam_word_count = 0
         for word in self.spam_words:
             if word in content:
                 spam_word_count += 1
                 score += 2.0
-        
+
         if spam_word_count > 3:
             flags.append(f"spam_words_{spam_word_count}")
-        
+
         # Check for suspicious patterns
         pattern_count = 0
         for pattern in self.suspicious_patterns:
@@ -661,46 +657,46 @@ class SpamDetector:
             if matches > 0:
                 pattern_count += matches
                 score += matches * 1.5
-        
+
         if pattern_count > 2:
             flags.append(f"suspicious_patterns_{pattern_count}")
-        
+
         # Check for excessive capitalization
         caps_ratio = sum(1 for c in email.subject + email.content if c.isupper()) / max(len(email.subject + email.content), 1)
         if caps_ratio > 0.3:
             score += 10.0
             flags.append("excessive_caps")
-        
+
         # Check for excessive punctuation
         punct_count = len(re.findall(r'[!?]{2,}', content))
         if punct_count > 2:
             score += punct_count * 2.0
             flags.append("excessive_punctuation")
-        
+
         # Check for suspicious links
         url_count = len(re.findall(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', content))
         if url_count > 3:
             score += url_count * 3.0
             flags.append(f"many_links_{url_count}")
-        
+
         # Check for suspicious domains in URLs
         suspicious_tlds = ['.tk', '.ml', '.ga', '.cf', '.club', '.download']
         for tld in suspicious_tlds:
             if tld in content:
                 score += 5.0
                 flags.append(f"suspicious_tld_{tld}")
-        
+
         # Check for financial/urgency indicators
         urgency_words = ['urgent', 'immediate', 'expire', 'limited time', 'act now', 'hurry']
         urgency_count = sum(1 for word in urgency_words if word in content)
         if urgency_count > 1:
             score += urgency_count * 3.0
             flags.append("urgency_indicators")
-        
+
         self.logger.debug(f"Content analysis: score={score:.1f}, flags={flags}")
-        
+
         return score, flags
-    
+
     @log_function()
     def _check_phishing_indicators(self, email: EmailMessage) -> float:
         """
@@ -714,31 +710,31 @@ class SpamDetector:
         """
         content = f"{email.subject} {email.content}".lower()
         score = 0.0
-        
+
         # Check for common phishing patterns
         for pattern in self.phishing_patterns:
             matches = len(re.findall(pattern, content, re.IGNORECASE))
             if matches > 0:
                 score += matches * 8.0  # High penalty for phishing patterns
                 self.logger.debug(f"Phishing pattern match: {pattern}")
-        
+
         # Check for credential harvesting terms
         cred_terms = ['username', 'password', 'login', 'sign in', 'verify account']
         cred_count = sum(1 for term in cred_terms if term in content)
         if cred_count > 2:
             score += cred_count * 5.0
-        
+
         # Check for impersonation attempts
         impersonation_terms = ['bank', 'paypal', 'amazon', 'microsoft', 'apple', 'google']
         domain = email.sender.split('@')[1] if '@' in email.sender else ''
-        
+
         for term in impersonation_terms:
             if term in content and term not in domain:
                 score += 10.0  # Likely impersonation
                 self.logger.debug(f"Possible impersonation of {term}")
-        
+
         return score
-    
+
     @log_function()
     def _check_authentication(self, email: EmailMessage) -> float:
         """
@@ -752,7 +748,7 @@ class SpamDetector:
         """
         score = 0.0
         headers = {k.lower(): v for k, v in email.headers.items()}
-        
+
         # Check SPF
         spf_header = headers.get('received-spf', '').lower()
         if 'fail' in spf_header:
@@ -761,21 +757,21 @@ class SpamDetector:
             score += 8.0
         elif 'none' in spf_header or not spf_header:
             score += 5.0
-        
+
         # Check DKIM
         dkim_header = headers.get('dkim-signature', '')
         if not dkim_header:
             score += 5.0
-        
+
         # Check DMARC
         auth_results = headers.get('authentication-results', '').lower()
         if 'dmarc=fail' in auth_results:
             score += 20.0
         elif 'dmarc=none' in auth_results or 'dmarc' not in auth_results:
             score += 3.0
-        
+
         return score
-    
+
     @log_function()
     async def _apply_spam_rules(self, email: EmailMessage, analysis: SpamAnalysis) -> float:
         """
@@ -791,39 +787,39 @@ class SpamDetector:
         try:
             # Search for relevant spam detection rules
             search_results = await self.procedural_memory.search(
-                query=f"spam detection rule",
+                query="spam detection rule",
                 limit=5
             )
-            
+
             additional_score = 0.0
-            
+
             for memory_item, score in search_results:
                 if score > 0.7:  # Good relevance match
                     rule_data = memory_item.metadata
                     rule_type = rule_data.get('rule_type', '')
-                    
+
                     # Apply different types of learned rules
                     if rule_type == 'sender_pattern':
                         pattern = rule_data.get('pattern', '')
                         if pattern and pattern in email.sender:
                             additional_score += rule_data.get('penalty', 10.0)
-                    
+
                     elif rule_type == 'content_pattern':
                         pattern = rule_data.get('pattern', '')
                         if pattern and pattern in email.content.lower():
                             additional_score += rule_data.get('penalty', 5.0)
-                    
+
                     elif rule_type == 'subject_pattern':
                         pattern = rule_data.get('pattern', '')
                         if pattern and pattern in email.subject.lower():
                             additional_score += rule_data.get('penalty', 8.0)
-            
+
             return additional_score
-            
+
         except Exception as e:
             self.logger.warning(f"Failed to apply spam rules: {e}")
             return 0.0
-    
+
     @log_function()
     def _classify_spam_score(self, analysis: SpamAnalysis) -> SpamAnalysis:
         """
@@ -836,7 +832,7 @@ class SpamDetector:
             Updated analysis with confidence and recommendation
         """
         score = analysis.spam_score
-        
+
         # Determine confidence level based on score
         if score >= 80:
             analysis.confidence = SpamConfidence.DEFINITELY_SPAM
@@ -862,9 +858,9 @@ class SpamDetector:
             analysis.confidence = SpamConfidence.DEFINITELY_CLEAN
             analysis.is_spam = False
             analysis.recommendation = "Deliver normally - clean email"
-        
+
         return analysis
-    
+
     @log_function()
     async def _store_spam_analysis(self, email: EmailMessage, analysis: SpamAnalysis) -> None:
         """
@@ -877,7 +873,7 @@ class SpamDetector:
         try:
             # Store in episodic memory for learning
             content = f"Spam analysis: {email.sender} - {analysis.confidence.value}"
-            
+
             metadata = {
                 'analysis_type': 'spam_detection',
                 'sender': email.sender,
@@ -889,13 +885,13 @@ class SpamDetector:
                 'date': datetime.now(UTC).isoformat(),
                 'email_id': email.id
             }
-            
+
             await self.episodic_memory.add(content, metadata)
             self.logger.debug(f"Stored spam analysis for {email.sender}")
-            
+
         except Exception as e:
             self.logger.warning(f"Failed to store spam analysis: {e}")
-    
+
     @log_function()
     async def mark_as_spam(self, email: EmailMessage, user_feedback: str = "") -> None:
         """
@@ -909,12 +905,12 @@ class SpamDetector:
         """
         try:
             self.logger.info(f"User marked email from {email.sender} as spam")
-            
+
             # Store user feedback in episodic memory
             content = f"User feedback: SPAM - {email.sender}"
             if user_feedback:
                 content += f" - {user_feedback}"
-            
+
             metadata = {
                 'feedback_type': 'user_spam_report',
                 'sender': email.sender,
@@ -924,9 +920,9 @@ class SpamDetector:
                 'date': datetime.now(UTC).isoformat(),
                 'email_id': email.id
             }
-            
+
             await self.episodic_memory.add(content, metadata)
-            
+
             # Update semantic memory with sender information
             await self.semantic_memory.add(
                 content=f"Spam sender: {email.sender}",
@@ -938,12 +934,12 @@ class SpamDetector:
                     'last_updated': datetime.now(UTC).isoformat()
                 }
             )
-            
+
             self.logger.info(f"User spam feedback recorded for {email.sender}")
-            
+
         except Exception as e:
             self.logger.error(f"Failed to record spam feedback: {e}")
-    
+
     @log_function()
     async def mark_as_not_spam(self, email: EmailMessage, user_feedback: str = "") -> None:
         """
@@ -957,12 +953,12 @@ class SpamDetector:
         """
         try:
             self.logger.info(f"User marked email from {email.sender} as not spam")
-            
+
             # Store user feedback in episodic memory
             content = f"User feedback: NOT SPAM - {email.sender}"
             if user_feedback:
                 content += f" - {user_feedback}"
-            
+
             metadata = {
                 'feedback_type': 'user_ham_report',
                 'sender': email.sender,
@@ -972,9 +968,9 @@ class SpamDetector:
                 'date': datetime.now(UTC).isoformat(),
                 'email_id': email.id
             }
-            
+
             await self.episodic_memory.add(content, metadata)
-            
+
             # Update semantic memory to mark as trusted
             await self.semantic_memory.add(
                 content=f"Trusted sender: {email.sender}",
@@ -986,14 +982,14 @@ class SpamDetector:
                     'last_updated': datetime.now(UTC).isoformat()
                 }
             )
-            
+
             self.logger.info(f"User not-spam feedback recorded for {email.sender}")
-            
+
         except Exception as e:
             self.logger.error(f"Failed to record not-spam feedback: {e}")
-    
+
     @log_function()
-    async def get_spam_statistics(self) -> Dict[str, Any]:
+    async def get_spam_statistics(self) -> dict[str, Any]:
         """
         Get statistics about spam detection performance.
         
@@ -1006,7 +1002,7 @@ class SpamDetector:
                 query="spam analysis",
                 limit=100
             )
-            
+
             stats = {
                 'total_analyses': len(recent_analyses),
                 'spam_detected': 0,
@@ -1015,129 +1011,120 @@ class SpamDetector:
                 'common_reasons': {},
                 'user_feedback_count': 0
             }
-            
+
             for memory_item, score in recent_analyses:
                 if score > 0.7:  # Good match
                     metadata = memory_item.metadata
                     classification = metadata.get('classification', 'unknown')
-                    
+
                     if classification == 'spam':
                         stats['spam_detected'] += 1
                     elif classification == 'clean':
                         stats['clean_emails'] += 1
-                    
+
                     # Track confidence distribution
                     confidence = metadata.get('confidence', 'unknown')
                     stats['confidence_distribution'][confidence] = stats['confidence_distribution'].get(confidence, 0) + 1
-                    
+
                     # Track common reasons
                     reasons = metadata.get('reasons', [])
                     for reason in reasons:
                         stats['common_reasons'][reason] = stats['common_reasons'].get(reason, 0) + 1
-            
+
             # Get user feedback statistics
             feedback_results = await self.episodic_memory.search(
                 query="user feedback",
                 limit=50
             )
             stats['user_feedback_count'] = len([r for r in feedback_results if r[1] > 0.7])
-            
+
             self.logger.info(f"Spam statistics: {stats['total_analyses']} analyses, {stats['spam_detected']} spam")
             return stats
-            
+
         except Exception as e:
             self.logger.error(f"Failed to get spam statistics: {e}")
             return {'error': str(e)}
 
 
 @log_function()
-async def demo_spam_detector() -> None:
+async def demo_spam_detection() -> None:
     """
-    Demonstration of the spam detection system.
+    Demonstration of the Spam Detection Agent.
     
-    Shows how to use the SpamDetector with sample email data
+    Creates sample emails with varying spam characteristics,
+    analyzes them for spam indicators,
     and displays the analysis results.
     """
-    print("🛡️ Spam Detection Agent Demo")
-    print("=" * 50)
-    
+    print("🛡️ Spam Detection Agent Demo")  # noqa: T201
+    print("=" * 50)  # noqa: T201
+
     # Initialize detector
     detector = SpamDetector()
-    
-    # Sample emails for demonstration
+
+    # Create test emails with different characteristics
     test_emails = [
+        # Legitimate business email
         EmailMessage(
-            id="demo_001",
-            sender="colleague@business.com",
-            subject="Quarterly Review Meeting",
-            content="""Hi team,
-
-I wanted to schedule our quarterly review meeting for next week. 
-Please let me know your availability.
-
-Best regards,
-John""",
+            id="test_001",
+            sender="john.smith@realestate.com",
+            subject="Q4 Rent Roll - 123 Main Street Property",
+            content="Please find attached the quarterly rent roll for our Main Street property. All tenants are current on payments.",
             headers={"Received-SPF": "pass"}
         ),
+
+        # Suspicious promotional email
         EmailMessage(
-            id="demo_002",
-            sender="noreply@spamsite.tk",
-            subject="URGENT!!! WIN $1000000 NOW!!!",
-            content="""CONGRATULATIONS!!! You have WON the LOTTERY!!!
-
-CLICK HERE to claim your $1,000,000 prize NOW!!!
-This offer expires in 24 hours!!!
-
-ACT NOW!!! Don't miss this LIMITED TIME offer!!!""",
+            id="test_002",
+            sender="deals@promotions.biz",
+            subject="🎉 URGENT: Claim Your FREE $1000 Gift Card NOW!!!",
+            content="Congratulations! You've been selected to receive a FREE $1000 gift card! Click here immediately to claim your prize before it expires!",
             headers={}
         ),
+
+        # Phishing attempt
         EmailMessage(
-            id="demo_003",
-            sender="security@phishing-site.com",
-            subject="Account Security Alert",
-            content="""Your account has been suspended due to suspicious activity.
-
-Please verify your account by clicking here and entering your username and password.
-
-Failure to verify within 24 hours will result in permanent suspension.""",
+            id="test_003",
+            sender="security@bank-alert.net",
+            subject="URGENT: Your Account Has Been Compromised",
+            content="Your bank account has been compromised. Please click this link immediately to verify your credentials and secure your account.",
             headers={"Received-SPF": "fail"}
         )
     ]
-    
+
     # Analyze each email
     for email in test_emails:
-        print(f"\n📧 Analyzing: {email.subject}")
-        print(f"   From: {email.sender}")
-        
+        print(f"\n📧 Analyzing: {email.subject}")  # noqa: T201
+        print(f"   From: {email.sender}")  # noqa: T201
+
         analysis = await detector.analyze_spam(email)
-        
-        print(f"\n📊 Analysis Results:")
-        print(f"   Classification: {'SPAM' if analysis.is_spam else 'CLEAN'}")
-        print(f"   Confidence: {analysis.confidence.value}")
-        print(f"   Spam Score: {analysis.spam_score:.1f}/100")
-        print(f"   Recommendation: {analysis.recommendation}")
-        
+
+        print("\n📊 Analysis Results:")  # noqa: T201
+        print(f"   Classification: {'SPAM' if analysis.is_spam else 'CLEAN'}")  # noqa: T201
+        print(f"   Confidence: {analysis.confidence.value}")  # noqa: T201
+        print(f"   Spam Score: {analysis.spam_score:.1f}/100")  # noqa: T201
+        print(f"   Recommendation: {analysis.recommendation}")  # noqa: T201
+
         if analysis.reasons:
-            print(f"   Reasons: {', '.join([r.value for r in analysis.reasons])}")
-        
+            print(f"   Reasons: {', '.join([r.value for r in analysis.reasons])}")  # noqa: T201
+
         if analysis.blacklist_hits:
-            print(f"   Blacklist Hits: {', '.join(analysis.blacklist_hits)}")
-        
+            print(f"   Blacklist Hits: {', '.join(analysis.blacklist_hits)}")  # noqa: T201
+
         if analysis.content_flags:
-            print(f"   Content Flags: {', '.join(analysis.content_flags)}")
-        
-        print(f"   Processing Time: {analysis.processing_time:.3f}s")
-    
+            print(f"   Content Flags: {', '.join(analysis.content_flags)}")  # noqa: T201
+
+        print(f"   Processing Time: {analysis.processing_time:.3f}s")  # noqa: T201
+
     # Show statistics
     stats = await detector.get_spam_statistics()
-    print(f"\n📈 Detection Statistics:")
-    print(f"   Total Analyses: {stats.get('total_analyses', 0)}")
-    print(f"   Spam Detected: {stats.get('spam_detected', 0)}")
-    print(f"   Clean Emails: {stats.get('clean_emails', 0)}")
-    
-    print("\n✨ Demo completed!")
+    print("\n📈 Detection Statistics:")  # noqa: T201
+    print(f"   Total Analyses: {stats.get('total_analyses', 0)}")  # noqa: T201
+    print(f"   Spam Detected: {stats.get('spam_detected', 0)}")  # noqa: T201
+    print(f"   Clean Emails: {stats.get('clean_emails', 0)}")  # noqa: T201
+
+    print("\n✨ Demo completed!")  # noqa: T201
 
 
 if __name__ == "__main__":
     # Run demo if executed directly
-    asyncio.run(demo_spam_detector()) 
+    asyncio.run(demo_spam_detection())

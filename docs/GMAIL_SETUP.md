@@ -123,4 +123,4 @@ After setup, you'll have:
 
 ---
 
-Ready to test spam detection on your real Gmail account! 🚀 
+Ready to test spam detection on your real Gmail account! 🚀

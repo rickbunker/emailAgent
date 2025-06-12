@@ -149,34 +149,34 @@ logger = get_logger(__name__)
 ```python
 @log_function()
 async def process_attachment(
-    attachment_data: Dict[str, Any], 
+    attachment_data: Dict[str, Any],
     email_data: Dict[str, Any]
 ) -> ProcessingResult:
     """
     Process an email attachment with AI classification.
-    
+
     Args:
         attachment_data: Dictionary containing 'filename' and 'content'
         email_data: Dictionary with sender, subject, date, and body info
-        
+
     Returns:
         ProcessingResult with classification and confidence scores
-        
+
     Raises:
         ProcessingError: If attachment cannot be processed
     """
     logger.info(f"Processing attachment: {attachment_data.get('filename')}")
-    
+
     try:
         # Use configuration
         max_size = config.max_attachment_size_mb
-        
+
         # Your logic here
         result = await some_processing_function()
-        
+
         logger.info("Processing completed successfully")
         return result
-        
+
     except Exception as e:
         logger.error(f"Processing failed: {e}")
         if config.development_mode:
@@ -241,4 +241,4 @@ except Exception as e:
 
 ---
 
-**Following these standards ensures code quality, maintainability, and team consistency!** 🎯 
+**Following these standards ensures code quality, maintainability, and team consistency!** 🎯

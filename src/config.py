@@ -27,9 +27,10 @@ Environment Variables Required:
 """
 
 import os
-from typing import Dict, List, Optional, Any, Union
-from pathlib import Path
 from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
 from dotenv import load_dotenv
 
 # Logging system
@@ -45,19 +46,19 @@ load_dotenv()
 @dataclass
 class DatabaseConfig:
     """Configuration for database connections."""
-    
+
     # Qdrant Vector Database
     qdrant_url: str = "http://localhost:6333"
-    qdrant_api_key: Optional[str] = None
+    qdrant_api_key: str | None = None
     qdrant_collection_size: int = 1536  # OpenAI embedding dimension
     qdrant_timeout: int = 30
-    
+
     # Connection settings
     max_retries: int = 3
     connection_timeout: int = 10
-    
+
     # Collections configuration
-    collections: Dict[str, Dict[str, Any]] = field(default_factory=lambda: {
+    collections: dict[str, dict[str, Any]] = field(default_factory=lambda: {
         "contacts": {"description": "Contact information and relationships", "vector_size": 1536, "distance": "Cosine"},
         "assets": {"description": "Asset information and properties", "vector_size": 1536, "distance": "Cosine"},
         "documents": {"description": "Document content and metadata", "vector_size": 1536, "distance": "Cosine"},
@@ -66,37 +67,37 @@ class DatabaseConfig:
     })
 
 
-@dataclass  
+@dataclass
 class APIConfig:
     """Configuration for external API connections."""
-    
+
     # OpenAI Configuration
     openai_api_key: str = ""
     openai_model: str = "gpt-4"
     openai_embedding_model: str = "text-embedding-ada-002"
     openai_max_tokens: int = 4000
     openai_temperature: float = 0.1
-    
+
     # Gmail API Configuration
     gmail_client_id: str = ""
     gmail_client_secret: str = ""
     gmail_refresh_token: str = ""
-    gmail_scopes: List[str] = field(default_factory=lambda: [
+    gmail_scopes: list[str] = field(default_factory=lambda: [
         'https://www.googleapis.com/auth/gmail.readonly',
-        'https://www.googleapis.com/auth/gmail.send', 
+        'https://www.googleapis.com/auth/gmail.send',
         'https://www.googleapis.com/auth/gmail.modify'
     ])
-    
+
     # Microsoft Graph API Configuration
     msgraph_client_id: str = ""
     msgraph_tenant_id: str = ""
     msgraph_redirect_uri: str = "http://localhost:8080"
-    msgraph_scopes: List[str] = field(default_factory=lambda: [
+    msgraph_scopes: list[str] = field(default_factory=lambda: [
         'https://graph.microsoft.com/Mail.ReadWrite',
         'https://graph.microsoft.com/Mail.Send',
         'https://graph.microsoft.com/User.Read'
     ])
-    
+
     # API Rate Limiting
     max_requests_per_minute: int = 60
     request_timeout: int = 30
@@ -105,20 +106,20 @@ class APIConfig:
 @dataclass
 class SecurityConfig:
     """Configuration for security and virus scanning."""
-    
+
     # ClamAV Configuration
     clamav_enabled: bool = True
     clamav_daemon_socket: str = "/var/run/clamav/clamd.ctl"
     clamav_command_timeout: int = 30
     clamav_max_filesize: int = 100 * 1024 * 1024  # 100MB
-    
-    # SpamAssassin Configuration  
+
+    # SpamAssassin Configuration
     spamassassin_enabled: bool = True
     spamassassin_threshold: float = 5.0
     spamassassin_timeout: int = 15
-    
+
     # File Processing Security
-    allowed_file_extensions: List[str] = field(default_factory=lambda: [
+    allowed_file_extensions: list[str] = field(default_factory=lambda: [
         '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
         '.txt', '.csv', '.json', '.xml', '.zip', '.rar'
     ])
@@ -129,17 +130,17 @@ class SecurityConfig:
 @dataclass
 class MemoryConfig:
     """Configuration for memory system and data storage."""
-    
+
     # Base paths
     base_memory_path: str = "memory/"
     procedural_memory_path: str = "memory/procedural/"
     semantic_memory_path: str = "memory/semantic/"
     episodic_memory_path: str = "memory/episodic/"
-    
+
     # Cache configuration
     cache_size: int = 1000
     cache_ttl: int = 3600  # 1 hour
-    
+
     # Memory retention
     max_memory_age_days: int = 365
     cleanup_interval_hours: int = 24
@@ -152,7 +153,7 @@ class EmailAgentConfig:
     Centralizes all configuration settings and provides methods for
     environment-specific configuration loading and validation.
     """
-    
+
     def __init__(self, environment: str = "development"):
         """
         Initialize configuration with environment-specific settings.
@@ -162,21 +163,21 @@ class EmailAgentConfig:
         """
         self.environment = environment
         self.logger = get_logger(f"{__name__}.EmailAgentConfig")
-        
+
         # Load configuration sections
         self.database = self._load_database_config()
         self.api = self._load_api_config()
         self.security = self._load_security_config()
         self.memory = self._load_memory_config()
-        
+
         # Application settings
         self.app_name = "EmailAgent"
         self.app_version = "1.0.0"
         self.debug = environment == "development"
-        
+
         # Initialize directories
         self._create_directories()
-    
+
     @log_function()
     def _load_database_config(self) -> DatabaseConfig:
         """Load database configuration from environment variables."""
@@ -184,7 +185,7 @@ class EmailAgentConfig:
             qdrant_url=os.getenv("QDRANT_URL", "http://localhost:6333"),
             qdrant_api_key=os.getenv("QDRANT_API_KEY"),
         )
-    
+
     @log_function()
     def _load_api_config(self) -> APIConfig:
         """Load API configuration from environment variables."""
@@ -196,39 +197,39 @@ class EmailAgentConfig:
             msgraph_client_id=os.getenv("MSGRAPH_CLIENT_ID", ""),
             msgraph_tenant_id=os.getenv("MSGRAPH_TENANT_ID", ""),
         )
-    
+
     @log_function()
     def _load_security_config(self) -> SecurityConfig:
         """Load security configuration from environment variables."""
         return SecurityConfig()
-    
+
     @log_function()
     def _load_memory_config(self) -> MemoryConfig:
         """Load memory system configuration."""
         return MemoryConfig()
-    
+
     @log_function()
     def _create_directories(self) -> None:
         """Create necessary directories for the application."""
         directories = [
-            "logs/", "temp/", "quarantine/", 
+            "logs/", "temp/", "quarantine/",
             self.memory.base_memory_path,
             self.memory.procedural_memory_path,
             self.memory.semantic_memory_path,
             self.memory.episodic_memory_path,
         ]
-        
+
         for directory in directories:
             Path(directory).mkdir(parents=True, exist_ok=True)
 
 
 # Global configuration instance
 @log_function()
-def get_config(environment: Optional[str] = None) -> EmailAgentConfig:
+def get_config(environment: str | None = None) -> EmailAgentConfig:
     """Get the global configuration instance."""
     if environment is None:
         environment = os.getenv("LANGGRAPH_ENV", "development")
-    
+
     return EmailAgentConfig(environment)
 
 
@@ -252,26 +253,26 @@ MSGRAPH_SCOPES = [
 LOGGING_CONFIG = {
     # Log levels: DEBUG, INFO, WARNING, ERROR, CRITICAL
     "level": "INFO",
-    
+
     # Output destinations
     "log_to_file": True,
     "log_to_stdout": True,
-    
+
     # File configuration
     "log_file": "logs/emailagent.log",
     "max_file_size": 50 * 1024 * 1024,  # 50MB
     "backup_count": 10,
-    
+
     # Format configuration
     "format_string": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     "date_format": "%Y-%m-%d %H:%M:%S",
-    
+
     # Function logging configuration
     "log_arguments": True,
     "log_return_values": True,
     "log_execution_time": True,
     "max_arg_length": 1000,  # Max chars for argument values
-    
+
     # Sensitive data filtering
     "sensitive_keys": [
         'password', 'token', 'secret', 'key', 'credential', 'auth',
@@ -288,7 +289,7 @@ DEVELOPMENT_LOGGING = {
 }
 
 PRODUCTION_LOGGING = {
-    "level": "INFO", 
+    "level": "INFO",
     "log_arguments": False,
     "log_return_values": False,
     "log_execution_time": False,
@@ -301,4 +302,4 @@ TESTING_LOGGING = {
     "log_to_file": True,
     "log_to_stdout": True,
     "log_file": "logs/test_emailagent.log"
-} 
+}

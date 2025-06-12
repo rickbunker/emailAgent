@@ -37,4 +37,4 @@ types-setuptools>=69.0.0
 ipython>=8.18.0
 jupyter>=1.0.0
 rich>=13.7.0  # For better terminal output
-click>=8.1.0  # For CLI tools 
+click>=8.1.0  # For CLI tools

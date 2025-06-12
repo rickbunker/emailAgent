@@ -40,20 +40,17 @@ License -- for Inveniam use only
 Copyright 2025 by Inveniam Capital Partners, LLC and Rick Bunker
 """
 
-import time
-import uuid
-from typing import Any, Dict, List, Optional, Union
-from datetime import datetime, UTC
-from enum import Enum
-
-from qdrant_client.http import models
+import os
 
 # Logging system
 import sys
-import os
+from datetime import UTC, datetime
+from enum import Enum
+from typing import Any
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from utils.logging_system import get_logger, log_function, log_debug, log_info
+from utils.logging_system import get_logger, log_function
 
 from .base import BaseMemory, MemoryItem
 
@@ -153,10 +150,10 @@ class ProceduralMemory(BaseMemory):
         - Rule lifecycle management and versioning
         - audit trail and rule execution tracking
     """
-    
+
     def __init__(
         self,
-        max_items: Optional[int] = 1000,
+        max_items: int | None = 1000,
         qdrant_url: str = "http://localhost:6333",
         embedding_model: str = "all-MiniLM-L6-v2"
     ):
@@ -175,12 +172,12 @@ class ProceduralMemory(BaseMemory):
         )
         self.collection_name = "procedural"
         logger.info(f"Initialized ProceduralMemory with max_items={max_items}")
-    
+
     @log_function()
     async def add(
         self,
         content: str,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
         rule_type: RuleType = RuleType.UNKNOWN,
         priority: RulePriority = RulePriority.MEDIUM,
         confidence: RuleConfidence = RuleConfidence.DRAFT
@@ -220,10 +217,10 @@ class ProceduralMemory(BaseMemory):
         """
         if not content or not isinstance(content, str):
             raise ValueError("Rule content must be a non-empty string")
-        
+
         if metadata is None:
             metadata = {}
-        
+
         # Set complete rule metadata
         metadata["type"] = "rule"
         metadata["rule_type"] = rule_type.value
@@ -233,10 +230,10 @@ class ProceduralMemory(BaseMemory):
         metadata["source"] = "procedural_memory"
         metadata["version"] = "1.0.0"
         metadata["active"] = True
-        
+
         logger.info(f"Adding procedural rule: type={rule_type.value}, priority={priority.value}")
         logger.debug(f"Rule content length: {len(content)}")
-        
+
         try:
             result = await super().add(content, metadata)
             logger.info(f"Successfully added procedural rule: {result}")
@@ -244,13 +241,13 @@ class ProceduralMemory(BaseMemory):
         except Exception as e:
             logger.error(f"Failed to add procedural rule: {e}")
             raise
-    
+
     @log_function()
     async def add_investment_rule(
         self,
         content: str,
         rule_name: str,
-        threshold_amount: Optional[float] = None,
+        threshold_amount: float | None = None,
         approval_required: bool = True,
         priority: RulePriority = RulePriority.HIGH,
         **kwargs
@@ -289,16 +286,16 @@ class ProceduralMemory(BaseMemory):
             "approval_required": approval_required,
             **kwargs
         }
-        
+
         logger.info(f"Adding investment rule: {rule_name}")
         return await self.add(
-            content, 
-            metadata, 
-            RuleType.INVESTMENT, 
-            priority, 
+            content,
+            metadata,
+            RuleType.INVESTMENT,
+            priority,
             RuleConfidence.VERIFIED
         )
-    
+
     @log_function()
     async def add_compliance_rule(
         self,
@@ -331,16 +328,16 @@ class ProceduralMemory(BaseMemory):
             "mandatory": mandatory,
             **kwargs
         }
-        
+
         logger.info(f"Adding compliance rule: {rule_name} (source: {regulation_source})")
         return await self.add(
-            content, 
-            metadata, 
-            RuleType.COMPLIANCE, 
+            content,
+            metadata,
+            RuleType.COMPLIANCE,
             RulePriority.CRITICAL if mandatory else RulePriority.HIGH,
             RuleConfidence.VERIFIED
         )
-    
+
     @log_function()
     async def add_classification_rule(
         self,
@@ -376,27 +373,27 @@ class ProceduralMemory(BaseMemory):
             "confidence_threshold": confidence_threshold,
             **kwargs
         }
-        
+
         logger.info(f"Adding classification rule: {rule_name} -> {target_category}")
         return await self.add(
-            content, 
-            metadata, 
-            RuleType.CLASSIFICATION, 
+            content,
+            metadata,
+            RuleType.CLASSIFICATION,
             RulePriority.MEDIUM,
             RuleConfidence.TESTED
         )
-    
+
     @log_function()
     async def search(
         self,
         query: str,
         limit: int = 5,
-        filter: Optional[Dict[str, Any]] = None,
-        rule_type: Optional[RuleType] = None,
-        min_priority: Optional[RulePriority] = None,
-        min_confidence: Optional[RuleConfidence] = None,
+        filter: dict[str, Any] | None = None,
+        rule_type: RuleType | None = None,
+        min_priority: RulePriority | None = None,
+        min_confidence: RuleConfidence | None = None,
         active_only: bool = True
-    ) -> List[MemoryItem]:
+    ) -> list[MemoryItem]:
         """
         Search procedural rules with complete filtering.
         
@@ -425,7 +422,7 @@ class ProceduralMemory(BaseMemory):
             ... )
         """
         logger.info(f"Searching procedural rules: query='{query}', limit={limit}")
-        
+
         try:
             # Build complete filter conditions
             filter_conditions = {
@@ -433,73 +430,73 @@ class ProceduralMemory(BaseMemory):
                     {"key": "metadata.type", "match": {"value": "rule"}}
                 ]
             }
-            
+
             # Active rules filter
             if active_only:
                 filter_conditions["must"].append({
                     "key": "metadata.active",
                     "match": {"value": True}
                 })
-            
+
             # Rule type filter
             if rule_type:
                 filter_conditions["must"].append({
                     "key": "metadata.rule_type",
                     "match": {"value": rule_type.value}
                 })
-            
+
             # Priority filter
             if min_priority:
                 priority_values = [p.value for p in RulePriority]
                 min_index = priority_values.index(min_priority.value)
                 allowed_values = priority_values[:min_index + 1]  # Higher priority = earlier in list
-                
+
                 filter_conditions["must"].append({
                     "key": "metadata.priority",
                     "match": {"any": allowed_values}
                 })
-            
+
             # Confidence filter
             if min_confidence:
                 confidence_values = [c.value for c in RuleConfidence]
                 min_index = confidence_values.index(min_confidence.value)
                 allowed_values = confidence_values[min_index:]
-                
+
                 filter_conditions["must"].append({
                     "key": "metadata.confidence",
                     "match": {"any": allowed_values}
                 })
-            
+
             # Additional custom filters
             if filter:
                 if "must" in filter:
                     filter_conditions["must"].extend(filter["must"])
                 else:
                     filter_conditions["must"].append(filter)
-            
+
             # Perform semantic search
             results = await super().search(query, limit, filter_conditions)
-            
+
             # Sort by priority (critical first, then high, etc.)
             priority_order = {p.value: i for i, p in enumerate(RulePriority)}
             results.sort(key=lambda r: priority_order.get(r.metadata.get("priority", "low"), 999))
-            
+
             logger.info(f"Found {len(results)} procedural rules matching query")
             logger.debug(f"Rule search results preview: {[r.id for r in results[:3]]}")
-            
+
             return results
-            
+
         except Exception as e:
             logger.error(f"Error searching procedural rules: {e}")
             return []
-    
+
     @log_function()
     async def search_by_rule_type(
         self,
         rule_type: RuleType,
         limit: int = 10,
-        min_priority: Optional[RulePriority] = None
-    ) -> List[MemoryItem]:
+        min_priority: RulePriority | None = None
+    ) -> list[MemoryItem]:
         """
         Search rules by specific type with priority filtering.
         
@@ -515,16 +512,16 @@ class ProceduralMemory(BaseMemory):
             List of rules of the specified type
         """
         logger.info(f"Searching rules by type: {rule_type.value}")
-        
+
         return await self.search(
             query=rule_type.value,
             limit=limit,
             rule_type=rule_type,
             min_priority=min_priority
         )
-    
+
     @log_function()
-    async def get_critical_rules(self, limit: int = 20) -> List[MemoryItem]:
+    async def get_critical_rules(self, limit: int = 20) -> list[MemoryItem]:
         """
         Get all critical priority rules for workflow automation.
         
@@ -538,13 +535,13 @@ class ProceduralMemory(BaseMemory):
             List of critical priority rules
         """
         logger.info("Retrieving critical priority rules")
-        
+
         return await self.search(
             query="*",  # Match all
             limit=limit,
             min_priority=RulePriority.CRITICAL
         )
-    
+
     @log_function()
     async def deactivate_rule(self, rule_id: str) -> bool:
         """
@@ -560,30 +557,30 @@ class ProceduralMemory(BaseMemory):
             True if rule was successfully deactivated
         """
         logger.info(f"Deactivating rule: {rule_id}")
-        
+
         try:
             # Get the rule
             rule_item = await super().get_item(rule_id)
             if not rule_item:
                 logger.warning(f"Rule not found for deactivation: {rule_id}")
                 return False
-            
+
             # Update metadata to mark as inactive
             rule_item.metadata["active"] = False
             rule_item.metadata["deactivated_at"] = datetime.now(UTC).isoformat()
-            
+
             # Update in database
             await super().update_item(rule_id, rule_item)
-            
+
             logger.info(f"Successfully deactivated rule: {rule_id}")
             return True
-            
+
         except Exception as e:
             logger.error(f"Error deactivating rule {rule_id}: {e}")
             return False
-    
+
     @log_function()
-    async def get_rule_statistics(self) -> Dict[str, Any]:
+    async def get_rule_statistics(self) -> dict[str, Any]:
         """
         Get complete statistics about procedural rules.
         
@@ -594,11 +591,11 @@ class ProceduralMemory(BaseMemory):
             Dictionary containing rule statistics and insights
         """
         logger.info("Generating procedural rule statistics")
-        
+
         try:
             # Get all rules for analysis
             all_rules = await super().search(query="*", limit=1000)
-            
+
             if not all_rules:
                 return {
                     "total_count": 0,
@@ -607,7 +604,7 @@ class ProceduralMemory(BaseMemory):
                     "confidence_distribution": {},
                     "active_count": 0
                 }
-            
+
             # Initialize statistics
             stats = {
                 "total_count": len(all_rules),
@@ -619,47 +616,47 @@ class ProceduralMemory(BaseMemory):
                 "average_content_length": 0,
                 "rules_by_category": {}
             }
-            
+
             # Analyze rules
             total_length = 0
-            
+
             for rule in all_rules:
                 metadata = rule.metadata
-                
+
                 # Content length analysis
                 total_length += len(rule.content)
-                
+
                 # Active/inactive status
                 if metadata.get("active", True):
                     stats["active_count"] += 1
                 else:
                     stats["inactive_count"] += 1
-                
+
                 # Rule type distribution
                 rule_type = metadata.get("rule_type", "unknown")
                 stats["rule_types"][rule_type] = stats["rule_types"].get(rule_type, 0) + 1
-                
+
                 # Priority distribution
                 priority = metadata.get("priority", "medium")
                 stats["priority_distribution"][priority] = stats["priority_distribution"].get(priority, 0) + 1
-                
+
                 # Confidence distribution
                 confidence = metadata.get("confidence", "draft")
                 stats["confidence_distribution"][confidence] = stats["confidence_distribution"].get(confidence, 0) + 1
-            
+
             # Calculate derived statistics
             stats["average_content_length"] = total_length / len(all_rules) if all_rules else 0
-            
+
             # Find most common items
             if stats["rule_types"]:
                 stats["most_common_type"] = max(stats["rule_types"], key=stats["rule_types"].get)
-            
+
             if stats["priority_distribution"]:
                 stats["most_common_priority"] = max(stats["priority_distribution"], key=stats["priority_distribution"].get)
-            
+
             logger.info(f"Generated statistics for {stats['total_count']} procedural rules")
             return stats
-            
+
         except Exception as e:
             logger.error(f"Error generating rule statistics: {e}")
             return {
@@ -678,13 +675,13 @@ async def demo_procedural_memory() -> None:
     and workflow automation for asset management environments.
     """
     logger.info("Starting ProceduralMemory demonstration")
-    
+
     procedural_memory = ProceduralMemory()
-    
+
     try:
         # Add sample investment rules
         logger.info("Adding sample investment rules...")
-        
+
         investment_rule_id = await procedural_memory.add_investment_rule(
             content="Investment committee approval required for any single investment exceeding $50M",
             rule_name="large_investment_approval",
@@ -693,10 +690,10 @@ async def demo_procedural_memory() -> None:
             sector="all",
             approval_body="investment_committee"
         )
-        
+
         # Add compliance rule
         logger.info("Adding compliance rule...")
-        
+
         compliance_rule_id = await procedural_memory.add_compliance_rule(
             content="All investment documents must be reviewed for anti-money laundering compliance",
             rule_name="aml_document_review",
@@ -704,10 +701,10 @@ async def demo_procedural_memory() -> None:
             mandatory=True,
             review_required=True
         )
-        
+
         # Add classification rule
         logger.info("Adding classification rule...")
-        
+
         classification_rule_id = await procedural_memory.add_classification_rule(
             content="Emails containing 'due diligence', 'investment proposal', or 'fund performance' should be classified as investment_related",
             rule_name="investment_email_classification",
@@ -715,67 +712,67 @@ async def demo_procedural_memory() -> None:
             target_category="investment_related",
             confidence_threshold=0.8
         )
-        
+
         logger.info("✓ Added sample procedural rules")
-        
+
         # Test rule search
         logger.info("Testing rule search capabilities...")
-        
+
         search_results = await procedural_memory.search(
             query="investment approval",
             rule_type=RuleType.INVESTMENT,
             min_priority=RulePriority.HIGH
         )
-        
+
         logger.info(f"Found {len(search_results)} investment approval rules")
         for result in search_results:
             rule_type = result.metadata.get("rule_type", "unknown")
             priority = result.metadata.get("priority", "unknown")
             logger.info(f"  - {rule_type} ({priority}): {result.content[:80]}...")
-        
+
         # Test critical rules retrieval
         logger.info("Testing critical rules retrieval...")
-        
+
         critical_rules = await procedural_memory.get_critical_rules(limit=10)
-        
+
         logger.info(f"Found {len(critical_rules)} critical priority rules")
-        
+
         # Test rule type search
         logger.info("Testing compliance rule search...")
-        
+
         compliance_rules = await procedural_memory.search_by_rule_type(
             rule_type=RuleType.COMPLIANCE,
             limit=5
         )
-        
+
         logger.info(f"Found {len(compliance_rules)} compliance rules")
-        
+
         # Generate rule statistics
         logger.info("Generating rule statistics...")
-        
+
         stats = await procedural_memory.get_rule_statistics()
-        logger.info(f"Rule statistics:")
+        logger.info("Rule statistics:")
         logger.info(f"  - Total rules: {stats['total_count']}")
         logger.info(f"  - Active rules: {stats['active_count']}")
         logger.info(f"  - Rule types: {stats['rule_types']}")
         logger.info(f"  - Priority distribution: {stats['priority_distribution']}")
         logger.info(f"  - Confidence distribution: {stats['confidence_distribution']}")
-        
+
         if stats.get('most_common_type'):
             logger.info(f"  - Most common type: {stats['most_common_type']}")
-        
+
         # Test rule deactivation
         logger.info("Testing rule deactivation...")
-        
+
         deactivation_success = await procedural_memory.deactivate_rule(classification_rule_id)
         logger.info(f"Rule deactivation successful: {deactivation_success}")
-        
+
         logger.info("ProceduralMemory demonstration completed successfully")
-        
+
     except Exception as e:
         logger.error(f"ProceduralMemory demonstration failed: {e}")
         raise
 
 if __name__ == "__main__":
     import asyncio
-    asyncio.run(demo_procedural_memory()) 
+    asyncio.run(demo_procedural_memory())

@@ -40,8 +40,9 @@ Copyright 2025 by Inveniam Capital Partners, LLC and Rick Bunker
 """
 
 # Core logging system
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from utils.logging_system import get_logger, log_function
@@ -51,11 +52,11 @@ logger = get_logger(__name__)
 
 # Import core tools and integrations
 from .spamassassin_integration import (
+    SpamAnalysisResult,
     SpamAssassinIntegration,
     SpamAssassinMode,
     SpamConfidence,
-    SpamAnalysisResult,
-    check_email_spam
+    check_email_spam,
 )
 
 # Package metadata
@@ -71,7 +72,7 @@ __all__ = [
     'SpamConfidence',
     'SpamAnalysisResult',
     'check_email_spam',
-    
+
     # Package metadata
     '__version__',
     '__author__',
@@ -99,7 +100,7 @@ def get_available_tools() -> list:
         ['spamassassin', 'security_scanner', 'document_processor']
     """
     logger.info("Retrieving available tools and integrations")
-    
+
     return [
         'spamassassin',
         'security_scanner',
@@ -133,7 +134,7 @@ def get_tool_info(tool_name: str) -> dict:
     """
     tool_name = tool_name.lower().strip()
     logger.info(f"Retrieving tool information for: {tool_name}")
-    
+
     tool_info = {
         'spamassassin': {
             'name': 'SpamAssassin Integration',
@@ -233,11 +234,11 @@ def get_tool_info(tool_name: str) -> dict:
             ]
         }
     }
-    
+
     if tool_name not in tool_info:
         supported_tools = list(tool_info.keys())
         raise ValueError(f"Unsupported tool: '{tool_name}'. Supported tools: {supported_tools}")
-    
+
     return tool_info[tool_name]
 
 @log_function()
@@ -258,7 +259,7 @@ def get_package_info() -> dict:
         '1.0.0'
     """
     logger.info("Retrieving tools package information")
-    
+
     return {
         'name': 'EmailAgent Tools Package',
         'version': __version__,
@@ -303,13 +304,13 @@ async def validate_tool_configuration(tool_name: str) -> dict:
     """
     tool_name = tool_name.lower().strip()
     logger.info(f"Validating tool configuration: {tool_name}")
-    
+
     try:
         if tool_name == 'spamassassin':
             # Validate SpamAssassin configuration
             spam_integration = SpamAssassinIntegration()
             health_status = await spam_integration.health_check()
-            
+
             return {
                 'tool': tool_name,
                 'ready': health_status.get('healthy', False),
@@ -322,7 +323,7 @@ async def validate_tool_configuration(tool_name: str) -> dict:
                     'Validate configuration and rule updates'
                 ]
             }
-        
+
         else:
             # Generic validation for other tools
             return {
@@ -337,7 +338,7 @@ async def validate_tool_configuration(tool_name: str) -> dict:
                     'Test operational functionality'
                 ]
             }
-    
+
     except Exception as e:
         logger.error(f"Tool validation failed for {tool_name}: {e}")
         return {
@@ -395,4 +396,4 @@ __all__.extend([
 ])
 
 logger.debug("Tools package initialization completed successfully")
-logger.debug(f"Exported tools: {len(__all__)} components available") 
+logger.debug(f"Exported tools: {len(__all__)} components available")

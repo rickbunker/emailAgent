@@ -27,7 +27,7 @@ await gmail.remove_label(email_id, 'INBOX')  # Remove from inbox
 spam_label = {'id': 'SPAM', 'name': 'Spam', 'type': 'system_spam'}
 ```
 
-### **Microsoft Graph System**  
+### **Microsoft Graph System**
 ```python
 # Microsoft Graph uses folder movement
 url = f"{msgraph.GRAPH_ENDPOINT}/me/messages/{email_id}/move"
@@ -61,7 +61,7 @@ junk_folder = {'id': 'folder_id', 'name': 'Junk Email', 'type': 'system_junk'}
 # Google OAuth with specific Gmail scopes
 SCOPES = [
     'https://www.googleapis.com/auth/gmail.readonly',
-    'https://www.googleapis.com/auth/gmail.send', 
+    'https://www.googleapis.com/auth/gmail.send',
     'https://www.googleapis.com/auth/gmail.modify',
     'https://www.googleapis.com/auth/contacts.readonly'
 ]
@@ -150,7 +150,7 @@ Both implementations share:
 # 2. Test connection
 python test_labels.py
 
-# 3. Run spam detection  
+# 3. Run spam detection
 python gmail_spam_test.py
 ```
 
@@ -199,7 +199,7 @@ python msgraph_spam_test.py
 - Update authentication configuration
 
 ### **From Microsoft Graph to Gmail**
-- Export Outlook folders → Import as Gmail labels  
+- Export Outlook folders → Import as Gmail labels
 - Transfer contact protection settings
 - Migrate filtering rules
 - Update OAuth configuration
@@ -252,4 +252,4 @@ For detailed setup instructions:
 
 For technical details:
 - Gmail implementation: `gmail_spam_test.py`
-- Microsoft Graph implementation: `msgraph_spam_test.py` 
+- Microsoft Graph implementation: `msgraph_spam_test.py`

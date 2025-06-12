@@ -40,8 +40,9 @@ Copyright 2025 by Inveniam Capital Partners, LLC and Rick Bunker
 """
 
 # Core logging system
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from utils.logging_system import get_logger, log_function
@@ -51,12 +52,12 @@ logger = get_logger(__name__)
 
 # Core memory interfaces and base classes
 from .base import BaseMemory, MemoryItem
+from .contact import ContactConfidence, ContactMemory, ContactRecord, ContactType
 
 # Specialized memory system implementations
 from .episodic import EpisodicMemory, EpisodicMemoryType
-from .semantic import SemanticMemory, KnowledgeType, KnowledgeConfidence
-from .procedural import ProceduralMemory, RuleType, RulePriority, RuleConfidence
-from .contact import ContactMemory, ContactRecord, ContactType, ContactConfidence
+from .procedural import ProceduralMemory, RuleConfidence, RulePriority, RuleType
+from .semantic import KnowledgeConfidence, KnowledgeType, SemanticMemory
 
 # Package metadata
 __version__ = "1.0.0"
@@ -68,28 +69,28 @@ __all__ = [
     # Core memory infrastructure
     'BaseMemory',
     'MemoryItem',
-    
+
     # Episodic memory system
     'EpisodicMemory',
     'EpisodicMemoryType',
-    
+
     # Semantic memory system
     'SemanticMemory',
     'KnowledgeType',
     'KnowledgeConfidence',
-    
+
     # Procedural memory system
     'ProceduralMemory',
     'RuleType',
     'RulePriority',
     'RuleConfidence',
-    
+
     # Contact memory system
     'ContactMemory',
     'ContactRecord',
     'ContactType',
     'ContactConfidence',
-    
+
     # Package metadata
     '__version__',
     '__author__',
@@ -98,8 +99,8 @@ __all__ = [
 
 # Package initialization logging
 logger.info(f"Memory systems package initialized - Version {__version__}")
-logger.debug(f"Available memory systems: Episodic, Semantic, Procedural, Contact")
-logger.debug(f"Base memory infrastructure loaded with vector storage support")
+logger.debug("Available memory systems: Episodic, Semantic, Procedural, Contact")
+logger.debug("Base memory infrastructure loaded with vector storage support")
 
 # Package-level convenience functions
 @log_function()
@@ -127,7 +128,7 @@ def create_memory_system(memory_type: str, **kwargs) -> BaseMemory:
     """
     memory_type = memory_type.lower().strip()
     logger.info(f"Creating memory system via convenience function: {memory_type}")
-    
+
     if memory_type == 'episodic':
         return EpisodicMemory(**kwargs)
     elif memory_type == 'semantic':
@@ -181,7 +182,7 @@ def get_memory_system_info(memory_type: str) -> dict:
     """
     memory_type = memory_type.lower().strip()
     logger.info(f"Retrieving memory system information for: {memory_type}")
-    
+
     system_info = {
         'episodic': {
             'name': 'Episodic Memory System',
@@ -264,11 +265,11 @@ def get_memory_system_info(memory_type: str) -> dict:
             'data_types': ['personal', 'professional', 'family', 'vendor', 'unknown']
         }
     }
-    
+
     if memory_type not in system_info:
         supported_types = list(system_info.keys())
         raise ValueError(f"Unsupported memory type: '{memory_type}'. Supported types: {supported_types}")
-    
+
     return system_info[memory_type]
 
 @log_function()
@@ -292,7 +293,7 @@ async def create_unified_memory_system(**kwargs) -> dict:
         >>> contact = memory_systems['contact']
     """
     logger.info("Creating unified memory system with all memory types")
-    
+
     try:
         memory_systems = {
             'episodic': EpisodicMemory(**kwargs),
@@ -300,10 +301,10 @@ async def create_unified_memory_system(**kwargs) -> dict:
             'procedural': ProceduralMemory(**kwargs),
             'contact': ContactMemory(**kwargs)
         }
-        
+
         logger.info(f"Successfully created unified memory system with {len(memory_systems)} memory types")
         return memory_systems
-        
+
     except Exception as e:
         logger.error(f"Failed to create unified memory system: {e}")
         raise
@@ -317,7 +318,7 @@ class MemorySystemFactory:
     configuration management, validation, and optimization
     for large-scale asset management deployments.
     """
-    
+
     @staticmethod
     @log_function()
     def create_optimized_memory_config(
@@ -335,7 +336,7 @@ class MemorySystemFactory:
             Dictionary with optimized configuration for each memory system
         """
         logger.info(f"Creating optimized memory config: {workload_type}, {total_memory_items} items")
-        
+
         if workload_type == 'contact_heavy':
             # Contact-heavy workload (investor relations focus)
             return {
@@ -359,4 +360,4 @@ class MemorySystemFactory:
                 'episodic': {'max_items': int(total_memory_items * 0.3)},
                 'semantic': {'max_items': int(total_memory_items * 0.25)},
                 'procedural': {'max_items': int(total_memory_items * 0.15)}
-            } 
+            }

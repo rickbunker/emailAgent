@@ -136,4 +136,4 @@ Once setup is complete, you can:
 3. Set up automated spam management
 4. Review detailed logs and reports
 
-For questions or issues, refer to the [Microsoft Graph documentation](https://docs.microsoft.com/en-us/graph/) or the main project README. 
+For questions or issues, refer to the [Microsoft Graph documentation](https://docs.microsoft.com/en-us/graph/) or the main project README.

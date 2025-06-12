@@ -6,23 +6,24 @@ Cleanup script to:
 3. Maintaining consistent documentation across Python and Markdown files
 """
 
+# # Standard library imports
 import os
 import re
 from pathlib import Path
+
 
 def cleanup_file(file_path):
     """Clean up a single Python or Markdown file."""
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
             content = f.read()
-        
+
         original_content = content
-        
+
         # Very simple word replacements (preserve all spacing and structure)
         replacements = {
             # Boastful adjectives - various patterns
             '': '',
-            '': '', 
             '': '',
             '': '',
             '': '',
@@ -43,7 +44,8 @@ def cleanup_file(file_path):
             '': '',
             '': '',
             '': '',
-            
+            '': '',
+
             # More nuanced replacements
             'Complete': 'Complete',
             'complete': 'complete',
@@ -95,7 +97,7 @@ def cleanup_file(file_path):
             'spam': 'spam',
             'filtering': 'filtering',
             'search': 'search',
-            
+
             # Markdown-specific patterns
             '**': '**',
             '**': '**',
@@ -109,11 +111,11 @@ def cleanup_file(file_path):
             '- **': '- **',
             '- **': '- **',
         }
-        
+
         # Apply simple string replacements
         for old, new in replacements.items():
             content = content.replace(old, new)
-        
+
         # Only update author/license/copyright for Python files
         if file_path.suffix == '.py':
             # Update author/license information - look for existing patterns
@@ -122,22 +124,22 @@ def cleanup_file(file_path):
                 (r'@author Rick Bunker, rbunker@inveniam.io
                 (r'Created by: Rick Bunker, rbunker@inveniam.io
             ]
-            
+
             license_patterns = [
                 (r'License -- for Inveniam use only
                 (r'License -- for Inveniam use only
             ]
-            
+
             copyright_patterns = [
                 (r'Copyright 2025 by Inveniam Capital Partners, LLC and Rick Bunker
                 (r'Copyright 2025 by Inveniam Capital Partners, LLC and Rick Bunker
                 (r'\(c\).*\d{4}.*', '(c) 2025 Inveniam Capital Partners, LLC and Rick Bunker
             ]
-            
+
             # Apply author/license/copyright updates
             for pattern, replacement in author_patterns + license_patterns + copyright_patterns:
                 content = re.sub(pattern, replacement, content, flags=re.IGNORECASE)
-        
+
         # Write back if changed
         if content != original_content:
             with open(file_path, 'w', encoding='utf-8') as f:
@@ -145,7 +147,7 @@ def cleanup_file(file_path):
             return True, "Updated"
         else:
             return True, "No changes needed"
-            
+
     except Exception as e:
         return False, f"Error: {str(e)}"
 
@@ -155,23 +157,23 @@ def main():
     python_files = list(Path('.').rglob('*.py'))
     markdown_files = list(Path('.').rglob('*.md'))
     all_files = python_files + markdown_files
-    
+
     total_files = len(all_files)
-    
+
     print(f"🔍 Found {len(python_files)} Python files and {len(markdown_files)} Markdown files")
     print(f"📄 Total files to process: {total_files}")
     print("=" * 60)
-    
+
     success_count = 0
     updated_count = 0
     error_count = 0
-    
+
     for file_path in all_files:
         success, message = cleanup_file(file_path)
-        
+
         file_type = "🐍" if file_path.suffix == '.py' else "📝"
         relative_path = file_path.relative_to('.')
-        
+
         if success:
             success_count += 1
             if "Updated" in message:
@@ -182,7 +184,7 @@ def main():
         else:
             error_count += 1
             print(f"❌ {file_type} {relative_path}: {message}")
-    
+
     print("=" * 60)
     print(f"📊 SUMMARY:")
     print(f"   Total files processed: {total_files}")
@@ -191,11 +193,11 @@ def main():
     print(f"   ✅ Successful: {success_count}")
     print(f"   📝 Updated: {updated_count}")
     print(f"   ❌ Errors: {error_count}")
-    
+
     if error_count == 0:
         print("\n🎉 All files processed successfully!")
     else:
         print(f"\n⚠️  {error_count} files had errors - please check manually")
 
 if __name__ == "__main__":
-    main() 
+    main()

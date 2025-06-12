@@ -39,7 +39,7 @@ License -- for Inveniam use only
 Copyright 2025 by Inveniam Capital Partners, LLC and Rick Bunker
 """
 
-from .logging_system import get_logger, log_function, LogConfig
+from .logging_system import LogConfig, get_logger, log_function
 
 # Package metadata
 __version__ = "1.0.0"
@@ -55,7 +55,7 @@ __all__ = [
     'get_logger',
     'log_function',
     'LogConfig',
-    
+
     # Package metadata
     '__version__',
     '__author__',
@@ -86,7 +86,7 @@ def get_package_info() -> dict:
         '1.0.0'
     """
     logger.info("Retrieving utils package information")
-    
+
     return {
         'name': 'EmailAgent Utils Package',
         'version': __version__,
@@ -143,7 +143,7 @@ def configure_logging(
         ... )
     """
     logger.info(f"Configuring logging system: level={level}, format={format_type}")
-    
+
     return LogConfig(
         level=level,
         format_type=format_type,
@@ -172,12 +172,13 @@ def get_system_status() -> dict:
         >>> print(f"System healthy: {status['healthy']}")
     """
     logger.info("Retrieving system status and health information")
-    
-    import platform
-    import psutil
+
     import os
-    from datetime import datetime, UTC
-    
+    import platform
+    from datetime import UTC, datetime
+
+    import psutil
+
     try:
         # System information
         system_info = {
@@ -188,11 +189,11 @@ def get_system_status() -> dict:
             'processor': platform.processor() or 'Unknown',
             'hostname': platform.node()
         }
-        
+
         # Resource utilization
         memory = psutil.virtual_memory()
         disk = psutil.disk_usage('/')
-        
+
         resource_info = {
             'cpu_percent': psutil.cpu_percent(interval=1),
             'memory_percent': memory.percent,
@@ -202,7 +203,7 @@ def get_system_status() -> dict:
             'disk_free_gb': round(disk.free / (1024**3), 2),
             'disk_total_gb': round(disk.total / (1024**3), 2)
         }
-        
+
         # Process information
         current_process = psutil.Process(os.getpid())
         process_info = {
@@ -212,14 +213,14 @@ def get_system_status() -> dict:
             'num_threads': current_process.num_threads(),
             'create_time': datetime.fromtimestamp(current_process.create_time(), UTC).isoformat()
         }
-        
+
         # Health assessment
         healthy = (
             resource_info['cpu_percent'] < 80 and
             resource_info['memory_percent'] < 85 and
             resource_info['disk_percent'] < 90
         )
-        
+
         status = {
             'healthy': healthy,
             'timestamp': datetime.now(UTC).isoformat(),
@@ -229,20 +230,20 @@ def get_system_status() -> dict:
             'process': process_info,
             'warnings': []
         }
-        
+
         # Add warnings for resource constraints
         if resource_info['cpu_percent'] > 70:
             status['warnings'].append(f"High CPU usage: {resource_info['cpu_percent']}%")
-        
+
         if resource_info['memory_percent'] > 80:
             status['warnings'].append(f"High memory usage: {resource_info['memory_percent']}%")
-        
+
         if resource_info['disk_percent'] > 85:
             status['warnings'].append(f"High disk usage: {resource_info['disk_percent']}%")
-        
+
         logger.info(f"System status retrieved - Healthy: {healthy}, CPU: {resource_info['cpu_percent']}%, Memory: {resource_info['memory_percent']}%")
         return status
-        
+
     except Exception as e:
         logger.error(f"Error retrieving system status: {e}")
         return {
@@ -297,4 +298,4 @@ __all__.extend([
 ])
 
 logger.debug("Utils package initialization completed successfully")
-logger.debug(f"Exported utilities: {len(__all__)} components available") 
+logger.debug(f"Exported utilities: {len(__all__)} components available")

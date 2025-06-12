@@ -39,8 +39,9 @@ Copyright 2025 by Inveniam Capital Partners, LLC and Rick Bunker
 """
 
 # Core logging system
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from utils.logging_system import get_logger, log_function
@@ -50,27 +51,27 @@ logger = get_logger(__name__)
 
 # Core base classes and data models
 from .base import (
+    AuthenticationError,
     BaseEmailInterface,
+    ConnectionError,
     Email,
     EmailAddress,
     EmailAttachment,
+    EmailImportance,
+    EmailNotFoundError,
     EmailSearchCriteria,
     EmailSendRequest,
-    EmailImportance,
     # Exception hierarchy
     EmailSystemError,
-    AuthenticationError,
-    ConnectionError,
     PermissionError,
-    EmailNotFoundError
 )
+
+# Factory and utility classes
+from .factory import EmailInterfaceFactory, EmailSystemType
 
 # Email system implementations
 from .gmail import GmailInterface
 from .msgraph import MicrosoftGraphInterface
-
-# Factory and utility classes
-from .factory import EmailInterfaceFactory, EmailSystemType
 
 # Package metadata
 __version__ = "1.0.0"
@@ -82,27 +83,27 @@ __all__ = [
     # Core interfaces and data models
     'BaseEmailInterface',
     'Email',
-    'EmailAddress', 
+    'EmailAddress',
     'EmailAttachment',
     'EmailSearchCriteria',
     'EmailSendRequest',
     'EmailImportance',
-    
+
     # Exception hierarchy
     'EmailSystemError',
     'AuthenticationError',
     'ConnectionError',
     'PermissionError',
     'EmailNotFoundError',
-    
+
     # Email system implementations
     'GmailInterface',
     'MicrosoftGraphInterface',
-    
+
     # Factory and configuration
     'EmailInterfaceFactory',
     'EmailSystemType',
-    
+
     # Package metadata
     '__version__',
     '__author__',
@@ -111,7 +112,7 @@ __all__ = [
 
 # Package initialization logging
 logger.info(f"Email integration package initialized - Version {__version__}")
-logger.debug(f"Available email interfaces: Gmail, Microsoft Graph")
+logger.debug("Available email interfaces: Gmail, Microsoft Graph")
 logger.debug(f"Supported system types: {[t.value for t in EmailSystemType]}")
 
 # Package-level convenience functions
@@ -176,4 +177,4 @@ def validate_system_config(system_type: str, config: dict) -> dict:
         'valid'
     """
     logger.info(f"Validating system configuration for: {system_type}")
-    return EmailInterfaceFactory.validate_credentials(system_type, config) 
+    return EmailInterfaceFactory.validate_credentials(system_type, config)

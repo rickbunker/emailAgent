@@ -30,7 +30,7 @@ def process_email(email_id: str, sender: str):
 
 # When called, this will log:
 # INFO - 🔵 ENTER process_email(email_id=email_001, sender=user@example.com)
-# INFO - Processing email from user@example.com  
+# INFO - Processing email from user@example.com
 # DEBUG - 🟢 EXIT process_email -> {'processed': True, 'email_id': 'email_001'} [0.001s]
 ```
 
@@ -70,7 +70,7 @@ def authenticate_user(username: str, password: str):
     return {"authenticated": True}
 ```
 
-### DEBUG Level  
+### DEBUG Level
 - Logs function entry with arguments
 - Logs function exit with return values
 - Logs execution time
@@ -95,14 +95,14 @@ from utils.logging_system import log_function, get_logger
 class GmailInterface:
     def __init__(self):
         self.logger = get_logger("gmail_interface")
-    
+
     @log_function()
     async def connect(self, credentials_file: str, token_file: str = None):
         """Connect to Gmail API."""
         self.logger.info("Establishing Gmail connection")
         # Connection logic here
         return {"connected": True, "user_email": "user@gmail.com"}
-    
+
     @log_debug
     async def list_emails(self, query: str = None, max_results: int = 10):
         """Retrieve emails with detailed logging."""
@@ -119,19 +119,19 @@ from utils.logging_system import log_function, get_logger
 class DocumentClassifier:
     def __init__(self):
         self.logger = get_logger("document_classifier")
-    
+
     @log_function()
     def classify(self, filename: str, content: str, asset_type: str):
         """Classify document with logging."""
         self.logger.info(f"Classifying {filename} for {asset_type}")
-        
+
         # Classification logic here
         result = {
             "category": "financial_statement",
             "confidence": 0.92,
             "asset_type": asset_type
         }
-        
+
         self.logger.info(f"Classification: {result['category']} "
                         f"(confidence: {result['confidence']:.2f})")
         return result
@@ -145,20 +145,20 @@ from utils.logging_system import log_function, get_logger
 class SecurityPipeline:
     def __init__(self):
         self.logger = get_logger("security_pipeline")
-    
+
     @log_function()
     def virus_scan(self, file_path: str, config: dict):
         """Scan file for viruses."""
         self.logger.info(f"Scanning {file_path} for threats")
-        
+
         # Virus scanning logic
         result = {"clean": True, "threats_found": 0}
-        
+
         if result["clean"]:
             self.logger.info("File passed security scan")
         else:
             self.logger.warning(f"Threats detected: {result['threats_found']}")
-        
+
         return result
 ```
 
@@ -170,26 +170,26 @@ from utils.logging_system import log_function, get_logger
 class MemorySystem:
     def __init__(self):
         self.logger = get_logger("memory_system")
-    
+
     @log_function()
     async def store(self, data: dict, collection: str):
         """Store data in vector database."""
         self.logger.info(f"Storing data in {collection} collection")
-        
+
         # Storage logic here
         result = {"stored": True, "vector_id": "vec_12345"}
-        
+
         self.logger.info(f"Data stored successfully: {result['vector_id']}")
         return result
-    
+
     @log_debug
     async def query(self, query_text: str, collection: str, limit: int = 5):
         """Query vector database with detailed logging."""
         self.logger.info(f"Querying {collection} collection")
-        
+
         # Query logic here
         results = [{"id": "result_001", "score": 0.95}]
-        
+
         self.logger.info(f"Found {len(results)} results")
         return results
 ```
@@ -223,7 +223,7 @@ dev_config = LogConfig(
     log_execution_time=True
 )
 
-# Production  
+# Production
 prod_config = LogConfig(
     level="INFO",
     log_to_stdout=False,
@@ -234,7 +234,7 @@ prod_config = LogConfig(
 
 # Testing
 test_config = LogConfig(
-    level="DEBUG", 
+    level="DEBUG",
     log_file="logs/test_emailagent.log"
 )
 ```
@@ -318,7 +318,7 @@ Run the complete logging tests:
 # Test basic logging functionality
 python tests/test_logging_system.py
 
-# Test integration with email agent components  
+# Test integration with email agent components
 python tests/test_logging_integration.py
 ```
 
@@ -350,4 +350,4 @@ Log files are automatically rotated when they reach the configured size:
 
 ---
 
-The logging system is now ready to provide complete insights into your email agent's operations! 
+The logging system is now ready to provide complete insights into your email agent's operations!

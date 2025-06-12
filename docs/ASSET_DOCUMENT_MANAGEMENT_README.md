@@ -19,7 +19,7 @@ This agent automatically processes email attachments and organizes them by asset
 ## Asset Types Supported
 
 1. **Commercial Real Estate** - rent rolls, leases, financials
-2. **Private Credit** - loan docs, compliance reports  
+2. **Private Credit** - loan docs, compliance reports
 3. **Private Equity** - portfolio financials, presentations
 4. **Infrastructure** - permits, engineering docs
 
@@ -82,4 +82,4 @@ This agent automatically processes email attachments and organizes them by asset
 
 The agent integrates with existing email and memory systems to provide document management with minimal human intervention.
 
-Ready for Phase 1 implementation. 
+Ready for Phase 1 implementation.

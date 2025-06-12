@@ -26,14 +26,14 @@ License -- for Inveniam use only
 Copyright 2025 by Inveniam Capital Partners, LLC and Rick Bunker
 """
 
-from typing import Dict, Any, Optional, List
 import sys
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 # Logging system
-from .utils.logging_system import get_logger, configure_logging, LogConfig, log_function
+from .utils.logging_system import LogConfig, configure_logging, get_logger, log_function
 
-# Initialize package-level logger
+# Initialize logger
 logger = get_logger(__name__)
 
 # Package version and metadata
@@ -45,20 +45,20 @@ __description__ = "Asset Document Management System"
 __all__ = [
     # Core modules
     "agents",
-    "email_interface", 
+    "email_interface",
     "memory",
     "tools",
     "utils",
-    
+
     # Configuration
     "config",
-    
+
     # Logging utilities
     "get_logger",
-    "configure_logging", 
+    "configure_logging",
     "LogConfig",
     "log_function",
-    
+
     # Package metadata
     "__version__",
     "__author__",
@@ -66,7 +66,7 @@ __all__ = [
 ]
 
 @log_function()
-def initialize_package(log_level: str = "INFO", log_to_file: bool = True) -> Dict[str, Any]:
+def initialize_package(log_level: str = "INFO", log_to_file: bool = True) -> dict[str, Any]:
     """
     Initialize the Email Agent package with logging configuration.
     
@@ -82,7 +82,7 @@ def initialize_package(log_level: str = "INFO", log_to_file: bool = True) -> Dic
         ConfigurationError: If configuration is invalid
     """
     logger.info("Initializing Email Agent package")
-    
+
     try:
         # Configure package-level logging
         config = LogConfig(
@@ -92,7 +92,7 @@ def initialize_package(log_level: str = "INFO", log_to_file: bool = True) -> Dic
             log_file="logs/emailagent.log"
         )
         configure_logging(config)
-        
+
         initialization_result = {
             "status": "initialized",
             "version": __version__,
@@ -102,16 +102,16 @@ def initialize_package(log_level: str = "INFO", log_to_file: bool = True) -> Dic
             "python_version": sys.version,
             "package_path": str(Path(__file__).parent)
         }
-        
+
         logger.info(f"Email Agent v{__version__} initialized successfully")
         return initialization_result
-        
+
     except Exception as e:
         logger.error(f"Failed to initialize Email Agent package: {e}")
         raise
 
 @log_function()
-def get_package_info() -> Dict[str, Any]:
+def get_package_info() -> dict[str, Any]:
     """
     Get complete package information.
     
@@ -119,7 +119,7 @@ def get_package_info() -> Dict[str, Any]:
         Dict containing package version, components, and system info
     """
     logger.debug("Retrieving package information")
-    
+
     package_info = {
         "name": "emailAgent",
         "version": __version__,
@@ -127,14 +127,14 @@ def get_package_info() -> Dict[str, Any]:
         "author": __author__,
         "components": {
             "agents": "AI agents for document processing",
-            "email_interface": "Gmail and Microsoft Graph integration", 
+            "email_interface": "Gmail and Microsoft Graph integration",
             "memory": "Qdrant vector database system",
             "tools": "Security and utility tools",
             "utils": "Logging and utility modules"
         },
         "features": [
             "Gmail API integration",
-            "Microsoft Graph API integration", 
+            "Microsoft Graph API integration",
             "AI document classification",
             "Virus scanning (ClamAV)",
             "Spam detection (SpamAssassin)",
@@ -144,7 +144,7 @@ def get_package_info() -> Dict[str, Any]:
         "python_version": sys.version,
         "package_path": str(Path(__file__).parent)
     }
-    
+
     return package_info
 
 
@@ -154,4 +154,4 @@ if __name__ != "__main__":
     try:
         initialize_package()
     except Exception as e:
-        print(f"Warning: Email Agent package initialization failed: {e}") 
+        logger.warning("Email Agent package initialization failed: %s", e)

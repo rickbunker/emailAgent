@@ -204,7 +204,7 @@ The `EmailSearchCriteria` class provides filtering:
 criteria = EmailSearchCriteria(
     query="quarterly report",           # Free text search
     sender="finance@company.com",       # Specific sender
-    recipient="team@company.com",       # Specific recipient  
+    recipient="team@company.com",       # Specific recipient
     subject="Q4 2024",                 # Subject contains
     has_attachments=True,              # Must have attachments
     is_unread=False,                   # Read emails only
@@ -232,16 +232,16 @@ import asyncio
 async def main():
     interface = EmailInterfaceFactory.create('gmail')
     await interface.connect(credentials)
-    
+
     # Concurrent operations
     profile_task = interface.get_profile()
     emails_task = interface.list_emails(criteria)
     labels_task = interface.get_labels()
-    
+
     profile, emails, labels = await asyncio.gather(
         profile_task, emails_task, labels_task
     )
-    
+
     await interface.disconnect()
 
 asyncio.run(main())
@@ -277,7 +277,7 @@ class Email:
     thread_id: Optional[str]             # Conversation thread
     subject: str                         # Email subject
     sender: EmailAddress                 # Sender info
-    recipients: List[EmailAddress]       # To recipients  
+    recipients: List[EmailAddress]       # To recipients
     cc: List[EmailAddress]               # CC recipients
     bcc: List[EmailAddress]              # BCC recipients
     body_text: Optional[str]             # Plain text body
@@ -304,7 +304,7 @@ class Email:
 GMAIL_CREDENTIALS_FILE=/path/to/credentials.json
 GMAIL_TOKEN_FILE=/path/to/token.json
 
-# Microsoft Graph  
+# Microsoft Graph
 MSGRAPH_CLIENT_ID=your-client-id
 MSGRAPH_CLIENT_SECRET=your-client-secret
 MSGRAPH_TENANT_ID=your-tenant-id
@@ -323,7 +323,7 @@ MSGRAPH_TENANT_ID=your-tenant-id
       }
     },
     "secondary": {
-      "type": "microsoft_graph", 
+      "type": "microsoft_graph",
       "credentials": {
         "client_id": "12345678-1234-1234-1234-123456789012",
         "tenant_id": "common"
@@ -349,7 +349,7 @@ python examples/email_demo.py --system microsoft_graph
 ## 🔮 **Future Enhancements**
 
 - **IMAP/POP3 Support** - Generic email server support
-- **Exchange Server** - On-premises Exchange integration  
+- **Exchange Server** - On-premises Exchange integration
 - **Email Threading** - conversation management
 - **Bulk Operations** - Batch email processing
 - **Real-time Updates** - Webhook/push notifications
@@ -363,7 +363,7 @@ src/email_interface/
 ├── __init__.py          # Package exports
 ├── base.py              # Abstract interface & data models
 ├── gmail.py             # Gmail implementation
-├── msgraph.py           # Microsoft Graph implementation  
+├── msgraph.py           # Microsoft Graph implementation
 ├── factory.py           # Interface factory
 examples/
 ├── email_demo.py        # Usage demonstrations
@@ -382,7 +382,7 @@ This interface layer plugs seamlessly into the Email Agent's architecture:
 ## 💡 **Best Practices**
 
 1. **Always use async/await** for all operations
-2. **Handle connection errors** gracefully  
+2. **Handle connection errors** gracefully
 3. **Disconnect when done** to free resources
 4. **Use search criteria** to limit API calls
 5. **Cache credentials** securely
@@ -391,4 +391,4 @@ This interface layer plugs seamlessly into the Email Agent's architecture:
 
 ---
 
-Ready to connect your Email Agent to real email systems! 🚀 
+Ready to connect your Email Agent to real email systems! 🚀

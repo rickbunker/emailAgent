@@ -8,7 +8,7 @@ This directory contains development, debugging, and utility scripts for the Emai
 - **`debug_msgraph.py`** - Microsoft Graph API debugging and troubleshooting
 - **`test_msgraph_simple.py`** - Simple Microsoft Graph connection testing
 
-### ⚡ **Performance Scripts**  
+### ⚡ **Performance Scripts**
 - **`test_parallel_processing.py`** - Performance testing for parallel email processing
 
 ### 🔧 **Utility Scripts**
@@ -49,4 +49,4 @@ python scripts/test_parallel_processing.py
 
 - Main project setup: `../README.md`
 - Microsoft Graph setup: `../MSGRAPH_SETUP.md`
-- Testing documentation: `../tests/README.md` 
+- Testing documentation: `../tests/README.md`

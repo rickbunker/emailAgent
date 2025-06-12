@@ -36,15 +36,16 @@ License -- for Inveniam use only
 Copyright 2025 by Inveniam Capital Partners, LLC and Rick Bunker
 """
 
-from typing import Dict, Any, Optional, List, Union
-from enum import Enum
+import os
 
 # Logging system
 import sys
-import os
+from enum import Enum
+from typing import Any
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from utils.logging_system import get_logger, log_function, log_debug, log_info
+from utils.logging_system import get_logger, log_function
 
 from .base import BaseEmailInterface, EmailSystemError
 from .gmail import GmailInterface
@@ -99,7 +100,7 @@ class EmailInterfaceFactory:
         >>> config = {'type': 'microsoft_graph', 'credentials': {...}}
         >>> interface = EmailInterfaceFactory.create_from_config(config)
     """
-    
+
     # System type mappings for validation and aliases
     _SYSTEM_MAPPINGS = {
         EmailSystemType.GMAIL.value: GmailInterface,
@@ -107,7 +108,7 @@ class EmailInterfaceFactory:
         EmailSystemType.OUTLOOK.value: MicrosoftGraphInterface,
         EmailSystemType.OFFICE365.value: MicrosoftGraphInterface,
     }
-    
+
     @classmethod
     @log_function()
     def create(cls, system_type: str, **kwargs) -> BaseEmailInterface:
@@ -141,10 +142,10 @@ class EmailInterfaceFactory:
         """
         if not system_type or not isinstance(system_type, str):
             raise ValueError("System type must be a non-empty string")
-        
+
         normalized_type = system_type.lower().strip()
         logger.info(f"Creating email interface for system type: {normalized_type}")
-        
+
         try:
             # Validate system type
             if normalized_type not in cls._SYSTEM_MAPPINGS:
@@ -154,25 +155,25 @@ class EmailInterfaceFactory:
                     f"Unsupported email system type: '{system_type}'. "
                     f"Supported types: {supported_types}"
                 )
-            
+
             # Get interface class and instantiate
             interface_class = cls._SYSTEM_MAPPINGS[normalized_type]
             logger.debug(f"Instantiating {interface_class.__name__} with kwargs: {list(kwargs.keys())}")
-            
+
             interface = interface_class(**kwargs)
-            
+
             logger.info(f"Successfully created {interface_class.__name__} interface")
             return interface
-            
+
         except EmailSystemError:
             raise
         except Exception as e:
             logger.error(f"Failed to create email interface for {normalized_type}: {e}")
             raise EmailSystemError(f"Failed to create {system_type} email interface: {e}")
-    
+
     @classmethod
     @log_function()
-    def create_from_config(cls, config: Dict[str, Any]) -> BaseEmailInterface:
+    def create_from_config(cls, config: dict[str, Any]) -> BaseEmailInterface:
         """
         Create an email interface from a configuration dictionary.
         
@@ -205,37 +206,37 @@ class EmailInterfaceFactory:
         """
         if not config or not isinstance(config, dict):
             raise ValueError("Configuration must be a non-empty dictionary")
-        
+
         if 'type' not in config:
             logger.error("Configuration missing required 'type' field")
             raise EmailSystemError("Configuration must specify 'type' field")
-        
+
         system_type = config['type']
         logger.info(f"Creating email interface from config for type: {system_type}")
-        
+
         try:
             # Extract configuration parameters
             settings = config.copy()
             settings.pop('type')
-            
+
             # Log configuration structure (without sensitive data)
             config_keys = list(settings.keys())
             logger.debug(f"Configuration keys for {system_type}: {config_keys}")
-            
+
             interface = cls.create(system_type, **settings)
-            
+
             logger.info(f"Successfully created email interface from config for {system_type}")
             return interface
-            
+
         except Exception as e:
             logger.error(f"Failed to create interface from config: {e}")
             if isinstance(e, (EmailSystemError, ValueError)):
                 raise
             raise EmailSystemError(f"Configuration-based interface creation failed: {e}")
-    
+
     @classmethod
     @log_function()
-    def get_supported_types(cls) -> List[str]:
+    def get_supported_types(cls) -> list[str]:
         """
         Get complete list of supported email system types.
         
@@ -253,10 +254,10 @@ class EmailInterfaceFactory:
         supported_types = [system_type.value for system_type in EmailSystemType]
         logger.debug(f"Returning {len(supported_types)} supported email system types")
         return supported_types
-    
+
     @classmethod
     @log_function()
-    def get_credentials_template(cls, system_type: str) -> Dict[str, Any]:
+    def get_credentials_template(cls, system_type: str) -> dict[str, Any]:
         """
         Generate credentials configuration template for specified system type.
         
@@ -284,10 +285,10 @@ class EmailInterfaceFactory:
         """
         if not system_type or not isinstance(system_type, str):
             raise ValueError("System type must be a non-empty string")
-        
+
         normalized_type = system_type.lower().strip()
         logger.info(f"Generating credentials template for system type: {normalized_type}")
-        
+
         if normalized_type == EmailSystemType.GMAIL.value:
             template = {
                 'credentials_file': {
@@ -306,7 +307,7 @@ class EmailInterfaceFactory:
                     'description': 'Direct token data dictionary (alternative to token_file)',
                     'required': False,
                     'example': {
-                        'access_token': 'ya29.a0ARrdaM...', 
+                        'access_token': 'ya29.a0ARrdaM...',
                         'refresh_token': '1//04...',
                         'token_uri': 'https://oauth2.googleapis.com/token',
                         'client_id': '123...apps.googleusercontent.com',
@@ -316,7 +317,7 @@ class EmailInterfaceFactory:
                     'note': 'Use for programmatic token management'
                 }
             }
-        
+
         elif normalized_type in [
             EmailSystemType.MICROSOFT_GRAPH.value,
             EmailSystemType.OUTLOOK.value,
@@ -355,7 +356,7 @@ class EmailInterfaceFactory:
                     'note': 'Must match URI configured in Azure Portal'
                 }
             }
-        
+
         else:
             supported_types = cls.get_supported_types()
             logger.error(f"Unsupported system type for credentials template: {normalized_type}")
@@ -363,13 +364,13 @@ class EmailInterfaceFactory:
                 f"Unsupported email system type: '{system_type}'. "
                 f"Supported types: {supported_types}"
             )
-        
+
         logger.debug(f"Generated credentials template with {len(template)} fields for {normalized_type}")
         return template
-    
+
     @classmethod
     @log_function()
-    def validate_credentials(cls, system_type: str, credentials: Dict[str, Any]) -> Dict[str, str]:
+    def validate_credentials(cls, system_type: str, credentials: dict[str, Any]) -> dict[str, str]:
         """
         Validate credentials configuration against system requirements.
         
@@ -398,22 +399,22 @@ class EmailInterfaceFactory:
         """
         if not system_type or not isinstance(system_type, str):
             raise ValueError("System type must be a non-empty string")
-        
+
         if not credentials or not isinstance(credentials, dict):
             raise ValueError("Credentials must be a non-empty dictionary")
-        
+
         normalized_type = system_type.lower().strip()
         logger.info(f"Validating credentials for system type: {normalized_type}")
-        
+
         validation_result = {
             'status': 'valid',
             'errors': [],
             'warnings': []
         }
-        
+
         try:
             template = cls.get_credentials_template(normalized_type)
-            
+
             # Check required fields
             for field_name, field_config in template.items():
                 if field_config.get('required', False):
@@ -421,36 +422,36 @@ class EmailInterfaceFactory:
                         validation_result['errors'].append(
                             f"Missing required field '{field_name}': {field_config['description']}"
                         )
-            
+
             # Check for unknown fields (warnings)
             template_fields = set(template.keys())
             provided_fields = set(credentials.keys())
             unknown_fields = provided_fields - template_fields
-            
+
             for unknown_field in unknown_fields:
                 validation_result['warnings'].append(
                     f"Unknown credential field '{unknown_field}' for {system_type}"
                 )
-            
+
             # Set overall status
             if validation_result['errors']:
                 validation_result['status'] = 'invalid'
-            
+
             error_count = len(validation_result['errors'])
             warning_count = len(validation_result['warnings'])
             logger.info(f"Credentials validation complete: {validation_result['status']} ({error_count} errors, {warning_count} warnings)")
-            
+
             return validation_result
-            
+
         except Exception as e:
             logger.error(f"Credentials validation failed: {e}")
             if isinstance(e, EmailSystemError):
                 raise
             raise EmailSystemError(f"Credentials validation error: {e}")
-    
+
     @classmethod
-    @log_function() 
-    def get_system_info(cls, system_type: str) -> Dict[str, Any]:
+    @log_function()
+    def get_system_info(cls, system_type: str) -> dict[str, Any]:
         """
         Get complete information about a specific email system type.
         
@@ -479,10 +480,10 @@ class EmailInterfaceFactory:
         """
         if not system_type or not isinstance(system_type, str):
             raise ValueError("System type must be a non-empty string")
-        
+
         normalized_type = system_type.lower().strip()
         logger.info(f"Retrieving system information for: {normalized_type}")
-        
+
         if normalized_type == EmailSystemType.GMAIL.value:
             return {
                 'name': 'Google Workspace Gmail',
@@ -491,7 +492,7 @@ class EmailInterfaceFactory:
                 'capabilities': [
                     'Email reading and sending',
                     'Label management',
-                    'search queries', 
+                    'search queries',
                     'Attachment handling',
                     'Contact integration'
                 ],
@@ -502,7 +503,7 @@ class EmailInterfaceFactory:
                 ],
                 'documentation': 'https://developers.google.com/workspace/gmail/api/guides'
             }
-        
+
         elif normalized_type in [
             EmailSystemType.MICROSOFT_GRAPH.value,
             EmailSystemType.OUTLOOK.value,
@@ -527,11 +528,11 @@ class EmailInterfaceFactory:
                 ],
                 'documentation': 'https://docs.microsoft.com/en-us/graph/api/resources/mail-api-overview'
             }
-        
+
         else:
             supported_types = cls.get_supported_types()
             logger.error(f"Unsupported system type for info: {normalized_type}")
             raise EmailSystemError(
                 f"Unsupported email system type: '{system_type}'. "
                 f"Supported types: {supported_types}"
-            ) 
+            )

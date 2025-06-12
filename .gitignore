@@ -144,7 +144,7 @@ src/logs/
 examples/test_*.py
 examples/debug_*.py
 examples/*_test.py
-scripts/test_*.py  
+scripts/test_*.py
 scripts/debug_*.py
 
 # Client Secrets and Auth Files - Expanded patterns
@@ -171,4 +171,4 @@ performance_*.json
 *.lnk
 *.url
 desktop.ini
-.directory 
+.directory

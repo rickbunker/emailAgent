@@ -42,22 +42,18 @@ Copyright 2025 by Inveniam Capital Partners, LLC and Rick Bunker
 """
 
 import os
-from typing import List, Optional, Dict, Any, Set, Union
-from datetime import datetime, UTC
-import uuid
-from dataclasses import dataclass, asdict, field
-from enum import Enum
-
-from qdrant_client import AsyncQdrantClient
-from qdrant_client.http import models
-from qdrant_client.http.models import Distance, VectorParams
-from sentence_transformers import SentenceTransformer
 
 # Logging system
 import sys
+import uuid
+from dataclasses import asdict, dataclass, field
+from datetime import UTC, datetime
+from enum import Enum
+from typing import Any
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from utils.logging_system import get_logger, log_function, log_debug, log_info
+from utils.logging_system import get_logger, log_function
 
 from .base import BaseMemory, MemoryItem
 
@@ -133,31 +129,31 @@ class ContactRecord:
     """
     id: str
     email: str
-    name: Optional[str] = None
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    phone: Optional[str] = None
-    organization: Optional[str] = None
-    title: Optional[str] = None
-    address: Optional[str] = None
+    name: str | None = None
+    first_name: str | None = None
+    last_name: str | None = None
+    phone: str | None = None
+    organization: str | None = None
+    title: str | None = None
+    address: str | None = None
     contact_type: ContactType = ContactType.UNKNOWN
     confidence: ContactConfidence = ContactConfidence.LOW
-    
+
     # relationship and business context
-    relationship: Optional[str] = None  # "colleague", "investor", "vendor", "counterparty"
-    notes: Optional[str] = None
-    tags: List[str] = field(default_factory=list)
-    
+    relationship: str | None = None  # "colleague", "investor", "vendor", "counterparty"
+    notes: str | None = None
+    tags: list[str] = field(default_factory=list)
+
     # Contact tracking and audit trail
     first_seen: str = ""
     last_updated: str = ""
     last_email_interaction: str = ""
     email_count: int = 0
-    
+
     # Data sources and extraction history
-    sources: List[str] = field(default_factory=list)  # Email IDs where contact found
-    extraction_history: List[Dict[str, Any]] = field(default_factory=list)
-    
+    sources: list[str] = field(default_factory=list)  # Email IDs where contact found
+    extraction_history: list[dict[str, Any]] = field(default_factory=list)
+
     def __post_init__(self):
         """
         Initialize contact record with default values and timestamps.
@@ -169,8 +165,8 @@ class ContactRecord:
             self.first_seen = datetime.now(UTC).isoformat()
         if not self.last_updated:
             self.last_updated = datetime.now(UTC).isoformat()
-    
-    def to_dict(self) -> Dict[str, Any]:
+
+    def to_dict(self) -> dict[str, Any]:
         """
         Convert contact record to dictionary for storage.
         
@@ -185,9 +181,9 @@ class ContactRecord:
         data['contact_type'] = self.contact_type.value
         data['confidence'] = self.confidence.value
         return data
-    
+
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'ContactRecord':
+    def from_dict(cls, data: dict[str, Any]) -> 'ContactRecord':
         """
         Create contact record from dictionary data.
         
@@ -205,9 +201,9 @@ class ContactRecord:
             data['contact_type'] = ContactType(data['contact_type'])
         if 'confidence' in data:
             data['confidence'] = ContactConfidence(data['confidence'])
-        
+
         return cls(**data)
-    
+
     def get_search_text(self) -> str:
         """
         Generate complete search text for vector indexing.
@@ -219,7 +215,7 @@ class ContactRecord:
             Combined text string for vector embedding and search
         """
         parts = []
-        
+
         # Core identification information
         if self.name:
             parts.append(self.name)
@@ -229,7 +225,7 @@ class ContactRecord:
             parts.append(self.first_name)
         if self.last_name:
             parts.append(self.last_name)
-            
+
         # context
         if self.organization:
             parts.append(self.organization)
@@ -237,16 +233,16 @@ class ContactRecord:
             parts.append(self.title)
         if self.relationship:
             parts.append(self.relationship)
-            
+
         # Additional searchable information
         if self.phone:
             parts.append(self.phone)
         if self.notes:
             parts.append(self.notes)
-        
+
         # Include tags for categorical search
         parts.extend(self.tags)
-        
+
         return " ".join(parts)
 
 class ContactMemory(BaseMemory):
@@ -278,7 +274,7 @@ class ContactMemory(BaseMemory):
         - Incremental update workflow for contact enrichment
         - audit trail and interaction tracking
     """
-    
+
     def __init__(self, max_items: int = 5000, **kwargs):
         """
         Initialize contact memory system.
@@ -290,18 +286,18 @@ class ContactMemory(BaseMemory):
         super().__init__(max_items=max_items, **kwargs)
         self.collection_name = "contacts"
         logger.info(f"Initialized ContactMemory with max_items={max_items}")
-    
+
     @log_function()
     async def add_contact(
         self,
         email: str,
-        name: Optional[str] = None,
-        phone: Optional[str] = None,
-        organization: Optional[str] = None,
-        title: Optional[str] = None,
+        name: str | None = None,
+        phone: str | None = None,
+        organization: str | None = None,
+        title: str | None = None,
         contact_type: ContactType = ContactType.UNKNOWN,
         confidence: ContactConfidence = ContactConfidence.LOW,
-        source_email_id: Optional[str] = None,
+        source_email_id: str | None = None,
         **kwargs
     ) -> str:
         """
@@ -340,17 +336,17 @@ class ContactMemory(BaseMemory):
         """
         if not email or not isinstance(email, str) or '@' not in email:
             raise ValueError("Valid email address required for contact creation")
-        
+
         logger.info(f"Adding/updating contact: {email}")
         await self._ensure_collection()
-        
+
         # Check for existing contact by email
         existing = await self.find_contact_by_email(email)
-        
+
         if existing:
             logger.debug(f"Updating existing contact: {email}")
             return await self._update_existing_contact(
-                existing, name, phone, organization, title, 
+                existing, name, phone, organization, title,
                 contact_type, confidence, source_email_id, **kwargs
             )
         else:
@@ -359,18 +355,18 @@ class ContactMemory(BaseMemory):
                 email, name, phone, organization, title,
                 contact_type, confidence, source_email_id, **kwargs
             )
-    
+
     @log_function()
     async def _create_new_contact(
         self,
         email: str,
-        name: Optional[str] = None,
-        phone: Optional[str] = None,
-        organization: Optional[str] = None,
-        title: Optional[str] = None,
+        name: str | None = None,
+        phone: str | None = None,
+        organization: str | None = None,
+        title: str | None = None,
         contact_type: ContactType = ContactType.UNKNOWN,
         confidence: ContactConfidence = ContactConfidence.LOW,
-        source_email_id: Optional[str] = None,
+        source_email_id: str | None = None,
         **kwargs
     ) -> str:
         """
@@ -391,7 +387,7 @@ class ContactMemory(BaseMemory):
             Newly created contact ID
         """
         contact_id = str(uuid.uuid4())
-        
+
         # Parse name into components if provided
         first_name, last_name = None, None
         if name:
@@ -401,7 +397,7 @@ class ContactMemory(BaseMemory):
                 last_name = " ".join(name_parts[1:])
             elif len(name_parts) == 1:
                 first_name = name_parts[0]
-        
+
         # Create contact record
         contact = ContactRecord(
             id=contact_id,
@@ -417,12 +413,12 @@ class ContactMemory(BaseMemory):
             email_count=1 if source_email_id else 0,
             **kwargs
         )
-        
+
         # Add source tracking
         if source_email_id:
             contact.sources.append(source_email_id)
             contact.last_email_interaction = datetime.now(UTC).isoformat()
-        
+
         # Record extraction history
         extraction_record = {
             'timestamp': datetime.now(UTC).isoformat(),
@@ -437,7 +433,7 @@ class ContactMemory(BaseMemory):
             'action': 'created'
         }
         contact.extraction_history.append(extraction_record)
-        
+
         # Store in vector database
         search_text = contact.get_search_text()
         memory_item = MemoryItem(
@@ -445,23 +441,23 @@ class ContactMemory(BaseMemory):
             content=search_text,
             metadata=contact.to_dict()
         )
-        
+
         await super().add(memory_item.content, memory_item.metadata)
-        
+
         logger.info(f"Created new contact: {email} (ID: {contact_id})")
         return contact_id
-    
+
     @log_function()
     async def _update_existing_contact(
         self,
         existing: ContactRecord,
-        name: Optional[str] = None,
-        phone: Optional[str] = None,
-        organization: Optional[str] = None,
-        title: Optional[str] = None,
+        name: str | None = None,
+        phone: str | None = None,
+        organization: str | None = None,
+        title: str | None = None,
         contact_type: ContactType = ContactType.UNKNOWN,
         confidence: ContactConfidence = ContactConfidence.LOW,
-        source_email_id: Optional[str] = None,
+        source_email_id: str | None = None,
         **kwargs
     ) -> str:
         """
@@ -486,7 +482,7 @@ class ContactMemory(BaseMemory):
         """
         updated = False
         changes = []
-        
+
         # Update name if provided and confidence allows
         if name and (not existing.name or confidence.value >= existing.confidence.value):
             if existing.name != name:
@@ -500,41 +496,41 @@ class ContactMemory(BaseMemory):
                     existing.first_name = name_parts[0]
                 changes.append(f"name: '{existing.name}' -> '{name}'")
                 updated = True
-        
+
         # Update phone if provided and higher confidence
         if phone and (not existing.phone or confidence.value >= existing.confidence.value):
             if existing.phone != phone:
                 changes.append(f"phone: '{existing.phone}' -> '{phone}'")
                 existing.phone = phone
                 updated = True
-        
+
         # Update organization with confidence comparison
         if organization and (not existing.organization or confidence.value >= existing.confidence.value):
             if existing.organization != organization:
                 changes.append(f"organization: '{existing.organization}' -> '{organization}'")
                 existing.organization = organization
                 updated = True
-        
+
         # Update title with confidence comparison
         if title and (not existing.title or confidence.value >= existing.confidence.value):
             if existing.title != title:
                 changes.append(f"title: '{existing.title}' -> '{title}'")
                 existing.title = title
                 updated = True
-        
+
         # Update contact type if higher confidence
         if contact_type != ContactType.UNKNOWN and confidence.value >= existing.confidence.value:
             if existing.contact_type != contact_type:
                 changes.append(f"contact_type: {existing.contact_type.value} -> {contact_type.value}")
                 existing.contact_type = contact_type
                 updated = True
-        
+
         # Update confidence if higher
         if confidence.value > existing.confidence.value:
             changes.append(f"confidence: {existing.confidence.value} -> {confidence.value}")
             existing.confidence = confidence
             updated = True
-        
+
         # Update interaction tracking
         if source_email_id:
             if source_email_id not in existing.sources:
@@ -543,17 +539,17 @@ class ContactMemory(BaseMemory):
             existing.email_count += 1
             existing.last_email_interaction = datetime.now(UTC).isoformat()
             updated = True
-        
+
         # Apply additional kwargs updates
         for key, value in kwargs.items():
             if hasattr(existing, key) and getattr(existing, key) != value:
                 setattr(existing, key, value)
                 changes.append(f"{key}: updated")
                 updated = True
-        
+
         if updated:
             existing.last_updated = datetime.now(UTC).isoformat()
-            
+
             # Record extraction history
             extraction_record = {
                 'timestamp': datetime.now(UTC).isoformat(),
@@ -563,7 +559,7 @@ class ContactMemory(BaseMemory):
                 'action': 'updated'
             }
             existing.extraction_history.append(extraction_record)
-            
+
             # Update in database
             search_text = existing.get_search_text()
             memory_item = MemoryItem(
@@ -571,18 +567,18 @@ class ContactMemory(BaseMemory):
                 content=search_text,
                 metadata=existing.to_dict()
             )
-            
+
             await super().update(existing.id, memory_item.content, memory_item.metadata)
-            
+
             logger.info(f"Updated contact {existing.email}: {len(changes)} changes")
             logger.debug(f"Contact changes: {changes}")
         else:
             logger.debug(f"No updates needed for contact: {existing.email}")
-        
+
         return existing.id
-    
+
     @log_function()
-    async def find_contact_by_email(self, email: str) -> Optional[ContactRecord]:
+    async def find_contact_by_email(self, email: str) -> ContactRecord | None:
         """
         Find contact by email address (primary key lookup).
         
@@ -602,45 +598,45 @@ class ContactMemory(BaseMemory):
         """
         if not email:
             return None
-        
+
         normalized_email = email.lower().strip()
         logger.debug(f"Searching for contact by email: {normalized_email}")
-        
+
         try:
             # Search using exact email match filter
             filter_condition = {
                 "key": "metadata.email",
                 "match": {"value": normalized_email}
             }
-            
+
             results = await super().search(
                 query=normalized_email,
                 limit=1,
                 filter_conditions=filter_condition
             )
-            
+
             if results:
                 contact_data = results[0].metadata
                 contact = ContactRecord.from_dict(contact_data)
                 logger.debug(f"Found contact: {contact.name} ({contact.email})")
                 return contact
-            
+
             logger.debug(f"No contact found for email: {normalized_email}")
             return None
-            
+
         except Exception as e:
             logger.error(f"Error finding contact by email {normalized_email}: {e}")
             return None
-    
+
     @log_function()
     async def search_contacts(
         self,
         query: str,
         limit: int = 10,
-        contact_type: Optional[ContactType] = None,
-        min_confidence: Optional[ContactConfidence] = None,
-        organization: Optional[str] = None
-    ) -> List[ContactRecord]:
+        contact_type: ContactType | None = None,
+        min_confidence: ContactConfidence | None = None,
+        organization: str | None = None
+    ) -> list[ContactRecord]:
         """
         Search contacts with semantic and categorical filtering.
         
@@ -666,46 +662,46 @@ class ContactMemory(BaseMemory):
             ... )
         """
         logger.info(f"Searching contacts: query='{query}', limit={limit}")
-        
+
         try:
             # Build filter conditions
             filter_conditions = {"must": []}
-            
+
             # Contact type filter
             if contact_type:
                 filter_conditions["must"].append({
                     "key": "metadata.contact_type",
                     "match": {"value": contact_type.value}
                 })
-            
+
             # Minimum confidence filter
             if min_confidence:
                 confidence_values = [conf.value for conf in ContactConfidence]
                 min_index = confidence_values.index(min_confidence.value)
                 allowed_values = confidence_values[min_index:]
-                
+
                 filter_conditions["must"].append({
                     "key": "metadata.confidence",
                     "match": {"any": allowed_values}
                 })
-            
+
             # Organization filter
             if organization:
                 filter_conditions["must"].append({
                     "key": "metadata.organization",
                     "match": {"text": organization}
                 })
-            
+
             # Remove empty filter if no conditions
             search_filter = filter_conditions if filter_conditions["must"] else None
-            
+
             # Perform semantic search
             results = await super().search(
                 query=query,
                 limit=limit,
                 filter=search_filter
             )
-            
+
             # Convert to contact records
             contacts = []
             for result in results:
@@ -715,16 +711,16 @@ class ContactMemory(BaseMemory):
                 except Exception as e:
                     logger.warning(f"Error converting search result to contact: {e}")
                     continue
-            
+
             logger.info(f"Found {len(contacts)} contacts matching search criteria")
             return contacts
-            
+
         except Exception as e:
             logger.error(f"Error searching contacts: {e}")
             return []
-    
+
     @log_function()
-    async def get_contact_by_id(self, contact_id: str) -> Optional[ContactRecord]:
+    async def get_contact_by_id(self, contact_id: str) -> ContactRecord | None:
         """
         Retrieve contact by unique identifier.
         
@@ -735,7 +731,7 @@ class ContactMemory(BaseMemory):
             Contact record if found, None otherwise
         """
         logger.debug(f"Retrieving contact by ID: {contact_id}")
-        
+
         try:
             memory_item = await super().get_item(contact_id)
             if memory_item:
@@ -745,13 +741,13 @@ class ContactMemory(BaseMemory):
         except Exception as e:
             logger.error(f"Error retrieving contact {contact_id}: {e}")
             return None
-    
+
     @log_function()
     async def get_all_contacts(
-        self, 
+        self,
         limit: int = 100,
-        contact_type: Optional[ContactType] = None
-    ) -> List[ContactRecord]:
+        contact_type: ContactType | None = None
+    ) -> list[ContactRecord]:
         """
         Retrieve all contacts with optional filtering.
         
@@ -763,7 +759,7 @@ class ContactMemory(BaseMemory):
             List of contact records
         """
         logger.info(f"Retrieving all contacts (limit={limit}, type={contact_type})")
-        
+
         try:
             # Build filter if contact type specified
             search_filter = None
@@ -772,14 +768,14 @@ class ContactMemory(BaseMemory):
                     "key": "metadata.contact_type",
                     "match": {"value": contact_type.value}
                 }
-            
+
             # Get all items with optional filter
             results = await super().search(
                 query="*",  # Match all
                 limit=limit,
                 filter=search_filter
             )
-            
+
             contacts = []
             for result in results:
                 try:
@@ -788,14 +784,14 @@ class ContactMemory(BaseMemory):
                 except Exception as e:
                     logger.warning(f"Error converting result to contact: {e}")
                     continue
-            
+
             logger.info(f"Retrieved {len(contacts)} contacts")
             return contacts
-            
+
         except Exception as e:
             logger.error(f"Error retrieving all contacts: {e}")
             return []
-    
+
     @log_function()
     async def delete_contact(self, contact_id: str) -> bool:
         """
@@ -808,7 +804,7 @@ class ContactMemory(BaseMemory):
             True if deletion successful, False otherwise
         """
         logger.info(f"Deleting contact: {contact_id}")
-        
+
         try:
             success = await super().delete_item(contact_id)
             if success:
@@ -819,13 +815,13 @@ class ContactMemory(BaseMemory):
         except Exception as e:
             logger.error(f"Error deleting contact {contact_id}: {e}")
             return False
-    
+
     @log_function()
     async def update_contact_relationship(
-        self, 
-        contact_id: str, 
-        relationship: str, 
-        notes: Optional[str] = None
+        self,
+        contact_id: str,
+        relationship: str,
+        notes: str | None = None
     ) -> bool:
         """
         Update contact relationship and business context.
@@ -839,19 +835,19 @@ class ContactMemory(BaseMemory):
             True if update successful, False otherwise
         """
         logger.info(f"Updating relationship for contact: {contact_id}")
-        
+
         try:
             contact = await self.get_contact_by_id(contact_id)
             if not contact:
                 logger.warning(f"Contact not found for relationship update: {contact_id}")
                 return False
-            
+
             # Update relationship information
             contact.relationship = relationship
             if notes:
                 contact.notes = notes if not contact.notes else f"{contact.notes}\n{notes}"
             contact.last_updated = datetime.now(UTC).isoformat()
-            
+
             # Record in extraction history
             extraction_record = {
                 'timestamp': datetime.now(UTC).isoformat(),
@@ -860,7 +856,7 @@ class ContactMemory(BaseMemory):
                 'notes': notes
             }
             contact.extraction_history.append(extraction_record)
-            
+
             # Update in database
             search_text = contact.get_search_text()
             memory_item = MemoryItem(
@@ -868,16 +864,16 @@ class ContactMemory(BaseMemory):
                 content=search_text,
                 metadata=contact.to_dict()
             )
-            
+
             await super().update_item(contact_id, memory_item)
-            
+
             logger.info(f"Updated relationship for contact {contact.email}: {relationship}")
             return True
-            
+
         except Exception as e:
             logger.error(f"Error updating contact relationship: {e}")
             return False
-    
+
     @log_function()
     async def add_contact_tag(self, contact_id: str, tag: str) -> bool:
         """
@@ -891,18 +887,18 @@ class ContactMemory(BaseMemory):
             True if tag added successfully, False otherwise
         """
         logger.debug(f"Adding tag '{tag}' to contact: {contact_id}")
-        
+
         try:
             contact = await self.get_contact_by_id(contact_id)
             if not contact:
                 logger.warning(f"Contact not found for tag addition: {contact_id}")
                 return False
-            
+
             # Add tag if not already present
             if tag not in contact.tags:
                 contact.tags.append(tag)
                 contact.last_updated = datetime.now(UTC).isoformat()
-                
+
                 # Update in database
                 search_text = contact.get_search_text()
                 memory_item = MemoryItem(
@@ -910,19 +906,19 @@ class ContactMemory(BaseMemory):
                     content=search_text,
                     metadata=contact.to_dict()
                 )
-                
+
                 await super().update_item(contact_id, memory_item)
-                
+
                 logger.info(f"Added tag '{tag}' to contact {contact.email}")
                 return True
             else:
                 logger.debug(f"Tag '{tag}' already exists for contact {contact.email}")
                 return True
-                
+
         except Exception as e:
             logger.error(f"Error adding tag to contact: {e}")
             return False
-    
+
     @log_function()
     async def record_email_interaction(self, email: str, email_id: str) -> bool:
         """
@@ -939,20 +935,20 @@ class ContactMemory(BaseMemory):
             True if interaction recorded successfully, False otherwise
         """
         logger.debug(f"Recording email interaction: {email} <- {email_id}")
-        
+
         try:
             contact = await self.find_contact_by_email(email)
             if not contact:
                 logger.debug(f"No existing contact found for interaction: {email}")
                 return False
-            
+
             # Update interaction tracking
             if email_id not in contact.sources:
                 contact.sources.append(email_id)
             contact.email_count += 1
             contact.last_email_interaction = datetime.now(UTC).isoformat()
             contact.last_updated = datetime.now(UTC).isoformat()
-            
+
             # Update in database
             search_text = contact.get_search_text()
             memory_item = MemoryItem(
@@ -960,12 +956,12 @@ class ContactMemory(BaseMemory):
                 content=search_text,
                 metadata=contact.to_dict()
             )
-            
+
             await super().update_item(contact.id, memory_item)
-            
+
             logger.debug(f"Recorded interaction for {email} (total: {contact.email_count})")
             return True
-            
+
         except Exception as e:
             logger.error(f"Error recording email interaction: {e}")
             return False
@@ -981,13 +977,13 @@ async def demo_contact_memory() -> None:
     for asset management environments.
     """
     logger.info("Starting ContactMemory demonstration")
-    
+
     contact_memory = ContactMemory()
-    
+
     try:
         # Add sample contacts
         logger.info("Adding sample contacts...")
-        
+
         # Investment professional
         contact1_id = await contact_memory.add_contact(
             email="john.smith@blackstone.com",
@@ -998,7 +994,7 @@ async def demo_contact_memory() -> None:
             confidence=ContactConfidence.HIGH,
             relationship="counterparty"
         )
-        
+
         # Investor contact
         contact2_id = await contact_memory.add_contact(
             email="sarah.jones@pension.gov",
@@ -1009,7 +1005,7 @@ async def demo_contact_memory() -> None:
             confidence=ContactConfidence.HIGH,
             relationship="investor"
         )
-        
+
         # Test deduplication with update
         logger.info("Testing contact deduplication...")
         duplicate_id = await contact_memory.add_contact(
@@ -1018,56 +1014,56 @@ async def demo_contact_memory() -> None:
             phone="+1 212-555-0123",  # New information
             confidence=ContactConfidence.HIGH
         )
-        
+
         assert contact1_id == duplicate_id, "Deduplication failed"
         logger.info("✓ Contact deduplication working correctly")
-        
+
         # Test search functionality
         logger.info("Testing contact search...")
-        
+
         search_results = await contact_memory.search_contacts(
             query="investment director",
             contact_type=ContactType.PROFESSIONAL
         )
-        
+
         logger.info(f"Found {len(search_results)} contacts for 'investment director'")
         for contact in search_results:
             logger.info(f"  - {contact.name} at {contact.organization} ({contact.title})")
-        
+
         # Test relationship tracking
         logger.info("Testing relationship management...")
-        
+
         await contact_memory.update_contact_relationship(
             contact1_id,
             "strategic_partner",
             "Key relationship for infrastructure deals"
         )
-        
+
         await contact_memory.add_contact_tag(contact1_id, "infrastructure")
         await contact_memory.add_contact_tag(contact1_id, "high_priority")
-        
+
         # Retrieve updated contact
         updated_contact = await contact_memory.get_contact_by_id(contact1_id)
         logger.info(f"Updated contact relationship: {updated_contact.relationship}")
         logger.info(f"Contact tags: {updated_contact.tags}")
-        
+
         # Test interaction tracking
         logger.info("Testing interaction tracking...")
-        
+
         await contact_memory.record_email_interaction(
             "john.smith@blackstone.com",
             "email_12345"
         )
-        
+
         interaction_contact = await contact_memory.find_contact_by_email("john.smith@blackstone.com")
         logger.info(f"Email interactions: {interaction_contact.email_count}")
-        
+
         logger.info("ContactMemory demonstration completed successfully")
-        
+
     except Exception as e:
         logger.error(f"ContactMemory demonstration failed: {e}")
         raise
 
 if __name__ == "__main__":
     import asyncio
-    asyncio.run(demo_contact_memory()) 
+    asyncio.run(demo_contact_memory())
