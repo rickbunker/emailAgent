@@ -34,7 +34,7 @@ def enhanced_process_attachment(
     email_data: Dict[str, Any]
 ) -> AttachmentProcessingResult:
     """
-    Process an email attachment with enhanced AI classification.
+    Process an email attachment with AI classification.
     
     Args:
         attachment_data: Dictionary containing 'filename' and 'content'
@@ -291,4 +291,4 @@ Before committing code, verify:
 
 ---
 
-**These standards ensure our Email Agent codebase remains maintainable, scalable, and professional. When in doubt, follow these guidelines!** 🎯 
+**These standards ensure the Email Agent codebase remains maintainable and scalable. When in doubt, follow these guidelines.** 

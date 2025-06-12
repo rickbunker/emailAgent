@@ -74,7 +74,7 @@ def authenticate_user(username: str, password: str):
 - Logs function entry with arguments
 - Logs function exit with return values
 - Logs execution time
-- Great for development and debugging
+- Useful for development and debugging
 
 ```python
 from utils.logging_system import log_debug
