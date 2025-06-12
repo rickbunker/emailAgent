@@ -2,7 +2,7 @@
 Email Management Supervisor Agent for Document Processing
 
 The central orchestration agent that coordinates the entire email management workflow
-for private market asset management professionals. This supervisor makes high-level
+for private market asset management. This supervisor makes high-level
 decisions about email processing, routing, and actions based on multiple analysis
 layers and learned patterns.
 
@@ -31,7 +31,7 @@ Decision Framework:
     - Business context and workflow integration
 
 Business Context:
-    Designed for finance professionals who handle sensitive communications
+    Designed for finance users who handle sensitive communications
     requiring careful attention to compliance, relationships, and document
     management in high-stakes environments.
 

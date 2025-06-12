@@ -89,7 +89,7 @@ class AuthorizationHandler(http.server.SimpleHTTPRequestHandler):
     
     Business Context:
         Provides authentication experience for asset management
-        professionals accessing Microsoft 365 email systems securely.
+        users accessing Microsoft 365 email systems securely.
     """
     
     @log_function()

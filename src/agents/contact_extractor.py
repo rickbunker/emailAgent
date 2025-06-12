@@ -4,7 +4,7 @@ Contact Extraction Agent for Email Document Management
 This agent performs contact extraction from emails, focusing on 
 identifying genuine individual humans while filtering out automated systems,
 spam, and unwanted solicitations. The system is designed specifically for
-private market asset management professionals who need to build high-quality
+private market asset management users who need to build quality
 contact databases from their email communications.
 
 Key Features:

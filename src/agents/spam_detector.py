@@ -2,7 +2,7 @@
 Spam Detection Agent for Email Document Management
 
 A hybrid spam detection system designed for private market asset
-management professionals who need reliable email filtering without false positives
+management users who need reliable email filtering without false positives
 that could block important business communications.
 
 Architecture:
@@ -31,7 +31,7 @@ Detection Methods:
     - Link analysis for suspicious URLs
 
 Business Context:
-    Designed for finance professionals who cannot afford to miss important
+    Designed for finance users who cannot afford to miss important
     emails from clients, counterparties, or regulators. Emphasis on minimizing
     false positives while maintaining strong protection against threats.
 
