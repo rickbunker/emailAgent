@@ -183,10 +183,10 @@ class DocumentCategory(Enum):
 
 class ConfidenceLevel(Enum):
     """Confidence levels for routing decisions"""
-    HIGH = "high"          # ≥ 90% - Auto-process
-    MEDIUM = "medium"      # ≥ 70% - Process with confirmation
-    LOW = "low"           # ≥ 50% - Save uncategorized
-    VERY_LOW = "very_low" # < 50% - Human review required
+    HIGH = "high"          # ≥ 85% - Auto-process
+    MEDIUM = "medium"      # ≥ 65% - Process with confirmation
+    LOW = "low"           # ≥ 40% - Save uncategorized
+    VERY_LOW = "very_low" # < 40% - Human review required
 
 @dataclass
 class ProcessingResult:
@@ -874,6 +874,16 @@ class AssetDocumentAgent:
 
             if search_result[0]:
                 payload = search_result[0][0].payload
+                
+                # Safely parse datetime fields with fallback
+                def safe_parse_datetime(date_str: str) -> datetime:
+                    try:
+                        return datetime.fromisoformat(date_str)
+                    except (ValueError, TypeError):
+                        # Fallback to current time if parsing fails
+                        self.logger.warning(f"Failed to parse datetime '{date_str}', using current time")
+                        return datetime.now(UTC)
+                
                 return Asset(
                     deal_id=payload['deal_id'],
                     deal_name=payload['deal_name'],
@@ -881,8 +891,8 @@ class AssetDocumentAgent:
                     asset_type=AssetType(payload['asset_type']),
                     folder_path=payload['folder_path'],
                     identifiers=payload['identifiers'],
-                    created_date=datetime.fromisoformat(payload['created_date']),
-                    last_updated=datetime.fromisoformat(payload['last_updated'])
+                    created_date=safe_parse_datetime(payload['created_date']),
+                    last_updated=safe_parse_datetime(payload['last_updated'])
                 )
 
             return None
@@ -904,6 +914,15 @@ class AssetDocumentAgent:
                 limit=100  # Adjust as needed
             )
 
+            # Safe datetime parsing function
+            def safe_parse_datetime(date_str: str) -> datetime:
+                try:
+                    return datetime.fromisoformat(date_str)
+                except (ValueError, TypeError):
+                    # Fallback to current time if parsing fails
+                    self.logger.warning(f"Failed to parse datetime '{date_str}', using current time")
+                    return datetime.now(UTC)
+
             for point in search_result[0]:
                 payload = point.payload
                 asset = Asset(
@@ -913,8 +932,8 @@ class AssetDocumentAgent:
                     asset_type=AssetType(payload['asset_type']),
                     folder_path=payload['folder_path'],
                     identifiers=payload['identifiers'],
-                    created_date=datetime.fromisoformat(payload['created_date']),
-                    last_updated=datetime.fromisoformat(payload['last_updated'])
+                    created_date=safe_parse_datetime(payload['created_date']),
+                    last_updated=safe_parse_datetime(payload['last_updated'])
                 )
                 assets.append(asset)
 
@@ -922,6 +941,115 @@ class AssetDocumentAgent:
             self.logger.error("Failed to list assets: %s", e)
 
         return assets
+
+    async def update_asset(self,
+                          deal_id: str,
+                          deal_name: str | None = None,
+                          asset_name: str | None = None,
+                          asset_type: AssetType | None = None,
+                          identifiers: list[str] | None = None) -> bool:
+        """
+        Update an existing asset definition.
+        
+        Args:
+            deal_id: Asset deal_id to update
+            deal_name: New short name for the asset (optional)
+            asset_name: New full descriptive name (optional)
+            asset_type: New asset type (optional)
+            identifiers: New alternative names/identifiers (optional)
+            
+        Returns:
+            True if update successful, False otherwise
+        """
+        if not self.qdrant:
+            self.logger.error("Qdrant client not available for asset update")
+            return False
+
+        try:
+            # First, get the current asset
+            current_asset = await self.get_asset(deal_id)
+            if not current_asset:
+                self.logger.error("Asset not found for update: %s", deal_id)
+                return False
+
+            # Update only the fields that were provided
+            updated_deal_name = deal_name if deal_name is not None else current_asset.deal_name
+            updated_asset_name = asset_name if asset_name is not None else current_asset.asset_name
+            updated_asset_type = asset_type if asset_type is not None else current_asset.asset_type
+            updated_identifiers = identifiers if identifiers is not None else current_asset.identifiers
+
+            # Clean up identifiers - remove quotes if they exist
+            if updated_identifiers:
+                cleaned_identifiers = []
+                for identifier in updated_identifiers:
+                    # Remove surrounding quotes if they exist
+                    cleaned = identifier.strip()
+                    if cleaned.startswith('"') and cleaned.endswith('"'):
+                        cleaned = cleaned[1:-1]
+                    elif cleaned.startswith("'") and cleaned.endswith("'"):
+                        cleaned = cleaned[1:-1]
+                    cleaned_identifiers.append(cleaned)
+                updated_identifiers = cleaned_identifiers
+
+            # Update folder path if deal name changed
+            updated_folder_path = current_asset.folder_path
+            if deal_name is not None and deal_name != current_asset.deal_name:
+                updated_folder_path = f"./assets/{deal_id}_{updated_deal_name.replace(' ', '_')}"
+
+            # Create updated asset object
+            updated_asset = Asset(
+                deal_id=deal_id,
+                deal_name=updated_deal_name,
+                asset_name=updated_asset_name,
+                asset_type=updated_asset_type,
+                folder_path=updated_folder_path,
+                identifiers=updated_identifiers,
+                created_date=current_asset.created_date,
+                last_updated=datetime.now(UTC)
+            )
+
+            # Update in Qdrant
+            dummy_vector = [0.0] * 384  # Will be replaced with semantic embeddings
+
+            point = PointStruct(
+                id=deal_id,
+                vector=dummy_vector,
+                payload={
+                    'deal_id': deal_id,
+                    'deal_name': updated_deal_name,
+                    'asset_name': updated_asset_name,
+                    'asset_type': updated_asset_type.value,
+                    'folder_path': updated_folder_path,
+                    'identifiers': updated_identifiers,
+                    'created_date': current_asset.created_date.isoformat(),
+                    'last_updated': updated_asset.last_updated.isoformat()
+                }
+            )
+
+            self.qdrant.upsert(
+                collection_name=self.COLLECTIONS['assets'],
+                points=[point]
+            )
+
+            # Rename folder if deal name changed
+            if updated_folder_path != current_asset.folder_path:
+                old_path = Path(current_asset.folder_path)
+                new_path = Path(updated_folder_path)
+                if old_path.exists():
+                    try:
+                        old_path.rename(new_path)
+                        self.logger.info("Renamed asset folder: %s → %s", old_path, new_path)
+                    except OSError as e:
+                        self.logger.warning("Failed to rename asset folder: %s", e)
+                        # Create new folder if rename failed
+                        new_path.mkdir(parents=True, exist_ok=True)
+
+            self.logger.info("Updated asset: %s (%s)", updated_deal_name, deal_id)
+            return True
+
+        except Exception as e:
+            self.logger.error("Failed to update asset %s: %s", deal_id, e)
+            return False
 
     async def create_asset_sender_mapping(self,
                                         asset_id: str,
@@ -1190,14 +1318,7 @@ class AssetDocumentAgent:
                 points=[point]
             )
 
-            self.logger.info("💾 Saved to: %s", processing_result.file_path)
-
-            # Store document metadata in Qdrant
-            if self.qdrant and file_hash:
-                document_id = await self.store_processed_document(
-                    file_hash, processing_result, asset_id
-                )
-                self.logger.info("📊 Document metadata stored: %s...", document_id[:8])
+            self.logger.info("📊 Document metadata stored: %s...", document_id[:8])
 
             return document_id
 
@@ -1466,8 +1587,8 @@ class AssetDocumentAgent:
         Determine overall confidence level for routing decisions.
         
         Args:
-            document_confidence: Confidence in document classification
-            asset_confidence: Confidence in asset identification
+            document_confidence: Confidence in document classification (0.0-1.0)
+            asset_confidence: Confidence in asset identification (0.0-1.0)
             sender_known: Whether sender is in asset-sender mappings
             
         Returns:
@@ -1475,9 +1596,9 @@ class AssetDocumentAgent:
         """
         # Calculate weighted confidence
         weights = {
-            'document': 0.4,
-            'asset': 0.4,
-            'sender': 0.2
+            'document': 0.5,  # Increased weight for document classification
+            'asset': 0.3,    # Reduced weight for asset matching
+            'sender': 0.2    # Sender knowledge weight
         }
 
         sender_score = 1.0 if sender_known else 0.0
@@ -1488,15 +1609,17 @@ class AssetDocumentAgent:
             sender_score * weights['sender']
         )
 
-        # Map to confidence levels with thresholds from requirements
-        if overall_confidence >= 0.90:
-            return ConfidenceLevel.HIGH      # Auto-process
-        elif overall_confidence >= 0.70:
-            return ConfidenceLevel.MEDIUM    # Process with confirmation
-        elif overall_confidence >= 0.50:
-            return ConfidenceLevel.LOW       # Save uncategorized
+        self.logger.debug(f"Confidence calculation: doc={document_confidence:.2f}*{weights['document']} + asset={asset_confidence:.2f}*{weights['asset']} + sender={sender_score}*{weights['sender']} = {overall_confidence:.2f}")
+
+        # Map to confidence levels with adjusted thresholds
+        if overall_confidence >= 0.85:
+            return ConfidenceLevel.HIGH      # Auto-process (85%+)
+        elif overall_confidence >= 0.65:
+            return ConfidenceLevel.MEDIUM    # Process with confirmation (65%+)
+        elif overall_confidence >= 0.40:
+            return ConfidenceLevel.LOW       # Save uncategorized (40%+)
         else:
-            return ConfidenceLevel.VERY_LOW  # Human review required
+            return ConfidenceLevel.VERY_LOW  # Human review required (<40%)
 
     async def enhanced_process_attachment(self,
                                         attachment_data: dict[str, Any],

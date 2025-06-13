@@ -79,6 +79,12 @@
                             </a>
                         </li>
                         <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint in ['browse_files', 'view_file', 'download_file'] %}active{% endif %}" href="{{ url_for('browse_files') }}">
+                                <i class="bi bi-folder2-open"></i>
+                                Files
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link {% if request.endpoint in ['human_review_queue', 'human_review_item'] %}active{% endif %}" href="{{ url_for('human_review_queue') }}">
                                 <i class="bi bi-person-check"></i>
                                 Human Review

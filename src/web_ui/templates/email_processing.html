@@ -485,7 +485,7 @@ function showProcessingResults(results, success) {
 }
 
 async function clearAllHistory() {
-    if (!confirm('Are you sure you want to clear all processing history?')) {
+    if (!confirm('Are you sure you want to clear all processing history and associated review items?')) {
         return;
     }
     
@@ -500,6 +500,11 @@ async function clearAllHistory() {
         
         const result = await response.json();
         if (result.status === 'success') {
+            let message = result.message;
+            if (result.removed_review_items > 0) {
+                message += `\n\nAlso removed ${result.removed_review_items} associated human review items.`;
+            }
+            alert(message);
             location.reload();
         } else {
             alert('Failed to clear history: ' + result.error);
@@ -510,7 +515,7 @@ async function clearAllHistory() {
 }
 
 async function clearSingleHistory(emailId, mailboxId) {
-    if (!confirm('Clear processing history for this email?')) {
+    if (!confirm('Clear processing history for this email and any associated review items?')) {
         return;
     }
     
@@ -528,6 +533,11 @@ async function clearSingleHistory(emailId, mailboxId) {
         
         const result = await response.json();
         if (result.status === 'success') {
+            let message = result.message;
+            if (result.removed_review_items > 0) {
+                message += `\n\nAlso removed ${result.removed_review_items} associated human review items.`;
+            }
+            alert(message);
             location.reload();
         } else {
             alert('Failed to clear history: ' + result.error);

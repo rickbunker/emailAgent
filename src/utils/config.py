@@ -8,7 +8,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-from utils.logging_system import get_logger
+from .logging_system import get_logger
 
 # Initialize logger
 logger = get_logger(__name__)
@@ -62,6 +62,22 @@ class EmailAgentConfig:
     debug: bool
     development_mode: bool
 
+    # Web UI Configuration
+    web_ui_log_file: str
+    processed_emails_file: str
+    human_review_queue_file: str
+    review_attachments_path: str
+    
+    # Email Search Configuration
+    inbox_labels: list[str]
+    max_search_results: int
+    
+    # Mailbox Configuration
+    gmail_mailbox_id: str
+    gmail_mailbox_name: str
+    msgraph_mailbox_id: str
+    msgraph_mailbox_name: str
+
     @classmethod
     def from_env(cls) -> 'EmailAgentConfig':
         """Load configuration from environment variables."""
@@ -94,8 +110,8 @@ class EmailAgentConfig:
             # Application Settings
             flask_env=os.getenv('FLASK_ENV', 'development'),
             flask_secret_key=os.getenv('FLASK_SECRET_KEY', 'dev-secret-key-change-in-production'),
-            flask_host=os.getenv('FLASK_HOST', '127.0.0.1'),
-            flask_port=int(os.getenv('FLASK_PORT', '5000')),
+            flask_host=os.getenv('FLASK_HOST', '0.0.0.0'),
+            flask_port=int(os.getenv('FLASK_PORT', '5001')),
 
             # Processing Configuration
             assets_base_path=os.getenv('ASSETS_BASE_PATH', './assets'),
@@ -122,7 +138,23 @@ class EmailAgentConfig:
 
             # Development
             debug=parse_bool(os.getenv('DEBUG', 'false')),
-            development_mode=parse_bool(os.getenv('DEVELOPMENT_MODE', 'false'))
+            development_mode=parse_bool(os.getenv('DEVELOPMENT_MODE', 'false')),
+
+            # Web UI Configuration
+            web_ui_log_file=os.getenv('WEB_UI_LOG_FILE', 'logs/web_ui.log'),
+            processed_emails_file=os.getenv('PROCESSED_EMAILS_FILE', 'data/processed_emails.json'),
+            human_review_queue_file=os.getenv('HUMAN_REVIEW_QUEUE_FILE', 'data/human_review_queue.json'),
+            review_attachments_path=os.getenv('REVIEW_ATTACHMENTS_PATH', 'data/review_attachments'),
+            
+            # Email Search Configuration
+            inbox_labels=parse_list(os.getenv('INBOX_LABELS', 'INBOX,Inbox')),
+            max_search_results=int(os.getenv('MAX_SEARCH_RESULTS', '100')),
+            
+            # Mailbox Configuration
+            gmail_mailbox_id=os.getenv('GMAIL_MAILBOX_ID', 'gmail_primary'),
+            gmail_mailbox_name=os.getenv('GMAIL_MAILBOX_NAME', 'Gmail (Primary Account)'),
+            msgraph_mailbox_id=os.getenv('MSGRAPH_MAILBOX_ID', 'msgraph_primary'),
+            msgraph_mailbox_name=os.getenv('MSGRAPH_MAILBOX_NAME', 'Microsoft 365 (Primary Account)')
         )
 
     def validate(self) -> list[str]:

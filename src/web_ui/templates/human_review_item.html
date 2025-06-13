@@ -222,17 +222,52 @@
 
             <!-- Right Column: Human Review Form -->
             <div class="col-lg-6">
+                <!-- Quick Actions -->
+                <div class="mb-4">
+                    <div class="card border-success">
+                        <div class="card-header bg-success text-white">
+                            <h6 class="mb-0">
+                                <i class="bi bi-check-circle"></i>
+                                Quick Actions
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <p class="mb-3">If the system's analysis is correct, you can quickly approve it:</p>
+                            <button type="button" class="btn btn-success btn-lg w-100" onclick="quickApprove()"
+                                    data-has-suggestions="{% if review_item.system_asset_suggestions %}true{% else %}false{% endif %}"
+                                    data-system-confidence="{{ review_item.system_confidence }}"
+                                    data-top-suggestion="{% if review_item.system_asset_suggestions %}{{ review_item.system_asset_suggestions[0].asset_id }}{% endif %}"
+                                    data-document-category="{{ review_item.document_category or 'unknown' }}">
+                                <i class="bi bi-hand-thumbs-up"></i>
+                                System Got It Right - Approve & Learn
+                            </button>
+                            <small class="text-muted d-block mt-2">
+                                This will confirm the system's decision and help it learn for similar cases.
+                            </small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Manual Review Form -->
                 <div class="card">
                     <div class="card-header">
                         <h5 class="card-title mb-0">
-                            <i class="bi bi-person-fill"></i> Human Review & Correction
+                            <i class="bi bi-person-fill"></i> Manual Review & Correction
                         </h5>
+                        <p class="mb-0 text-muted">Only use this if the system made an error</p>
                     </div>
                     <div class="card-body">
                         <form id="reviewForm">
                             <!-- Asset Selection -->
                             <div class="mb-4">
                                 <label class="form-label"><strong>Select Correct Asset:</strong></label>
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="radio" name="asset_source" id="not_asset_related" value="not_asset_related">
+                                    <label class="form-check-label" for="not_asset_related">
+                                        <span class="text-danger"><i class="bi bi-x-circle"></i> Not Asset-Related</span>
+                                        <small class="d-block text-muted">This attachment is not related to any asset</small>
+                                    </label>
+                                </div>
                                 <div class="form-check mb-2">
                                     <input class="form-check-input" type="radio" name="asset_source" id="system_suggestion" value="system">
                                     <label class="form-check-label" for="system_suggestion">
@@ -261,10 +296,11 @@
                             </div>
 
                             <!-- Document Category -->
-                            <div class="mb-4">
+                            <div class="mb-4" id="document-category-section">
                                 <label for="document_category" class="form-label"><strong>Document Category:</strong></label>
                                 <select class="form-select" id="document_category" name="document_category" required>
                                     <option value="">Select category...</option>
+                                    <option value="not_asset_related">Not Asset-Related</option>
                                     {% for category in document_categories %}
                                     <option value="{{ category.value }}" 
                                             {% if review_item.document_category == category.value %}selected{% endif %}>
@@ -389,10 +425,21 @@
             radio.addEventListener('change', function() {
                 const manualSelection = document.getElementById('manual-asset-selection');
                 const assetSelect = document.getElementById('asset_id');
+                const documentCategorySelect = document.getElementById('document_category');
                 
-                if (this.value === 'system') {
+                if (this.value === 'not_asset_related') {
+                    // Hide asset selection and auto-select "not asset-related" category
                     manualSelection.style.display = 'none';
                     assetSelect.required = false;
+                    document.getElementById('selected_asset_id').value = 'NOT_ASSET_RELATED';
+                    documentCategorySelect.value = 'not_asset_related';
+                    documentCategorySelect.disabled = true;
+                    documentCategorySelect.required = false;
+                } else if (this.value === 'system') {
+                    manualSelection.style.display = 'none';
+                    assetSelect.required = false;
+                    documentCategorySelect.disabled = false;
+                    documentCategorySelect.required = true;
                     // Use system suggestion if one is selected
                     if (selectedSystemAssetId) {
                         document.getElementById('selected_asset_id').value = selectedSystemAssetId;
@@ -400,6 +447,8 @@
                 } else {
                     manualSelection.style.display = 'block';
                     assetSelect.required = true;
+                    documentCategorySelect.disabled = false;
+                    documentCategorySelect.required = true;
                     document.getElementById('selected_asset_id').value = '';
                 }
             });
@@ -432,10 +481,19 @@
             e.preventDefault();
             
             const formData = new FormData(this);
+            const assetSource = formData.get('asset_source');
             const assetId = document.getElementById('selected_asset_id').value || formData.get('asset_id');
+            const documentCategory = formData.get('document_category');
             
-            if (!assetId) {
-                alert('Please select an asset');
+            // Skip asset validation if "not asset-related" is selected
+            if (assetSource !== 'not_asset_related' && !assetId) {
+                alert('Please select an asset or mark as "Not Asset-Related"');
+                return;
+            }
+            
+            // Document category is only required for asset-related items
+            if (assetSource !== 'not_asset_related' && !documentCategory) {
+                alert('Please select a document category');
                 return;
             }
 
@@ -455,11 +513,12 @@
             }
 
             const reviewData = {
-                asset_id: assetId,
-                document_category: formData.get('document_category'),
+                asset_id: assetSource === 'not_asset_related' ? null : assetId,
+                document_category: assetSource === 'not_asset_related' ? 'not_asset_related' : documentCategory,
                 reasoning: formData.get('reasoning'),
                 feedback: formData.get('feedback') + '\n\nLearning insights: ' + learningInsights.join(', '),
-                reviewed_by: 'web_user'
+                reviewed_by: 'web_user',
+                is_asset_related: assetSource !== 'not_asset_related'
             };
 
             // Submit the review
@@ -473,7 +532,10 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    alert('Review submitted successfully! The system has learned from your correction.');
+                    const message = assetSource === 'not_asset_related' 
+                        ? 'Review submitted! The system has learned this attachment is not asset-related.'
+                        : 'Review submitted successfully! The system has learned from your correction.';
+                    alert(message);
                     window.location.href = '{{ url_for("human_review_queue") }}';
                 } else {
                     alert('Error: ' + data.error);
@@ -489,6 +551,61 @@
         function skipReview() {
             if (confirm('Are you sure you want to skip this review? It will remain in the queue.')) {
                 window.location.href = '{{ url_for("human_review_queue") }}';
+            }
+        }
+
+        // Quick approve function
+        function quickApprove() {
+            if (confirm('Are you sure you want to approve this review? It will be marked as correct and help the system learn.')) {
+                const button = event.target.closest('button');
+                const hasSuggestions = button.getAttribute('data-has-suggestions') === 'true';
+                const systemConfidence = parseFloat(button.getAttribute('data-system-confidence'));
+                const topSuggestion = button.getAttribute('data-top-suggestion');
+                const documentCategory = button.getAttribute('data-document-category');
+                
+                let reviewData;
+                if (hasSuggestions && systemConfidence > 0 && topSuggestion) {
+                    // System suggested an asset - approve that suggestion
+                    reviewData = {
+                        asset_id: topSuggestion,
+                        document_category: documentCategory,
+                        reasoning: 'System analysis approved by user - correct asset match',
+                        feedback: 'Quick approval: System correctly identified the asset',
+                        reviewed_by: 'web_user',
+                        is_asset_related: true
+                    };
+                } else {
+                    // System found no asset match - approve as non-asset-related
+                    reviewData = {
+                        asset_id: null,
+                        document_category: 'not_asset_related',
+                        reasoning: 'System analysis approved by user - correctly identified as non-asset-related',
+                        feedback: 'Quick approval: System correctly identified this as not asset-related',
+                        reviewed_by: 'web_user',
+                        is_asset_related: false
+                    };
+                }
+
+                fetch(`/api/human-review/{{ review_item.review_id }}/submit`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(reviewData)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Review approved successfully! The system has learned from your approval.');
+                        window.location.href = '{{ url_for("human_review_queue") }}';
+                    } else {
+                        alert('Error: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('An error occurred while approving the review.');
+                });
             }
         }
     </script>

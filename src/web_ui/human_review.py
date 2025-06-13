@@ -30,6 +30,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 # # Local application imports
 from memory.episodic import EpisodicMemory
+from utils.config import config
 from utils.logging_system import get_logger
 
 logger = get_logger(__name__)
@@ -82,8 +83,8 @@ class HumanReviewQueue:
     - Learning from corrections via episodic memory
     """
 
-    def __init__(self, queue_file: str = "data/human_review_queue.json"):
-        self.queue_file = Path(queue_file)
+    def __init__(self, queue_file: str = None):
+        self.queue_file = Path(queue_file or config.human_review_queue_file)
         self.queue_file.parent.mkdir(parents=True, exist_ok=True)
         self.episodic_memory = EpisodicMemory(max_items=5000)
         self._load_queue()
@@ -177,15 +178,26 @@ class HumanReviewQueue:
             created_at=datetime.now(UTC).isoformat(),
         )
 
-        # Convert to dict for JSON storage (excluding binary content for now)
+        # Convert to dict for JSON storage (excluding binary content)
         review_dict = asdict(review_item)
-        review_dict["attachment_content"] = None  # Store separately
+        
+        # Ensure binary content is completely removed before JSON serialization
+        if 'attachment_content' in review_dict:
+            del review_dict['attachment_content']
+        
+        # Also ensure no nested binary data exists
+        for key, value in review_dict.items():
+            if isinstance(value, bytes):
+                review_dict[key] = None
 
         # Save attachment content to separate file
-        content_file = Path(f"data/review_attachments/{review_id}")
+        content_file = Path(config.review_attachments_path) / review_id
         content_file.parent.mkdir(parents=True, exist_ok=True)
-        with open(content_file, "wb") as f:
-            f.write(review_item.attachment_content)
+        try:
+            with open(content_file, "wb") as f:
+                f.write(review_item.attachment_content)
+        except Exception as content_error:
+            logger.warning(f"Failed to save attachment content for {review_id}: {content_error}")
 
         self.queue.append(review_dict)
         self._save_queue()
@@ -205,7 +217,7 @@ class HumanReviewQueue:
         for item in self.queue:
             if item["review_id"] == review_id:
                 # Load attachment content
-                content_file = Path(f"data/review_attachments/{review_id}")
+                content_file = Path(config.review_attachments_path) / review_id
                 if content_file.exists():
                     with open(content_file, "rb") as f:
                         item["attachment_content"] = f.read()
@@ -215,11 +227,12 @@ class HumanReviewQueue:
     async def submit_review(
         self,
         review_id: str,
-        human_asset_id: str,
+        human_asset_id: str | None,
         human_document_category: str,
         human_reasoning: str,
         human_feedback: str,
         reviewed_by: str = "human_reviewer",
+        is_asset_related: bool = True,
     ) -> bool:
         """Submit human review and store learning"""
 
@@ -242,20 +255,29 @@ class HumanReviewQueue:
         item["reviewed_at"] = datetime.now(UTC).isoformat()
         item["reviewed_by"] = reviewed_by
         item["status"] = "completed"
+        item["is_asset_related"] = is_asset_related
 
         # Store learning in episodic memory
         await self._store_learning_experience(item)
 
         self._save_queue()
-        logger.info(f"Review completed for item: {review_id}")
+        
+        if is_asset_related:
+            logger.info(f"Review completed for item: {review_id} -> asset {human_asset_id}")
+        else:
+            logger.info(f"Review completed for item: {review_id} -> marked as non-asset-related")
+            
         return True
 
     async def _store_learning_experience(self, review_item: dict[str, Any]) -> None:
         """Store the learning experience in episodic memory"""
 
+        # Determine if this is asset-related
+        is_asset_related = review_item.get("is_asset_related", True)
+        
         # Create comprehensive learning content
         learning_content = f"""
-Human Review Correction - Asset Matching Learning
+Human Review Correction - {'Asset Matching' if is_asset_related else 'Non-Asset Classification'} Learning
 
 ORIGINAL EMAIL:
 Subject: {review_item['email_subject']}
@@ -275,7 +297,7 @@ SYSTEM SUGGESTIONS:
 {self._format_system_suggestions(review_item['system_asset_suggestions'])}
 
 HUMAN CORRECTION:
-Correct Asset: {review_item['human_asset_id']}
+{'Asset-Related: NO' if not is_asset_related else f'Correct Asset: {review_item["human_asset_id"]}'}
 Correct Category: {review_item['human_document_category']}
 Human Reasoning: {review_item['human_reasoning']}
 Additional Feedback: {review_item['human_feedback']}
@@ -294,6 +316,7 @@ LEARNING INSIGHTS:
             "system_category": review_item["document_category"],
             "human_asset_id": review_item["human_asset_id"],
             "human_category": review_item["human_document_category"],
+            "is_asset_related": is_asset_related,
             "correction_type": self._determine_correction_type(review_item),
             "confidence_gap": review_item["system_confidence"],
             "learning_priority": self._calculate_learning_priority(review_item),
@@ -312,6 +335,7 @@ LEARNING INSIGHTS:
             await self.episodic_memory.add_feedback(
                 content=learning_content,
                 feedback_type="correction",
+                source="human_review",
                 user_id=review_item["reviewed_by"],
                 context=metadata,
             )
@@ -364,7 +388,11 @@ LEARNING INSIGHTS:
 
     def _determine_correction_type(self, review_item: dict[str, Any]) -> str:
         """Determine the type of correction made"""
-        if not review_item["system_asset_suggestions"]:
+        is_asset_related = review_item.get("is_asset_related", True)
+        
+        if not is_asset_related:
+            return "marked_as_non_asset_related"
+        elif not review_item["system_asset_suggestions"]:
             return "no_suggestions_provided"
         elif review_item["human_asset_id"] in [
             s["asset_id"] for s in review_item["system_asset_suggestions"]
@@ -396,6 +424,65 @@ LEARNING INSIGHTS:
             "in_review": in_review,
             "completion_rate": (completed / total * 100) if total > 0 else 0,
         }
+
+    def remove_items_by_email(self, email_id: str, mailbox_id: str) -> int:
+        """Remove all review items associated with a specific email"""
+        removed_count = 0
+        items_to_remove = []
+        
+        # Find items to remove
+        for item in self.queue:
+            if item["email_id"] == email_id and item["mailbox_id"] == mailbox_id:
+                items_to_remove.append(item)
+        
+        # Remove items and their attachment files
+        for item in items_to_remove:
+            review_id = item["review_id"]
+            
+            # Remove attachment content file
+            content_file = Path(config.review_attachments_path) / review_id
+            try:
+                if content_file.exists():
+                    content_file.unlink()
+                    logger.debug(f"Removed attachment file for review: {review_id}")
+            except Exception as e:
+                logger.warning(f"Failed to remove attachment file for {review_id}: {e}")
+            
+            # Remove from queue
+            self.queue.remove(item)
+            removed_count += 1
+            logger.info(f"Removed review item: {review_id} (email: {email_id})")
+        
+        # Save updated queue
+        if removed_count > 0:
+            self._save_queue()
+            logger.info(f"Removed {removed_count} review items for email: {email_id}")
+        
+        return removed_count
+
+    def clear_all_items(self) -> int:
+        """Remove all review items (for complete history clear)"""
+        removed_count = len(self.queue)
+        
+        # Remove all attachment files
+        attachments_path = Path(config.review_attachments_path)
+        if attachments_path.exists():
+            try:
+                for content_file in attachments_path.glob("*"):
+                    if content_file.is_file():
+                        content_file.unlink()
+                logger.info("Removed all review attachment files")
+            except Exception as e:
+                logger.warning(f"Failed to remove some attachment files: {e}")
+        
+        # Clear queue
+        self.queue.clear()
+        self._save_queue()
+        
+        if removed_count > 0:
+            logger.info(f"Cleared all {removed_count} review items")
+        
+        return removed_count
 
 
 # Global review queue instance

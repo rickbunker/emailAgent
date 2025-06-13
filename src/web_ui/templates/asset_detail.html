@@ -48,7 +48,15 @@
                             <code>{{ asset.deal_id }}</code>
                         </p>
                         <p><strong>Created:</strong> 
-                            {{ asset.created_date.strftime('%Y-%m-%d %H:%M') if asset.created_date else 'Unknown' }}
+                            {% if asset.created_date %}
+                                {% if asset.created_date is string %}
+                                    {{ asset.created_date[:19]|replace('T', ' ') }}
+                                {% else %}
+                                    {{ asset.created_date.strftime('%Y-%m-%d %H:%M') }}
+                                {% endif %}
+                            {% else %}
+                                Unknown
+                            {% endif %}
                         </p>
                         <p><strong>Folder Path:</strong> 
                             <code>{{ asset.folder_path }}</code>
@@ -159,7 +167,15 @@
                                 </td>
                                 <td>
                                     <small class="text-muted">
-                                        {{ mapping.created_date.strftime('%Y-%m-%d') if mapping.created_date else 'Unknown' }}
+                                        {% if mapping.created_date %}
+                                            {% if mapping.created_date is string %}
+                                                {{ mapping.created_date[:10] }}
+                                            {% else %}
+                                                {{ mapping.created_date.strftime('%Y-%m-%d') }}
+                                            {% endif %}
+                                        {% else %}
+                                            Unknown
+                                        {% endif %}
                                     </small>
                                 </td>
                                 <td>

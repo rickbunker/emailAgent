@@ -1,0 +1,56 @@
+# Email Agent Project - Cursor AI Rules
+
+## 📋 Primary Reference
+**ALWAYS follow the complete coding standards in `/docs/CODING_STANDARDS.md`**
+
+## 🚨 Critical Enforcement Points
+
+### Type Safety & Documentation
+- EVERY function MUST have type hints and Google-style docstrings
+- Use `from typing import Optional, List, Dict, Any` as needed
+
+### Configuration & Logging
+- ALWAYS use `from src.utils.config import config` for settings
+- ALWAYS use `from src.utils.logging_system import get_logger, log_function`
+- NO hardcoded values - use `config.*` instead
+- NO emoji in log messages - use professional logging
+
+### Code Quality
+- Use `@log_function()` decorator on important functions
+- Specific exception types, never bare `except:`
+- Flask routes need return type hints: `-> tuple[dict, int] | dict`
+
+## ✅ Quick Template
+```python
+from typing import Dict, List, Optional, Any
+from src.utils.config import config
+from src.utils.logging_system import get_logger, log_function
+
+logger = get_logger(__name__)
+
+@log_function()
+def your_function(param: str, data: Dict[str, Any]) -> Optional[ResultType]:
+    """
+    Brief description.
+
+    Args:
+        param: Description of parameter
+        data: Description of data parameter
+
+    Returns:
+        Description of return value
+
+    Raises:
+        SpecificError: When this specific error occurs
+    """
+    logger.info(f"Processing: {param}")
+    
+    if confidence < config.low_confidence_threshold:
+        logger.warning("Low confidence detected")
+    
+    return result
+```
+
+## 🔗 Full Standards
+For complete guidelines, examples, and detailed explanations, see:
+**`/docs/CODING_STANDARDS.md`** 

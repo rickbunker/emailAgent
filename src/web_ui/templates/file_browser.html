@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+
+{% block title %}File Browser - Email Agent{% endblock %}
+
+{% block page_title %}Saved Attachments{% endblock %}
+
+{% block page_actions %}
+<div class="d-flex gap-2">
+    <span class="badge bg-info fs-6">{{ total_files }} files</span>
+    <span class="badge bg-secondary fs-6">{{ file_structure|length }} assets</span>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .file-card {
+        transition: all 0.2s ease;
+        border-left: 4px solid #007bff;
+    }
+    .file-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    .file-icon {
+        font-size: 1.5rem;
+        width: 40px;
+        text-align: center;
+    }
+    .file-size {
+        font-size: 0.8rem;
+        color: #6c757d;
+    }
+    .asset-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: #6c757d;
+    }
+    .file-actions {
+        opacity: 0;
+        transition: opacity 0.2s ease;
+    }
+    .file-card:hover .file-actions {
+        opacity: 1;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+{% if file_structure %}
+    {% for asset_id, asset_data in file_structure.items() %}
+    <div class="asset-section mb-5">
+        <div class="asset-header">
+            <div class="row align-items-center">
+                <div class="col">
+                    <h4 class="mb-1">
+                        {% if asset_data.get('special_folder') %}
+                            <i class="bi bi-folder-check me-2"></i>{{ asset_data.folder_name }}
+                        {% elif asset_data.asset_info %}
+                            <i class="bi bi-building me-2"></i>{{ asset_data.asset_info.deal_name }}
+                        {% else %}
+                            <i class="bi bi-question-circle me-2"></i>Unknown Asset
+                        {% endif %}
+                    </h4>
+                    <p class="mb-0 opacity-75">
+                        {% if asset_data.get('special_folder') %}
+                            Files awaiting review or categorization
+                        {% elif asset_data.asset_info %}
+                            {{ asset_data.asset_info.asset_name }} 
+                            <span class="badge bg-light text-dark ms-2">{{ asset_data.asset_info.asset_type.value.replace('_', ' ').title() }}</span>
+                        {% else %}
+                            Asset ID: {{ asset_id[:8] }}...
+                        {% endif %}
+                    </p>
+                </div>
+                <div class="col-auto">
+                    <span class="badge bg-light text-dark fs-6">{{ asset_data.file_count }} files</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            {% for file in asset_data.files %}
+            <div class="col-lg-6 col-xl-4 mb-3">
+                <div class="card file-card h-100">
+                    <div class="card-body">
+                        <div class="d-flex align-items-start">
+                            <div class="file-icon me-3">
+                                {% if file.extension in ['.pdf'] %}
+                                    <i class="bi bi-file-earmark-pdf text-danger"></i>
+                                {% elif file.extension in ['.doc', '.docx'] %}
+                                    <i class="bi bi-file-earmark-word text-primary"></i>
+                                {% elif file.extension in ['.xls', '.xlsx'] %}
+                                    <i class="bi bi-file-earmark-excel text-success"></i>
+                                {% elif file.extension in ['.jpg', '.jpeg', '.png', '.gif'] %}
+                                    <i class="bi bi-file-earmark-image text-info"></i>
+                                {% elif file.extension in ['.txt'] %}
+                                    <i class="bi bi-file-earmark-text text-secondary"></i>
+                                {% else %}
+                                    <i class="bi bi-file-earmark text-muted"></i>
+                                {% endif %}
+                            </div>
+                            <div class="flex-grow-1">
+                                <h6 class="card-title mb-1">{{ file.name }}</h6>
+                                {% if file.get('category') and file.category != 'uncategorized' %}
+                                <div class="mb-1">
+                                    <span class="badge bg-light text-dark">{{ file.category.replace('_', ' ').title() }}</span>
+                                </div>
+                                {% endif %}
+                                <div class="file-size mb-2">
+                                    {{ "%.1f"|format(file.size / 1024) }} KB • 
+                                    {{ file.modified.strftime('%b %d, %Y %I:%M %p') }}
+                                </div>
+                                <div class="file-actions">
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        {% if file.extension in ['.pdf', '.jpg', '.jpeg', '.png', '.gif', '.txt', '.html'] %}
+                                        <a href="{{ url_for('view_file', file_path=file.path) }}" 
+                                           class="btn btn-outline-primary" 
+                                           target="_blank"
+                                           title="View in browser">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                        {% endif %}
+                                        <a href="{{ url_for('download_file', file_path=file.path) }}" 
+                                           class="btn btn-outline-secondary"
+                                           title="Download">
+                                            <i class="bi bi-download"></i>
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+{% else %}
+    <div class="empty-state">
+        <i class="bi bi-folder2-open display-1 mb-3"></i>
+        <h3>No Files Found</h3>
+        <p class="lead">No processed attachments have been saved yet.</p>
+        <p>Process some emails with attachments to see them organized here by asset.</p>
+        <a href="{{ url_for('email_processing') }}" class="btn btn-primary">
+            <i class="bi bi-envelope-plus"></i>
+            Process Emails
+        </a>
+    </div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Add file size formatting
+document.addEventListener('DOMContentLoaded', function() {
+    // Format file sizes nicely
+    const fileSizes = document.querySelectorAll('.file-size');
+    fileSizes.forEach(element => {
+        const text = element.textContent;
+        const sizeMatch = text.match(/(\d+\.?\d*) KB/);
+        if (sizeMatch) {
+            const kb = parseFloat(sizeMatch[1]);
+            let formattedSize;
+            if (kb > 1024) {
+                formattedSize = (kb / 1024).toFixed(1) + ' MB';
+            } else {
+                formattedSize = kb.toFixed(1) + ' KB';
+            }
+            element.textContent = text.replace(/\d+\.?\d* KB/, formattedSize);
+        }
+    });
+});
+</script>
+{% endblock %} 
