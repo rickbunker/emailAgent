@@ -1086,7 +1086,12 @@ class AssetDocumentAgent:
                 for identifier in updated_identifiers:
                     # Remove surrounding quotes if they exist
                     cleaned = identifier.strip()
-                    if cleaned.startswith('"') and cleaned.endswith('"') or cleaned.startswith("'") and cleaned.endswith("'"):
+                    if (
+                        cleaned.startswith('"')
+                        and cleaned.endswith('"')
+                        or cleaned.startswith("'")
+                        and cleaned.endswith("'")
+                    ):
                         cleaned = cleaned[1:-1]
                     cleaned_identifiers.append(cleaned)
                 updated_identifiers = cleaned_identifiers

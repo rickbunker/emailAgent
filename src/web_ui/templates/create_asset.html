@@ -29,10 +29,10 @@
                                 <label for="deal_name" class="form-label">
                                     <strong>Deal Name</strong> <span class="text-danger">*</span>
                                 </label>
-                                <input type="text" 
-                                       class="form-control" 
-                                       id="deal_name" 
-                                       name="deal_name" 
+                                <input type="text"
+                                       class="form-control"
+                                       id="deal_name"
+                                       name="deal_name"
                                        placeholder="e.g., Main Street Plaza"
                                        value="{{ form_data.deal_name if form_data else '' }}"
                                        required>
@@ -49,7 +49,7 @@
                                 <select class="form-select" id="asset_type" name="asset_type" required>
                                     <option value="">Select asset type...</option>
                                     {% for asset_type in asset_types %}
-                                    <option value="{{ asset_type.value }}" 
+                                    <option value="{{ asset_type.value }}"
                                             {% if form_data and form_data.asset_type == asset_type.value %}selected{% endif %}>
                                         {{ asset_type.value.replace('_', ' ').title() }}
                                     </option>
@@ -63,10 +63,10 @@
                         <label for="asset_name" class="form-label">
                             <strong>Full Asset Name</strong> <span class="text-danger">*</span>
                         </label>
-                        <input type="text" 
-                               class="form-control" 
-                               id="asset_name" 
-                               name="asset_name" 
+                        <input type="text"
+                               class="form-control"
+                               id="asset_name"
+                               name="asset_name"
                                placeholder="e.g., Main Street Plaza - 123 Main St, Seattle, WA"
                                value="{{ form_data.asset_name if form_data else '' }}"
                                required>
@@ -79,10 +79,10 @@
                         <label for="identifiers" class="form-label">
                             <strong>Alternative Names/Identifiers</strong>
                         </label>
-                        <input type="text" 
-                               class="form-control" 
-                               id="identifiers" 
-                               name="identifiers" 
+                        <input type="text"
+                               class="form-control"
+                               id="identifiers"
+                               name="identifiers"
                                placeholder="e.g., MSP, Main Street, Plaza 123"
                                value="{{ form_data.identifiers if form_data else '' }}">
                         <small class="form-text text-muted">
@@ -140,7 +140,7 @@ const assetTypeInfo = {
 document.getElementById('asset_type').addEventListener('change', function() {
     const selectedType = this.value;
     const infoDiv = document.getElementById('asset-type-info');
-    
+
     if (selectedType && assetTypeInfo[selectedType]) {
         const info = assetTypeInfo[selectedType];
         infoDiv.innerHTML = `
@@ -156,4 +156,4 @@ document.getElementById('asset_type').addEventListener('change', function() {
     }
 });
 </script>
-{% endblock %} 
+{% endblock %}

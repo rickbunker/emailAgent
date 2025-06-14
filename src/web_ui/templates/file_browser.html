@@ -72,7 +72,7 @@
                         {% if asset_data.get('special_folder') %}
                             Files awaiting review or categorization
                         {% elif asset_data.asset_info %}
-                            {{ asset_data.asset_info.asset_name }} 
+                            {{ asset_data.asset_info.asset_name }}
                             <span class="badge bg-light text-dark ms-2">{{ asset_data.asset_info.asset_type.value.replace('_', ' ').title() }}</span>
                         {% else %}
                             Asset ID: {{ asset_id[:8] }}...
@@ -114,20 +114,20 @@
                                 </div>
                                 {% endif %}
                                 <div class="file-size mb-2">
-                                    {{ "%.1f"|format(file.size / 1024) }} KB • 
+                                    {{ "%.1f"|format(file.size / 1024) }} KB •
                                     {{ file.modified.strftime('%b %d, %Y %I:%M %p') }}
                                 </div>
                                 <div class="file-actions">
                                     <div class="btn-group btn-group-sm" role="group">
                                         {% if file.extension in ['.pdf', '.jpg', '.jpeg', '.png', '.gif', '.txt', '.html'] %}
-                                        <a href="{{ url_for('view_file', file_path=file.path) }}" 
-                                           class="btn btn-outline-primary" 
+                                        <a href="{{ url_for('view_file', file_path=file.path) }}"
+                                           class="btn btn-outline-primary"
                                            target="_blank"
                                            title="View in browser">
                                             <i class="bi bi-eye"></i>
                                         </a>
                                         {% endif %}
-                                        <a href="{{ url_for('download_file', file_path=file.path) }}" 
+                                        <a href="{{ url_for('download_file', file_path=file.path) }}"
                                            class="btn btn-outline-secondary"
                                            title="Download">
                                             <i class="bi bi-download"></i>
@@ -179,4 +179,4 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 </script>
-{% endblock %} 
+{% endblock %}

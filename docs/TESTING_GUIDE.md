@@ -38,7 +38,7 @@ make pre-commit
 
 ### **Code Quality Tools**
 - **Black** - Code formatting
-- **isort** - Import sorting  
+- **isort** - Import sorting
 - **Ruff** - Fast Python linter
 - **Pylint** - Comprehensive code analysis
 - **MyPy** - Type checking
@@ -253,4 +253,4 @@ make status      # Show project status
 
 ---
 
-**Happy Testing! 🧪** For questions or issues, check the tool output or run with `--verbose` for detailed information. 
+**Happy Testing! 🧪** For questions or issues, check the tool output or run with `--verbose` for detailed information.

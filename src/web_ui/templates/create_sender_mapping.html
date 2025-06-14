@@ -25,8 +25,8 @@
                 <div class="alert alert-info">
                     <h6><i class="bi bi-info-circle"></i> About Sender Mappings</h6>
                     <p class="mb-0">
-                        Sender mappings help the system automatically route email attachments to the correct asset folder. 
-                        When the system receives an email from a mapped sender, it will automatically classify and save 
+                        Sender mappings help the system automatically route email attachments to the correct asset folder.
+                        When the system receives an email from a mapped sender, it will automatically classify and save
                         attachments to the associated asset's folder structure.
                     </p>
                 </div>
@@ -41,7 +41,7 @@
                                 <select class="form-select" id="asset_id" name="asset_id" required>
                                     <option value="">Select an asset...</option>
                                     {% for asset in assets %}
-                                    <option value="{{ asset.deal_id }}" 
+                                    <option value="{{ asset.deal_id }}"
                                             data-type="{{ asset.asset_type.value }}"
                                             {% if request.args.get('asset_id') == asset.deal_id %}selected{% endif %}>
                                         {{ asset.deal_name }} - {{ asset.asset_name }}
@@ -58,10 +58,10 @@
                                 <label for="sender_email" class="form-label">
                                     <strong>Sender Email</strong> <span class="text-danger">*</span>
                                 </label>
-                                <input type="email" 
-                                       class="form-control" 
-                                       id="sender_email" 
-                                       name="sender_email" 
+                                <input type="email"
+                                       class="form-control"
+                                       id="sender_email"
+                                       name="sender_email"
                                        placeholder="e.g., john@property-management.com"
                                        required>
                                 <small class="form-text text-muted">
@@ -94,10 +94,10 @@
                                 <label for="document_types" class="form-label">
                                     <strong>Expected Document Types</strong>
                                 </label>
-                                <input type="text" 
-                                       class="form-control" 
-                                       id="document_types" 
-                                       name="document_types" 
+                                <input type="text"
+                                       class="form-control"
+                                       id="document_types"
+                                       name="document_types"
                                        placeholder="e.g., rent_roll, financial_statements, lease_documents">
                                 <small class="form-text text-muted">
                                     Comma-separated list of document types this sender typically provides
@@ -138,19 +138,19 @@
 // Document type suggestions by asset type
 const documentTypeSuggestions = {
     'commercial_real_estate': [
-        'rent_roll', 'financial_statements', 'property_photos', 
+        'rent_roll', 'financial_statements', 'property_photos',
         'appraisal', 'lease_documents', 'property_management'
     ],
     'private_credit': [
-        'loan_documents', 'borrower_financials', 'covenant_compliance', 
+        'loan_documents', 'borrower_financials', 'covenant_compliance',
         'credit_memo', 'loan_monitoring'
     ],
     'private_equity': [
-        'portfolio_reports', 'investor_updates', 'board_materials', 
+        'portfolio_reports', 'investor_updates', 'board_materials',
         'deal_documents', 'valuation_reports'
     ],
     'infrastructure': [
-        'engineering_reports', 'construction_updates', 'regulatory_documents', 
+        'engineering_reports', 'construction_updates', 'regulatory_documents',
         'operations_reports'
     ]
 };
@@ -159,14 +159,14 @@ document.getElementById('asset_id').addEventListener('change', function() {
     const selectedOption = this.options[this.selectedIndex];
     const assetType = selectedOption.getAttribute('data-type');
     const suggestionsDiv = document.getElementById('document-type-suggestions');
-    
+
     if (assetType && documentTypeSuggestions[assetType]) {
         const suggestions = documentTypeSuggestions[assetType];
-        const badgesHtml = suggestions.map(type => 
-            `<span class="badge bg-primary me-1 mb-1 doc-type-badge" style="cursor: pointer;" 
+        const badgesHtml = suggestions.map(type =>
+            `<span class="badge bg-primary me-1 mb-1 doc-type-badge" style="cursor: pointer;"
                    onclick="addDocumentType('${type}')">${type.replace('_', ' ')}</span>`
         ).join('');
-        
+
         suggestionsDiv.innerHTML = `
             <p class="mb-2"><strong>Suggested document types for ${assetType.replace('_', ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}:</strong></p>
             <div>${badgesHtml}</div>
@@ -180,13 +180,13 @@ document.getElementById('asset_id').addEventListener('change', function() {
 function addDocumentType(docType) {
     const input = document.getElementById('document_types');
     const currentValue = input.value.trim();
-    
+
     // Check if the document type is already in the list
     const currentTypes = currentValue ? currentValue.split(',').map(t => t.trim()) : [];
     if (!currentTypes.includes(docType)) {
         const newValue = currentValue ? `${currentValue}, ${docType}` : docType;
         input.value = newValue;
-        
+
         // Visual feedback
         const badge = event.target;
         badge.classList.remove('bg-primary');
@@ -206,4 +206,4 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
-{% endblock %} 
+{% endblock %}

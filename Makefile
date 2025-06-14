@@ -1,5 +1,5 @@
 # Email Agent Development Makefile
-# 
+#
 # This Makefile provides convenient shortcuts for common development tasks.
 # All commands are run in the virtual environment automatically.
 
@@ -117,4 +117,4 @@ status:
 	@echo "📦 Pip packages: $(shell pip list | wc -l) installed"
 	@echo "🧪 Test files: $(shell find tests -name '*.py' | wc -l) found"
 	@echo "📄 Source files: $(shell find src -name '*.py' | wc -l) found"
-	@echo "✅ Git hooks: $(shell ls .git/hooks/ | grep -v sample | wc -l) installed" 
+	@echo "✅ Git hooks: $(shell ls .git/hooks/ | grep -v sample | wc -l) installed"

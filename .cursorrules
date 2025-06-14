@@ -44,10 +44,10 @@ def your_function(param: str, data: Dict[str, Any]) -> Optional[ResultType]:
         SpecificError: When this specific error occurs
     """
     logger.info(f"Processing: {param}")
-    
+
     if confidence < config.low_confidence_threshold:
         logger.warning("Low confidence detected")
-    
+
     return result
 ```
 
@@ -56,4 +56,4 @@ def your_function(param: str, data: Dict[str, Any]) -> Optional[ResultType]:
 
 ## 🔗 Full Standards
 For complete guidelines, examples, and detailed explanations, see:
-**`/docs/CODING_STANDARDS.md`** 
+**`/docs/CODING_STANDARDS.md`**

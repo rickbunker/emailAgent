@@ -26,7 +26,7 @@
                 </h6>
             </div>
             <div class="card-body">
-                
+
                 <form method="POST">
                     <div class="row">
                         <div class="col-md-6">
@@ -34,10 +34,10 @@
                                 <label for="deal_name" class="form-label">
                                     <strong>Deal Name</strong> <span class="text-danger">*</span>
                                 </label>
-                                <input type="text" 
-                                       class="form-control" 
-                                       id="deal_name" 
-                                       name="deal_name" 
+                                <input type="text"
+                                       class="form-control"
+                                       id="deal_name"
+                                       name="deal_name"
                                        value="{{ form_data.deal_name if form_data else asset.deal_name }}"
                                        required>
                                 <small class="form-text text-muted">
@@ -52,7 +52,7 @@
                                 </label>
                                 <select class="form-select" id="asset_type" name="asset_type" required>
                                     {% for asset_type in asset_types %}
-                                    <option value="{{ asset_type.value }}" 
+                                    <option value="{{ asset_type.value }}"
                                             {% if (form_data.asset_type if form_data else asset.asset_type.value) == asset_type.value %}selected{% endif %}>
                                         {{ asset_type.value.replace('_', ' ').title() }}
                                     </option>
@@ -66,10 +66,10 @@
                         <label for="asset_name" class="form-label">
                             <strong>Full Asset Name</strong> <span class="text-danger">*</span>
                         </label>
-                        <input type="text" 
-                               class="form-control" 
-                               id="asset_name" 
-                               name="asset_name" 
+                        <input type="text"
+                               class="form-control"
+                               id="asset_name"
+                               name="asset_name"
                                value="{{ form_data.asset_name if form_data else asset.asset_name }}"
                                required>
                         <small class="form-text text-muted">
@@ -81,10 +81,10 @@
                         <label for="identifiers" class="form-label">
                             <strong>Alternative Names/Identifiers</strong>
                         </label>
-                        <input type="text" 
-                               class="form-control" 
-                               id="identifiers" 
-                               name="identifiers" 
+                        <input type="text"
+                               class="form-control"
+                               id="identifiers"
+                               name="identifiers"
                                value="{{ form_data.identifiers if form_data else (asset.identifiers | join(', ') if asset.identifiers else '') }}">
                         <small class="form-text text-muted">
                             Comma-separated list of alternative names or identifiers that might appear in emails
@@ -103,8 +103,8 @@
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="form-label"><strong>Created Date</strong></label>
-                                <input type="text" class="form-control" 
-                                       value="{% if asset.created_date %}{% if asset.created_date is string %}{{ asset.created_date[:19]|replace('T', ' ') }}{% else %}{{ asset.created_date.strftime('%Y-%m-%d %H:%M:%S') }}{% endif %}{% else %}Unknown{% endif %}" 
+                                <input type="text" class="form-control"
+                                       value="{% if asset.created_date %}{% if asset.created_date is string %}{{ asset.created_date[:19]|replace('T', ' ') }}{% else %}{{ asset.created_date.strftime('%Y-%m-%d %H:%M:%S') }}{% endif %}{% else %}Unknown{% endif %}"
                                        readonly>
                             </div>
                         </div>
@@ -167,7 +167,7 @@ const assetTypeInfo = {
 document.addEventListener('DOMContentLoaded', function() {
     const selectedType = document.getElementById('asset_type').value;
     const infoDiv = document.getElementById('asset-type-info');
-    
+
     if (selectedType && assetTypeInfo[selectedType]) {
         const info = assetTypeInfo[selectedType];
         infoDiv.innerHTML = `
@@ -183,4 +183,4 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
-{% endblock %} 
+{% endblock %}

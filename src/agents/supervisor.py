@@ -767,7 +767,6 @@ class EmailSupervisor:
 
             # If not spam, proceed with other actions
             elif spam_score <= self.spam_threshold:
-
                 # Priority handling
                 if priority_score > self.priority_threshold:
                     actions.append(EmailAction.PRIORITIZE)
@@ -1138,7 +1137,7 @@ async def demo_supervisor() -> None:
             subject="Quarterly Review Meeting - Action Required",
             content="""Hi team,
 
-I need to schedule our quarterly review meeting for next week. 
+I need to schedule our quarterly review meeting for next week.
 This is time sensitive as we have the board presentation on Friday.
 
 Please let me know your availability by Wednesday.

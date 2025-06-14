@@ -131,9 +131,9 @@ class AuthorizationHandler(http.server.SimpleHTTPRequestHandler):
                     <head>
                         <title>Email Agent - Authentication Success</title>
                         <style>
-                            body { font-family: 'Segoe UI', Arial, sans-serif; text-align: center; 
+                            body { font-family: 'Segoe UI', Arial, sans-serif; text-align: center;
                                    padding: 50px; background: #f5f5f5; }
-                            .container { max-width: 600px; margin: 0 auto; background: white; 
+                            .container { max-width: 600px; margin: 0 auto; background: white;
                                         padding: 40px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
                             .success { color: #28a745; font-size: 48px; margin-bottom: 20px; }
                             h2 { color: #333; margin-bottom: 15px; }
@@ -188,9 +188,9 @@ class AuthorizationHandler(http.server.SimpleHTTPRequestHandler):
         <head>
             <title>Email Agent - Authentication Error</title>
             <style>
-                body {{ font-family: 'Segoe UI', Arial, sans-serif; text-align: center; 
+                body {{ font-family: 'Segoe UI', Arial, sans-serif; text-align: center;
                        padding: 50px; background: #f5f5f5; }}
-                .container {{ max-width: 600px; margin: 0 auto; background: white; 
+                .container {{ max-width: 600px; margin: 0 auto; background: white;
                             padding: 40px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
                 .error {{ color: #dc3545; font-size: 48px; margin-bottom: 20px; }}
                 h2 {{ color: #333; margin-bottom: 15px; }}
@@ -220,11 +220,11 @@ class AuthorizationHandler(http.server.SimpleHTTPRequestHandler):
         <head>
             <title>Email Agent - Waiting for Authentication</title>
             <style>
-                body { font-family: 'Segoe UI', Arial, sans-serif; text-align: center; 
+                body { font-family: 'Segoe UI', Arial, sans-serif; text-align: center;
                        padding: 50px; background: #f5f5f5; }
-                .container { max-width: 600px; margin: 0 auto; background: white; 
+                .container { max-width: 600px; margin: 0 auto; background: white;
                             padding: 40px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-                .waiting { color: #007bff; font-size: 48px; margin-bottom: 20px; 
+                .waiting { color: #007bff; font-size: 48px; margin-bottom: 20px;
                           animation: pulse 2s infinite; }
                 @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
                 h2 { color: #333; margin-bottom: 15px; }

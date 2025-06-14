@@ -31,11 +31,11 @@
                     <div class="col-md-6">
                         <p><strong>Deal Name:</strong> {{ asset.deal_name }}</p>
                         <p><strong>Asset Name:</strong> {{ asset.asset_name }}</p>
-                        <p><strong>Asset Type:</strong> 
+                        <p><strong>Asset Type:</strong>
                             {% set type_colors = {
                                 'commercial_real_estate': 'success',
                                 'private_credit': 'info',
-                                'private_equity': 'warning', 
+                                'private_equity': 'warning',
                                 'infrastructure': 'secondary'
                             } %}
                             <span class="badge bg-{{ type_colors.get(asset.asset_type.value, 'secondary') }}">
@@ -44,10 +44,10 @@
                         </p>
                     </div>
                     <div class="col-md-6">
-                        <p><strong>Asset ID:</strong> 
+                        <p><strong>Asset ID:</strong>
                             <code>{{ asset.deal_id }}</code>
                         </p>
-                        <p><strong>Created:</strong> 
+                        <p><strong>Created:</strong>
                             {% if asset.created_date %}
                                 {% if asset.created_date is string %}
                                     {{ asset.created_date[:19]|replace('T', ' ') }}
@@ -58,12 +58,12 @@
                                 Unknown
                             {% endif %}
                         </p>
-                        <p><strong>Folder Path:</strong> 
+                        <p><strong>Folder Path:</strong>
                             <code>{{ asset.folder_path }}</code>
                         </p>
                     </div>
                 </div>
-                
+
                 {% if asset.identifiers %}
                 <hr>
                 <div class="row">
@@ -78,7 +78,7 @@
             </div>
         </div>
     </div>
-    
+
     <!-- Quick Stats -->
     <div class="col-lg-4">
         <div class="card shadow mb-4">
@@ -100,7 +100,7 @@
                 </div>
             </div>
         </div>
-        
+
         <!-- Quick Actions -->
         <div class="card shadow mb-4">
             <div class="card-header py-3">
@@ -230,7 +230,7 @@ function copyAssetId() {
         btn.innerHTML = '<i class="bi bi-check me-2"></i>Copied!';
         btn.classList.add('btn-success');
         btn.classList.remove('btn-outline-info');
-        
+
         setTimeout(function() {
             btn.innerHTML = originalText;
             btn.classList.remove('btn-success');
@@ -241,4 +241,4 @@ function copyAssetId() {
     });
 }
 </script>
-{% endblock %} 
+{% endblock %}

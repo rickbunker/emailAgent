@@ -106,7 +106,7 @@
                                         {{ item.email_subject or 'No Subject' }}
                                     </h6>
                                     <p class="mb-1">
-                                        <strong>From:</strong> 
+                                        <strong>From:</strong>
                                         {% if item.sender_name %}
                                             {{ item.sender_name }} &lt;{{ item.sender_email }}&gt;
                                         {% else %}
@@ -114,16 +114,16 @@
                                         {% endif %}
                                     </p>
                                     <p class="mb-1">
-                                        <strong>Date:</strong> 
+                                        <strong>Date:</strong>
                                         <span class="email-date" data-utc="{{ item.email_date }}">
                                             {{ item.email_date }}
                                         </span>
                                     </p>
                                     <p class="mb-2">
-                                        <strong>Attachment:</strong> 
+                                        <strong>Attachment:</strong>
                                         <code>{{ item.attachment_filename }}</code>
                                     </p>
-                                    
+
                                     {% if item.email_body %}
                                     <div class="email-preview">
                                         <strong>Preview:</strong><br>
@@ -131,7 +131,7 @@
                                     </div>
                                     {% endif %}
                                 </div>
-                                
+
                                 <!-- Middle Column: System Analysis -->
                                 <div class="col-md-4">
                                     <h6>System Analysis</h6>
@@ -141,20 +141,20 @@
                                             {{ "%.1f"|format(item.system_confidence * 100) }}%
                                         </span>
                                     </p>
-                                    
+
                                     {% if item.document_category %}
                                     <p class="mb-1">
                                         <strong>Category:</strong> {{ item.document_category }}
                                     </p>
                                     {% endif %}
-                                    
+
                                     {% if item.confidence_level %}
                                     <p class="mb-2">
-                                        <strong>Level:</strong> 
+                                        <strong>Level:</strong>
                                         <span class="badge bg-secondary">{{ item.confidence_level.replace('_', ' ').title() }}</span>
                                     </p>
                                     {% endif %}
-                                    
+
                                     {% if item.system_asset_suggestions %}
                                     <h6 class="mt-2">System Suggestions:</h6>
                                     {% for suggestion in item.system_asset_suggestions[:2] %}
@@ -167,29 +167,29 @@
                                     {% endfor %}
                                     {% endif %}
                                 </div>
-                                
+
                                 <!-- Right Column: Actions -->
                                 <div class="col-md-4">
                                     <h6>Actions</h6>
                                     <div class="d-grid gap-2">
-                                        <a href="{{ url_for('human_review_item', review_id=item.review_id) }}" 
+                                        <a href="{{ url_for('human_review_item', review_id=item.review_id) }}"
                                            class="btn btn-primary btn-sm">
                                             <i class="bi bi-eye"></i> Review Item
                                         </a>
-                                        
+
                                         {% if item.system_asset_suggestions %}
-                                        <button class="btn btn-outline-success btn-sm" 
+                                        <button class="btn btn-outline-success btn-sm"
                                                 onclick="quickApprove('{{ item.review_id }}', '{{ item.system_asset_suggestions[0].asset_id }}')">
                                             <i class="bi bi-check-circle"></i> Quick Approve Top Match
                                         </button>
                                         {% endif %}
-                                        
-                                        <button class="btn btn-outline-danger btn-sm" 
+
+                                        <button class="btn btn-outline-danger btn-sm"
                                                 onclick="markAsSkip('{{ item.review_id }}')">
                                             <i class="bi bi-skip-forward"></i> Skip for Now
                                         </button>
                                     </div>
-                                    
+
                                     <div class="mt-2">
                                         <small class="text-muted">
                                             <i class="bi bi-clock"></i>
@@ -230,13 +230,13 @@
             }
         });
     });
-    
+
     // Quick approve function
     function quickApprove(reviewId, assetId) {
         if (!confirm('Are you sure you want to approve this top system suggestion?')) {
             return;
         }
-        
+
         fetch(`/api/human-review/${reviewId}/submit`, {
             method: 'POST',
             headers: {
@@ -263,12 +263,12 @@
             alert('An error occurred while submitting the review.');
         });
     }
-    
+
     // Skip function (placeholder)
     function markAsSkip(reviewId) {
         alert('Skip functionality not yet implemented');
     }
-    
+
     // Auto-refresh stats every 30 seconds
     setInterval(function() {
         fetch('/api/human-review/stats')
@@ -281,4 +281,4 @@
             .catch(error => console.error('Error refreshing stats:', error));
     }, 30000);
 </script>
-{% endblock %} 
+{% endblock %}
