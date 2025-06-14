@@ -562,6 +562,12 @@ async def process_single_email(
         return processing_info
 
     for attachment in email.attachments:
+        # Initialize attachment_data early to avoid scoping issues
+        attachment_data = {
+            "filename": attachment.filename,
+            "content": None,
+        }
+
         try:
             logger.info(
                 f"Processing attachment: {attachment.filename} (size: {attachment.size}, content loaded: {attachment.content is not None})"
@@ -582,11 +588,8 @@ async def process_single_email(
                     )
                     continue
 
-            # Prepare attachment data for processing
-            attachment_data = {
-                "filename": attachment.filename,
-                "content": attachment_content,
-            }
+            # Update attachment data with content
+            attachment_data["content"] = attachment_content
 
             email_data = {
                 "sender_email": email.sender.address if email.sender else None,
@@ -605,8 +608,12 @@ async def process_single_email(
                 attachment_data=attachment_data, email_data=email_data
             )
 
-            # Save file to disk if processing was successful
-            if result.status == ProcessingStatus.SUCCESS:
+            # Save file to disk if processing was successful OR if it's a duplicate with matched asset
+            should_save = result.status == ProcessingStatus.SUCCESS or (
+                result.status == ProcessingStatus.DUPLICATE and result.matched_asset_id
+            )
+
+            if should_save:
                 content = attachment_data.get("content", b"")
                 filename = attachment_data.get("filename", "unknown_attachment")
 
@@ -618,8 +625,12 @@ async def process_single_email(
                     if file_path:
                         logger.info(f"File saved successfully to: {file_path}")
 
-                        # Store document metadata in Qdrant
-                        if asset_agent.qdrant and result.file_hash:
+                        # Store document metadata in Qdrant (only for non-duplicates to avoid duplicate entries)
+                        if (
+                            result.status == ProcessingStatus.SUCCESS
+                            and asset_agent.qdrant
+                            and result.file_hash
+                        ):
                             document_id = await asset_agent.store_processed_document(
                                 result.file_hash, result, result.matched_asset_id
                             )
@@ -2162,19 +2173,24 @@ def _cleanup_processed_documents() -> dict[str, Any]:
         except Exception:
             before_count = 0
 
-        # Delete all points in collection
+        # Delete all points in collection using the proper Qdrant API format
+        # # Third-party imports
+        from qdrant_client.models import FieldCondition, Filter, Range
+
+        # Delete all points that have a document_id field (which should be all of them)
+        # Use a range filter that matches all possible UUIDs (starts with any character)
         asset_agent.qdrant.delete(
             collection_name=collection_name,
-            points_selector={
-                "filter": {
-                    "must": [
-                        {
-                            "key": "metadata.type",
-                            "match": {"value": "processed_document"},
-                        }
-                    ]
-                }
-            },
+            points_selector=Filter(
+                must=[
+                    FieldCondition(
+                        key="document_id",
+                        range=Range(
+                            gte=""
+                        ),  # Greater than or equal to empty string (matches all)
+                    )
+                ]
+            ),
         )
 
         logger.info(f"Cleared {before_count} processed documents from Qdrant")
@@ -2434,11 +2450,21 @@ def _cleanup_sender_mappings() -> dict[str, Any]:
             before_count = 0
 
         # Delete all points in collection
+        # # Third-party imports
+        from qdrant_client.models import FieldCondition, Filter, Range
+
         asset_agent.qdrant.delete(
             collection_name=collection_name,
-            points_selector={
-                "filter": {"must": [{"key": "mapping_id", "range": {"gte": ""}}]}
-            },
+            points_selector=Filter(
+                must=[
+                    FieldCondition(
+                        key="mapping_id",
+                        range=Range(
+                            gte=""
+                        ),  # Greater than or equal to empty string (matches all)
+                    )
+                ]
+            ),
         )
 
         logger.info(f"Cleared {before_count} sender mappings")
@@ -2487,11 +2513,21 @@ def _cleanup_assets() -> dict[str, Any]:
             before_count = 0
 
         # Delete all points in collection
+        # # Third-party imports
+        from qdrant_client.models import FieldCondition, Filter, Range
+
         asset_agent.qdrant.delete(
             collection_name=collection_name,
-            points_selector={
-                "filter": {"must": [{"key": "deal_id", "range": {"gte": ""}}]}
-            },
+            points_selector=Filter(
+                must=[
+                    FieldCondition(
+                        key="deal_id",
+                        range=Range(
+                            gte=""
+                        ),  # Greater than or equal to empty string (matches all)
+                    )
+                ]
+            ),
         )
 
         # Also remove asset folders from disk

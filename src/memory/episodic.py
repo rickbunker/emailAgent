@@ -411,8 +411,13 @@ class EpisodicMemory(BaseMemory):
             # Use combined filter or None if no conditions
             search_filter = filter_conditions if filter_conditions["must"] else None
 
-            # Perform semantic search
-            results = await super().search(query, limit, search_filter)
+            # Perform semantic search - returns list[tuple[MemoryItem, float]]
+            search_results = await super().search(query, limit, search_filter)
+
+            # Extract MemoryItems from tuples
+            results = []
+            for memory_item, similarity_score in search_results:
+                results.append(memory_item)
 
             logger.info(f"Found {len(results)} episodic memories matching query")
             logger.debug(f"Search results preview: {[r.id for r in results[:3]]}")

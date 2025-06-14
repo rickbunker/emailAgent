@@ -1439,6 +1439,43 @@ class AssetDocumentAgent:
             self.logger.error("Failed to store processed document: %s", e)
             return None
 
+    async def get_processed_document(self, document_id: str) -> dict[str, Any] | None:
+        """
+        Retrieve processed document metadata by document ID.
+
+        Args:
+            document_id: Document ID to retrieve
+
+        Returns:
+            Document metadata dictionary if found, None otherwise
+        """
+        if not self.qdrant:
+            return None
+
+        try:
+            search_result = self.qdrant.scroll(
+                collection_name=self.COLLECTIONS["processed_documents"],
+                scroll_filter=Filter(
+                    must=[
+                        FieldCondition(
+                            key="document_id", match=MatchValue(value=document_id)
+                        )
+                    ]
+                ),
+                limit=1,
+            )
+
+            if search_result[0]:
+                return search_result[0][0].payload
+
+            return None
+
+        except Exception as e:
+            self.logger.error(
+                "Failed to retrieve processed document %s: %s", document_id, e
+            )
+            return None
+
     # ================================
     # PHASE 3: Document Classification
     # ================================
@@ -1678,6 +1715,18 @@ class AssetDocumentAgent:
         # Combine all text for analysis
         combined_text = f"{filename} {email_subject} {email_body}".lower()
 
+        # First, try to use learned patterns from episodic memory
+        episodic_category, episodic_confidence = self._classify_from_episodic_memory(
+            filename, email_subject, email_body
+        )
+
+        if episodic_category != DocumentCategory.UNKNOWN and episodic_confidence > 0.7:
+            self.logger.info(
+                f"Classification from episodic memory: {episodic_category.value} (confidence: {episodic_confidence:.2f})"
+            )
+            return episodic_category, episodic_confidence
+
+        # Fall back to hardcoded patterns if episodic memory doesn't have strong matches
         # If asset type is known, only check patterns for that type
         if asset_type and asset_type in self.CLASSIFICATION_PATTERNS:
             patterns_to_check = {asset_type: self.CLASSIFICATION_PATTERNS[asset_type]}
@@ -1715,7 +1764,156 @@ class AssetDocumentAgent:
                         best_score = normalized_score
                         best_category = category
 
+        # If episodic memory had a weaker match, but hardcoded patterns found nothing good,
+        # prefer the episodic memory result
+        if best_score < 0.5 and episodic_confidence > 0.0:
+            self.logger.info(
+                f"Using episodic memory classification over weak pattern match: {episodic_category.value} (confidence: {episodic_confidence:.2f})"
+            )
+            return episodic_category, episodic_confidence
+
         return best_category, best_score
+
+    def _classify_from_episodic_memory(
+        self, filename: str, email_subject: str, email_body: str
+    ) -> tuple[DocumentCategory, float]:
+        """
+        Classify document using learned patterns from episodic memory.
+
+        Args:
+            filename: Name of the attachment
+            email_subject: Email subject line
+            email_body: Email body content
+
+        Returns:
+            (DocumentCategory, confidence_score)
+        """
+        try:
+            # Import here to avoid circular imports
+            # # Local application imports
+            from memory.episodic import EpisodicMemory
+            from utils.config import config
+
+            # Initialize episodic memory
+            episodic_memory = EpisodicMemory(
+                qdrant_url=f"http://{config.qdrant_host}:{config.qdrant_port}"
+            )
+
+            # Create search query from content
+            search_query = f"{filename} {email_subject} {email_body}"
+
+            # Search for similar classification experiences
+            # # Standard library imports
+            import asyncio
+
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+            # Search for human corrections related to document classification
+            results = loop.run_until_complete(
+                episodic_memory.search(query=search_query, limit=5)
+            )
+            loop.close()
+
+            if not results:
+                return DocumentCategory.UNKNOWN, 0.0
+
+            # Analyze the results for classification patterns
+            category_votes = {}
+            total_confidence = 0.0
+
+            for memory_item in results:
+                context = memory_item.metadata.get("context", {})
+
+                # Look for human corrections with category information
+                if memory_item.metadata.get(
+                    "feedback_type"
+                ) == "correction" and context.get("human_category"):
+                    human_category = context["human_category"]
+
+                    # Skip non-asset-related items
+                    if human_category == "not_asset_related":
+                        continue
+
+                    try:
+                        # Convert to DocumentCategory enum
+                        doc_category = DocumentCategory(human_category)
+
+                        # Calculate relevance based on text similarity
+                        memory_filename = context.get("attachment_filename", "")
+                        memory_subject = context.get("email_subject", "")
+
+                        relevance = 0.0
+
+                        # Filename similarity (highest weight)
+                        if memory_filename and filename:
+                            if (
+                                memory_filename.lower() in filename.lower()
+                                or filename.lower() in memory_filename.lower()
+                            ):
+                                relevance += 0.6
+                            elif any(
+                                word in filename.lower()
+                                for word in memory_filename.lower().split("_")
+                                if len(word) > 2
+                            ):
+                                relevance += 0.4
+
+                        # Subject similarity
+                        if memory_subject and email_subject:
+                            if any(
+                                word in email_subject.lower()
+                                for word in memory_subject.lower().split()
+                                if len(word) > 3
+                            ):
+                                relevance += 0.3
+
+                        # Human reasoning patterns
+                        human_reasoning = context.get("human_reasoning", "").lower()
+                        if human_reasoning:
+                            # Look for specific patterns from human feedback
+                            if "rlv" in human_reasoning and "rlv" in filename.lower():
+                                relevance += 0.5
+                            if (
+                                "private credit" in human_reasoning
+                                and "private credit" in email_body.lower()
+                            ):
+                                relevance += 0.5
+                            if (
+                                "loan docs" in human_reasoning
+                                and "loan" in email_subject.lower()
+                            ):
+                                relevance += 0.4
+
+                        if relevance > 0.2:  # Only count meaningful matches
+                            category_votes[doc_category] = (
+                                category_votes.get(doc_category, 0) + relevance
+                            )
+                            total_confidence += relevance
+
+                    except ValueError:
+                        # Skip invalid categories
+                        continue
+
+            if not category_votes:
+                return DocumentCategory.UNKNOWN, 0.0
+
+            # Find the best category
+            best_category = max(category_votes, key=category_votes.get)
+            best_score = category_votes[best_category]
+
+            # Normalize confidence (cap at 0.9 to leave room for uncertainty)
+            normalized_confidence = min(best_score, 0.9)
+
+            self.logger.debug(
+                f"Episodic memory classification: {best_category.value} (confidence: {normalized_confidence:.2f}, votes: {category_votes})"
+            )
+
+            return best_category, normalized_confidence
+
+        except Exception as e:
+            self.logger.warning(f"Failed to classify from episodic memory: {e}")
+            return DocumentCategory.UNKNOWN, 0.0
 
     def identify_asset_from_content(
         self,
@@ -1862,6 +2060,56 @@ class AssetDocumentAgent:
         # Start with Phase 1 & 2 processing
         result = await self.process_single_attachment(attachment_data, email_data)
 
+        # Handle duplicates specially - look up original document's asset information
+        if result.status == ProcessingStatus.DUPLICATE and result.duplicate_of:
+            self.logger.info(
+                "🔍 Looking up original document's asset information for duplicate"
+            )
+
+            original_doc = await self.get_processed_document(result.duplicate_of)
+            if original_doc and original_doc.get("asset_id"):
+                # Copy asset information from original document
+                result.matched_asset_id = original_doc["asset_id"]
+                result.asset_confidence = original_doc.get(
+                    "confidence", 0.8
+                )  # Use stored confidence or default
+
+                # Set HIGH confidence level for duplicates with matched assets
+                # since we know exactly which asset they belong to
+                result.confidence_level = ConfidenceLevel.HIGH
+
+                # Try to get asset details for better metadata
+                asset = await self.get_asset(result.matched_asset_id)
+                if asset:
+                    self.logger.info(
+                        "📋 Duplicate matched to asset: %s (from original document)",
+                        asset.deal_name,
+                    )
+
+                    # Set reasonable classification metadata for duplicate
+                    result.classification_metadata = {
+                        "duplicate_source": "original_document",
+                        "original_document_id": result.duplicate_of,
+                        "asset_confidence": result.asset_confidence,
+                        "asset_matches": [
+                            (result.matched_asset_id, result.asset_confidence)
+                        ],
+                        "sender_known": False,  # Default since we don't have this info for duplicates
+                        "document_confidence": 0.0,  # No document classification for duplicates
+                    }
+                else:
+                    self.logger.warning(
+                        "Asset not found for original document: %s",
+                        result.matched_asset_id,
+                    )
+            else:
+                self.logger.info(
+                    "Original document has no asset information - treating as unmatched duplicate"
+                )
+
+            return result
+
+        # For non-SUCCESS status (except duplicates), return as-is
         if result.status != ProcessingStatus.SUCCESS:
             return result
 
