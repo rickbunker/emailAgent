@@ -38,19 +38,21 @@ License -- for Inveniam use only
 Copyright 2025 by Inveniam Capital Partners, LLC and Rick Bunker
 """
 
+# # Standard library imports
 # Core logging system
 import os
 import sys
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
+# # Local application imports
 from utils.logging_system import get_logger, log_function
 
 # Initialize package logger
 logger = get_logger(__name__)
 
 # Core base classes and data models
-from .base import (
+from .base import (  # Exception hierarchy
     AuthenticationError,
     BaseEmailInterface,
     ConnectionError,
@@ -61,7 +63,6 @@ from .base import (
     EmailNotFoundError,
     EmailSearchCriteria,
     EmailSendRequest,
-    # Exception hierarchy
     EmailSystemError,
     PermissionError,
 )
@@ -81,33 +82,29 @@ __license__ = "for Inveniam use only"
 # Public API exports
 __all__ = [
     # Core interfaces and data models
-    'BaseEmailInterface',
-    'Email',
-    'EmailAddress',
-    'EmailAttachment',
-    'EmailSearchCriteria',
-    'EmailSendRequest',
-    'EmailImportance',
-
+    "BaseEmailInterface",
+    "Email",
+    "EmailAddress",
+    "EmailAttachment",
+    "EmailSearchCriteria",
+    "EmailSendRequest",
+    "EmailImportance",
     # Exception hierarchy
-    'EmailSystemError',
-    'AuthenticationError',
-    'ConnectionError',
-    'PermissionError',
-    'EmailNotFoundError',
-
+    "EmailSystemError",
+    "AuthenticationError",
+    "ConnectionError",
+    "PermissionError",
+    "EmailNotFoundError",
     # Email system implementations
-    'GmailInterface',
-    'MicrosoftGraphInterface',
-
+    "GmailInterface",
+    "MicrosoftGraphInterface",
     # Factory and configuration
-    'EmailInterfaceFactory',
-    'EmailSystemType',
-
+    "EmailInterfaceFactory",
+    "EmailSystemType",
     # Package metadata
-    '__version__',
-    '__author__',
-    '__license__'
+    "__version__",
+    "__author__",
+    "__license__",
 ]
 
 # Package initialization logging
@@ -115,25 +112,26 @@ logger.info(f"Email integration package initialized - Version {__version__}")
 logger.debug("Available email interfaces: Gmail, Microsoft Graph")
 logger.debug(f"Supported system types: {[t.value for t in EmailSystemType]}")
 
+
 # Package-level convenience functions
 @log_function()
 def create_email_interface(system_type: str, **kwargs) -> BaseEmailInterface:
     """
     Convenience function to create email interface instances.
-    
+
     Provides package-level access to the factory pattern for creating
     email interfaces with simplified parameter handling.
-    
+
     Args:
         system_type: Email system identifier ('gmail', 'microsoft_graph', etc.)
         **kwargs: System-specific configuration parameters
-        
+
     Returns:
         Configured email interface instance
-        
+
     Raises:
         EmailSystemError: If system type unsupported or creation fails
-        
+
     Example:
         >>> from email_interface import create_email_interface
         >>> gmail = create_email_interface('gmail', credentials_file='creds.json')
@@ -142,14 +140,15 @@ def create_email_interface(system_type: str, **kwargs) -> BaseEmailInterface:
     logger.info(f"Creating email interface via convenience function: {system_type}")
     return EmailInterfaceFactory.create(system_type, **kwargs)
 
+
 @log_function()
 def get_supported_systems() -> list:
     """
     Get list of supported email systems.
-    
+
     Returns:
         List of supported email system type strings
-        
+
     Example:
         >>> from email_interface import get_supported_systems
         >>> systems = get_supported_systems()
@@ -158,18 +157,19 @@ def get_supported_systems() -> list:
     """
     return EmailInterfaceFactory.get_supported_types()
 
+
 @log_function()
 def validate_system_config(system_type: str, config: dict) -> dict:
     """
     Validate email system configuration.
-    
+
     Args:
         system_type: Email system identifier
         config: Configuration dictionary to validate
-        
+
     Returns:
         Validation result dictionary with status, errors, and warnings
-        
+
     Example:
         >>> from email_interface import validate_system_config
         >>> result = validate_system_config('gmail', {'credentials_file': 'test.json'})

@@ -39,6 +39,7 @@ License -- for Inveniam use only
 Copyright 2025 by Inveniam Capital Partners, LLC and Rick Bunker
 """
 
+# # Standard library imports
 import os
 
 # Logging system integration
@@ -49,6 +50,7 @@ from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from typing import Any
 
+# # Third-party imports
 # Data validation and serialization
 from pydantic import BaseModel, Field, validator
 
@@ -58,8 +60,9 @@ from qdrant_client.http import models
 from qdrant_client.http.models import Distance, VectorParams
 from sentence_transformers import SentenceTransformer
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
+# # Local application imports
 from utils.logging_system import get_logger, log_function
 
 # Initialize logger
@@ -69,10 +72,10 @@ logger = get_logger(__name__)
 class MemoryItem(BaseModel):
     """
     Represents a single memory item with content and metadata.
-    
+
     Provides a standardized structure for storing information in the memory
     system with automatic timestamp management and metadata validation.
-    
+
     Attributes:
         id: Unique identifier for the memory item
         content: The actual content/text being stored
@@ -80,20 +83,23 @@ class MemoryItem(BaseModel):
         created_at: ISO timestamp when item was created
         last_accessed: ISO timestamp when item was last retrieved
     """
+
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    content: str = Field(..., min_length=1, description="Memory content cannot be empty")
+    content: str = Field(
+        ..., min_length=1, description="Memory content cannot be empty"
+    )
     metadata: dict[str, Any] = Field(default_factory=dict)
     created_at: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
     last_accessed: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
 
-    @validator('content')
+    @validator("content")
     def validate_content(cls, v: str) -> str:
         """Validate that content is not empty or whitespace only."""
         if not v or not v.strip():
             raise ValueError("Memory content cannot be empty or whitespace only")
         return v.strip()
 
-    @validator('metadata')
+    @validator("metadata")
     def validate_metadata(cls, v: dict[str, Any]) -> dict[str, Any]:
         """Validate metadata structure and size."""
         if not isinstance(v, dict):
@@ -112,7 +118,7 @@ class MemoryItem(BaseModel):
         return self.dict()
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> 'MemoryItem':
+    def from_dict(cls, data: dict[str, Any]) -> "MemoryItem":
         """Create from dictionary loaded from storage."""
         return cls(**data)
 
@@ -120,14 +126,14 @@ class MemoryItem(BaseModel):
 class BaseMemory:
     """
     Base class for all memory types in the email agent system.
-    
+
     This class provides the core functionality for storing and retrieving memories
-    using Qdrant as the vector database backend. Each memory type (procedural, 
+    using Qdrant as the vector database backend. Each memory type (procedural,
     semantic, episodic, contact) extends this class and adds type-specific functionality.
-    
+
     The memory system uses semantic embeddings to enable retrieval of
     relevant information based on context and similarity rather than exact matches.
-    
+
     Attributes:
         collection_name: Name of the Qdrant collection for this memory type
         max_items: Maximum number of items to store before cleanup
@@ -142,17 +148,17 @@ class BaseMemory:
         max_items: int = 1000,
         qdrant_url: str | None = None,
         embedding_model: str | None = None,
-        vector_size: int = 384
+        vector_size: int = 384,
     ) -> None:
         """
         Initialize the memory system.
-        
+
         Args:
             max_items: Maximum number of items to store before cleanup
             qdrant_url: URL for Qdrant server (defaults to QDRANT_URL env var)
             embedding_model: Name of the sentence transformer model to use
             vector_size: Dimension of embedding vectors (must match model)
-            
+
         Raises:
             ValueError: If parameters are invalid
             ConnectionError: If cannot connect to Qdrant
@@ -178,34 +184,39 @@ class BaseMemory:
 
         # Initialize logger
         self.logger = get_logger(f"{__name__}.{self.__class__.__name__}")
-        self.logger.info(f"Initialized {self.__class__.__name__} with collection '{self.collection_name}'")
+        self.logger.info(
+            f"Initialized {self.__class__.__name__} with collection '{self.collection_name}'"
+        )
 
     @log_function()
     async def _ensure_collection(self) -> None:
         """
         Ensure the Qdrant collection exists with proper configuration.
-        
+
         Creates the collection if it doesn't exist and validates the
         configuration matches our requirements.
-        
+
         Raises:
             ConnectionError: If cannot connect to Qdrant
             ValueError: If collection configuration is invalid
         """
         try:
             collections_response = await self.client.get_collections()
-            collection_names = [collection.name for collection in collections_response.collections]
+            collection_names = [
+                collection.name for collection in collections_response.collections
+            ]
 
             if self.collection_name not in collection_names:
                 self.logger.info(f"Creating collection '{self.collection_name}'")
                 await self.client.create_collection(
                     collection_name=self.collection_name,
                     vectors_config=VectorParams(
-                        size=self.vector_size,
-                        distance=Distance.COSINE
-                    )
+                        size=self.vector_size, distance=Distance.COSINE
+                    ),
                 )
-                self.logger.info(f"Collection '{self.collection_name}' created successfully")
+                self.logger.info(
+                    f"Collection '{self.collection_name}' created successfully"
+                )
             else:
                 # Validate existing collection
                 collection_info = await self.client.get_collection(self.collection_name)
@@ -214,29 +225,33 @@ class BaseMemory:
                         f"Collection vector size mismatch: expected {self.vector_size}, "
                         f"got {collection_info.config.params.vectors.size}"
                     )
-                self.logger.debug(f"Collection '{self.collection_name}' already exists and validated")
+                self.logger.debug(
+                    f"Collection '{self.collection_name}' already exists and validated"
+                )
 
             self.is_initialized = True
 
         except Exception as e:
             self.logger.error(f"Failed to ensure collection: {e}")
-            raise ConnectionError(f"Failed to initialize collection '{self.collection_name}': {e}")
+            raise ConnectionError(
+                f"Failed to initialize collection '{self.collection_name}': {e}"
+            )
 
     @log_function()
     async def add(self, content: str, metadata: dict[str, Any] | None = None) -> str:
         """
         Add a new memory item.
-        
+
         Generates an embedding for the content, creates a memory item,
         and stores it in the vector database with metadata.
-        
+
         Args:
             content: The content to store
             metadata: Additional metadata to store with the content
-            
+
         Returns:
             The unique ID of the created memory item
-            
+
         Raises:
             ValueError: If content is invalid
             ConnectionError: If storage operation fails
@@ -251,22 +266,16 @@ class BaseMemory:
             embedding = self.embedding_model.encode(content.strip())
 
             # Create memory item with validation
-            item = MemoryItem(
-                content=content.strip(),
-                metadata=metadata or {}
-            )
+            item = MemoryItem(content=content.strip(), metadata=metadata or {})
 
             # Prepare point for Qdrant
             point = models.PointStruct(
-                id=item.id,
-                vector=embedding.tolist(),
-                payload=item.to_dict()
+                id=item.id, vector=embedding.tolist(), payload=item.to_dict()
             )
 
             # Store in Qdrant
             await self.client.upsert(
-                collection_name=self.collection_name,
-                points=[point]
+                collection_name=self.collection_name, points=[point]
             )
 
             self.logger.info(f"Added memory item {item.id} to {self.collection_name}")
@@ -285,15 +294,15 @@ class BaseMemory:
     async def get(self, memory_id: str) -> MemoryItem | None:
         """
         Get a memory item by ID.
-        
+
         Retrieves a specific memory item and updates its access timestamp.
-        
+
         Args:
             memory_id: The unique ID of the memory item to retrieve
-            
+
         Returns:
             The retrieved memory item, or None if not found
-            
+
         Raises:
             ValueError: If memory_id is invalid
             ConnectionError: If retrieval operation fails
@@ -308,11 +317,13 @@ class BaseMemory:
                 collection_name=self.collection_name,
                 ids=[memory_id.strip()],
                 with_payload=True,
-                with_vectors=False
+                with_vectors=False,
             )
 
             if not result:
-                self.logger.debug(f"Memory item {memory_id} not found in {self.collection_name}")
+                self.logger.debug(
+                    f"Memory item {memory_id} not found in {self.collection_name}"
+                )
                 return None
 
             point = result[0]
@@ -322,7 +333,9 @@ class BaseMemory:
             item.update_access_time()
             await self._update_access_time(memory_id, item.last_accessed)
 
-            self.logger.debug(f"Retrieved memory item {memory_id} from {self.collection_name}")
+            self.logger.debug(
+                f"Retrieved memory item {memory_id} from {self.collection_name}"
+            )
             return item
 
         except Exception as e:
@@ -335,23 +348,23 @@ class BaseMemory:
         query: str,
         limit: int = 5,
         filter_conditions: dict[str, Any] | None = None,
-        score_threshold: float = 0.0
+        score_threshold: float = 0.0,
     ) -> list[tuple[MemoryItem, float]]:
         """
         Search for memory items using vector similarity.
-        
+
         Performs semantic search using vector embeddings to find items
         most similar to the query text.
-        
+
         Args:
             query: The search query text
             limit: Maximum number of results to return
             filter_conditions: Optional metadata filter conditions
             score_threshold: Minimum similarity score (0.0-1.0)
-            
+
         Returns:
             List of tuples containing (MemoryItem, similarity_score)
-            
+
         Raises:
             ValueError: If query parameters are invalid
             ConnectionError: If search operation fails
@@ -374,10 +387,12 @@ class BaseMemory:
                 collection_name=self.collection_name,
                 query=query_embedding.tolist(),
                 limit=limit,
-                query_filter=models.Filter(**filter_conditions) if filter_conditions else None,
+                query_filter=(
+                    models.Filter(**filter_conditions) if filter_conditions else None
+                ),
                 with_payload=True,
                 with_vectors=False,
-                score_threshold=score_threshold
+                score_threshold=score_threshold,
             )
 
             # Process results
@@ -392,7 +407,9 @@ class BaseMemory:
 
                     results.append((item, hit.score))
                 except Exception as e:
-                    self.logger.warning(f"Failed to process search result {hit.id}: {e}")
+                    self.logger.warning(
+                        f"Failed to process search result {hit.id}: {e}"
+                    )
                     continue
 
             self.logger.info(
@@ -411,22 +428,22 @@ class BaseMemory:
         self,
         memory_id: str,
         content: str | None = None,
-        metadata: dict[str, Any] | None = None
+        metadata: dict[str, Any] | None = None,
     ) -> bool:
         """
         Update an existing memory item.
-        
+
         Updates the content and/or metadata of an existing memory item.
         If content is updated, a new embedding is generated.
-        
+
         Args:
             memory_id: The unique ID of the memory item to update
             content: New content (optional)
             metadata: New metadata (optional, will be merged with existing)
-            
+
         Returns:
             True if update successful, False if item not found
-            
+
         Raises:
             ValueError: If parameters are invalid
             ConnectionError: If update operation fails
@@ -442,7 +459,9 @@ class BaseMemory:
             # Get existing item
             existing_item = await self.get(memory_id)
             if not existing_item:
-                self.logger.warning(f"Cannot update non-existent memory item {memory_id}")
+                self.logger.warning(
+                    f"Cannot update non-existent memory item {memory_id}"
+                )
                 return False
 
             # Update content and metadata
@@ -457,7 +476,7 @@ class BaseMemory:
                 content=new_content,
                 metadata=new_metadata,
                 created_at=existing_item.created_at,
-                last_accessed=datetime.now(UTC).isoformat()
+                last_accessed=datetime.now(UTC).isoformat(),
             )
 
             # Generate new embedding if content changed
@@ -468,7 +487,7 @@ class BaseMemory:
                 existing_points = await self.client.retrieve(
                     collection_name=self.collection_name,
                     ids=[memory_id],
-                    with_vectors=True
+                    with_vectors=True,
                 )
                 embedding = existing_points[0].vector
 
@@ -476,15 +495,16 @@ class BaseMemory:
             point = models.PointStruct(
                 id=memory_id,
                 vector=embedding if isinstance(embedding, list) else embedding.tolist(),
-                payload=updated_item.to_dict()
+                payload=updated_item.to_dict(),
             )
 
             await self.client.upsert(
-                collection_name=self.collection_name,
-                points=[point]
+                collection_name=self.collection_name, points=[point]
             )
 
-            self.logger.info(f"Updated memory item {memory_id} in {self.collection_name}")
+            self.logger.info(
+                f"Updated memory item {memory_id} in {self.collection_name}"
+            )
             return True
 
         except Exception as e:
@@ -495,15 +515,15 @@ class BaseMemory:
     async def delete(self, memory_id: str) -> bool:
         """
         Delete a memory item by ID.
-        
+
         Permanently removes a memory item from the vector database.
-        
+
         Args:
             memory_id: The unique ID of the memory item to delete
-            
+
         Returns:
             True if deletion successful, False if item not found
-            
+
         Raises:
             ValueError: If memory_id is invalid
             ConnectionError: If deletion operation fails
@@ -518,20 +538,24 @@ class BaseMemory:
             existing_items = await self.client.retrieve(
                 collection_name=self.collection_name,
                 ids=[memory_id],
-                with_payload=False
+                with_payload=False,
             )
 
             if not existing_items:
-                self.logger.warning(f"Cannot delete non-existent memory item {memory_id}")
+                self.logger.warning(
+                    f"Cannot delete non-existent memory item {memory_id}"
+                )
                 return False
 
             # Delete from Qdrant
             await self.client.delete(
                 collection_name=self.collection_name,
-                points_selector=models.PointIdsList(points=[memory_id])
+                points_selector=models.PointIdsList(points=[memory_id]),
             )
 
-            self.logger.info(f"Deleted memory item {memory_id} from {self.collection_name}")
+            self.logger.info(
+                f"Deleted memory item {memory_id} from {self.collection_name}"
+            )
             return True
 
         except Exception as e:
@@ -542,12 +566,12 @@ class BaseMemory:
     async def clear_collection(self, force_delete: bool = False) -> None:
         """
         Clear all items from the memory collection.
-        
+
         Removes all memory items from the collection. Use with caution!
-        
+
         Args:
             force_delete: If True, actually perform the deletion
-            
+
         Raises:
             ValueError: If force_delete is not True (safety measure)
             ConnectionError: If clear operation fails
@@ -562,7 +586,9 @@ class BaseMemory:
             await self.client.delete_collection(collection_name=self.collection_name)
             await self._ensure_collection()
 
-            self.logger.warning(f"Cleared all items from collection {self.collection_name}")
+            self.logger.warning(
+                f"Cleared all items from collection {self.collection_name}"
+            )
 
         except Exception as e:
             self.logger.error(f"Failed to clear collection: {e}")
@@ -572,13 +598,13 @@ class BaseMemory:
     async def get_collection_info(self) -> dict[str, Any]:
         """
         Get information about the memory collection.
-        
+
         Returns metadata about the collection including item counts,
         configuration, and performance metrics.
-        
+
         Returns:
             Dictionary containing collection information
-            
+
         Raises:
             ConnectionError: If info retrieval fails
         """
@@ -594,7 +620,7 @@ class BaseMemory:
                 "vector_size": collection_info.config.params.vectors.size,
                 "distance_metric": collection_info.config.params.vectors.distance.value,
                 "max_items_configured": self.max_items,
-                "status": collection_info.status.value
+                "status": collection_info.status.value,
             }
 
         except Exception as e:
@@ -605,7 +631,7 @@ class BaseMemory:
     async def _update_access_time(self, memory_id: str, access_time: str) -> None:
         """
         Update the last access time for a memory item.
-        
+
         Args:
             memory_id: ID of the memory item
             access_time: ISO timestamp of access
@@ -614,7 +640,7 @@ class BaseMemory:
             await self.client.set_payload(
                 collection_name=self.collection_name,
                 payload={"last_accessed": access_time},
-                points=[memory_id]
+                points=[memory_id],
             )
         except Exception as e:
             self.logger.warning(f"Failed to update access time for {memory_id}: {e}")
@@ -623,7 +649,7 @@ class BaseMemory:
     async def _check_cleanup(self) -> None:
         """
         Check if cleanup is needed and perform it if necessary.
-        
+
         Removes oldest items if the collection exceeds max_items limit.
         """
         try:
@@ -639,7 +665,7 @@ class BaseMemory:
                 collection_name=self.collection_name,
                 limit=excess_count + 100,  # Get more to find oldest
                 with_payload=True,
-                with_vectors=False
+                with_vectors=False,
             )
 
             # Sort by creation time and get oldest
@@ -655,7 +681,7 @@ class BaseMemory:
             if ids_to_delete:
                 await self.client.delete(
                     collection_name=self.collection_name,
-                    points_selector=models.PointIdsList(points=ids_to_delete)
+                    points_selector=models.PointIdsList(points=ids_to_delete),
                 )
 
                 self.logger.info(
@@ -666,12 +692,12 @@ class BaseMemory:
             self.logger.warning(f"Cleanup failed: {e}")
 
     @asynccontextmanager
-    async def batch_operations(self) -> AsyncGenerator['BaseMemory', None]:
+    async def batch_operations(self) -> AsyncGenerator["BaseMemory", None]:
         """
         Context manager for batch operations.
-        
+
         Provides a context for performing multiple operations efficiently.
-        
+
         Yields:
             Self instance for chained operations
         """

@@ -39,6 +39,7 @@ License -- for Inveniam use only
 Copyright 2025 by Inveniam Capital Partners, LLC and Rick Bunker
 """
 
+# # Standard library imports
 import os
 
 # Logging system
@@ -47,8 +48,9 @@ from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
+# # Local application imports
 from utils.logging_system import get_logger, log_function
 
 from .base import BaseMemory, MemoryItem
@@ -56,17 +58,18 @@ from .base import BaseMemory, MemoryItem
 # Initialize logger
 logger = get_logger(__name__)
 
+
 class EpisodicMemoryType(Enum):
     """
     episodic memory classification for business context.
-    
+
     Provides structured categorization of episodic memories for asset
     management environments with appropriate business context and
     workflow integration.
-    
+
     Values:
         CONVERSATION: Email conversations and communications
-        MEETING: Investment committee and client meetings  
+        MEETING: Investment committee and client meetings
         DECISION: Investment decisions and rationale tracking
         FEEDBACK: User feedback and system learning events
         EVENT: Business events and milestone tracking
@@ -74,6 +77,7 @@ class EpisodicMemoryType(Enum):
         ERROR: Error conditions and system issues
         UNKNOWN: Unclassified episodic memories
     """
+
     CONVERSATION = "conversation"
     MEETING = "meeting"
     DECISION = "decision"
@@ -83,14 +87,15 @@ class EpisodicMemoryType(Enum):
     ERROR = "error"
     UNKNOWN = "unknown"
 
+
 class EpisodicMemory(BaseMemory):
     """
     episodic memory system for asset management environments.
-    
+
     Provides complete conversation history and event tracking with
     temporal context management designed for private market asset management
     firms requiring interaction and decision tracking.
-    
+
     Features:
         - Conversation history with temporal context
         - Business event tracking and categorization
@@ -98,13 +103,13 @@ class EpisodicMemory(BaseMemory):
         - Interaction pattern analysis and insights
         - feedback integration and learning
         - Decision audit trail and rationale tracking
-        
+
     Business Context:
         Enables asset management firms to maintain complete records
         of client interactions, investment decisions, committee discussions,
         and operational events with temporal context for compliance,
         relationship management, and business intelligence.
-        
+
     Technical Implementation:
         - Dedicated Qdrant collection for episodic memories
         - Temporal indexing with timestamp-based queries
@@ -117,20 +122,18 @@ class EpisodicMemory(BaseMemory):
         self,
         max_items: int | None = 1000,
         qdrant_url: str = "http://localhost:6333",
-        embedding_model: str = "all-MiniLM-L6-v2"
+        embedding_model: str = "all-MiniLM-L6-v2",
     ):
         """
         Initialize episodic memory system.
-        
+
         Args:
             max_items: Maximum number of episodic memories to store (default: 1000)
             qdrant_url: Qdrant database connection URL
             embedding_model: Sentence transformer model for embeddings
         """
         super().__init__(
-            max_items=max_items,
-            qdrant_url=qdrant_url,
-            embedding_model=embedding_model
+            max_items=max_items, qdrant_url=qdrant_url, embedding_model=embedding_model
         )
         self.collection_name = "episodic"
         logger.info(f"Initialized EpisodicMemory with max_items={max_items}")
@@ -140,26 +143,26 @@ class EpisodicMemory(BaseMemory):
         self,
         content: str,
         metadata: dict[str, Any] | None = None,
-        memory_type: EpisodicMemoryType = EpisodicMemoryType.CONVERSATION
+        memory_type: EpisodicMemoryType = EpisodicMemoryType.CONVERSATION,
     ) -> str:
         """
         Add a new episodic memory with complete metadata.
-        
+
         Creates episodic memory entries with automatic timestamp generation,
         business context categorization, and metadata enrichment for
         asset management environments.
-        
+
         Args:
             content: The memory content to store (conversation, event, etc.)
             metadata: Additional metadata for business context
             memory_type: Type of episodic memory for categorization
-            
+
         Returns:
             The ID of the created memory item
-            
+
         Raises:
             ValueError: If content is empty or invalid
-            
+
         Example:
             >>> memory_id = await episodic_memory.add(
             ...     content="Discussion about Series A funding round",
@@ -192,7 +195,9 @@ class EpisodicMemory(BaseMemory):
         metadata.setdefault("source", "episodic_memory")
         metadata.setdefault("version", "1.0.0")
 
-        logger.info(f"Adding episodic memory: type={memory_type.value}, content_length={len(content)}")
+        logger.info(
+            f"Adding episodic memory: type={memory_type.value}, content_length={len(content)}"
+        )
         logger.debug(f"Memory metadata keys: {list(metadata.keys())}")
 
         try:
@@ -210,25 +215,25 @@ class EpisodicMemory(BaseMemory):
         participants: list[str],
         subject: str | None = None,
         email_id: str | None = None,
-        **kwargs
+        **kwargs,
     ) -> str:
         """
         Add conversation-specific episodic memory.
-        
+
         Specialized method for adding email conversations and communications
         with participant tracking and conversation context for relationship
         management and business intelligence.
-        
+
         Args:
             content: Conversation content or summary
             participants: List of participant email addresses
             subject: Email subject or conversation topic
             email_id: Associated email message identifier
             **kwargs: Additional conversation metadata
-            
+
         Returns:
             Memory ID of the created conversation record
-            
+
         Example:
             >>> conv_id = await episodic_memory.add_conversation(
             ...     content="Discussed Q3 portfolio performance and allocation strategy",
@@ -240,7 +245,7 @@ class EpisodicMemory(BaseMemory):
         metadata = {
             "participants": participants,
             "participant_count": len(participants),
-            **kwargs
+            **kwargs,
         }
 
         if subject:
@@ -258,25 +263,25 @@ class EpisodicMemory(BaseMemory):
         decision_type: str,
         decision_maker: str,
         rationale: str | None = None,
-        **kwargs
+        **kwargs,
     ) -> str:
         """
         Add investment decision episodic memory.
-        
+
         Specialized method for tracking investment decisions, rationale,
         and decision-making context for compliance and audit trail
         requirements in asset management environments.
-        
+
         Args:
             content: Decision content and outcome
             decision_type: Type of decision (investment, allocation, exit, etc.)
             decision_maker: Individual or committee making the decision
             rationale: Decision rationale and supporting analysis
             **kwargs: Additional decision metadata
-            
+
         Returns:
             Memory ID of the created decision record
-            
+
         Example:
             >>> decision_id = await episodic_memory.add_decision(
             ...     content="Approved $50M investment in PropTech Series B",
@@ -290,13 +295,15 @@ class EpisodicMemory(BaseMemory):
         metadata = {
             "decision_type": decision_type,
             "decision_maker": decision_maker,
-            **kwargs
+            **kwargs,
         }
 
         if rationale:
             metadata["rationale"] = rationale
 
-        logger.info(f"Adding decision memory: type={decision_type}, maker={decision_maker}")
+        logger.info(
+            f"Adding decision memory: type={decision_type}, maker={decision_maker}"
+        )
         return await self.add(content, metadata, EpisodicMemoryType.DECISION)
 
     @log_function()
@@ -306,30 +313,26 @@ class EpisodicMemory(BaseMemory):
         feedback_type: str,
         source: str,
         sentiment: str | None = None,
-        **kwargs
+        **kwargs,
     ) -> str:
         """
         Add user feedback episodic memory.
-        
+
         Specialized method for capturing user feedback, system learning
         events, and performance insights for continuous improvement
         in asset management workflows.
-        
+
         Args:
             content: Feedback content and details
             feedback_type: Type of feedback (positive, negative, suggestion, etc.)
             source: Source of feedback (user, system, automated analysis)
             sentiment: Sentiment analysis result (positive, negative, neutral)
             **kwargs: Additional feedback metadata
-            
+
         Returns:
             Memory ID of the created feedback record
         """
-        metadata = {
-            "feedback_type": feedback_type,
-            "source": source,
-            **kwargs
-        }
+        metadata = {"feedback_type": feedback_type, "source": source, **kwargs}
 
         if sentiment:
             metadata["sentiment"] = sentiment
@@ -344,25 +347,25 @@ class EpisodicMemory(BaseMemory):
         limit: int = 5,
         filter: dict[str, Any] | None = None,
         time_range: dict[str, float] | None = None,
-        memory_type: EpisodicMemoryType | None = None
+        memory_type: EpisodicMemoryType | None = None,
     ) -> list[MemoryItem]:
         """
         Search episodic memories with complete filtering.
-        
+
         Performs semantic search across episodic memories with temporal
         filtering, business context categorization, and relevance ranking
         for asset management environments.
-        
+
         Args:
             query: The search query for semantic matching
             limit: Maximum number of results to return
             filter: Additional metadata filters to apply
             time_range: Time range filter with 'start' and 'end' timestamps
             memory_type: Filter by specific episodic memory type
-            
+
         Returns:
             List of matching episodic memory items ordered by relevance
-            
+
         Example:
             >>> # Search for investment decisions in the last quarter
             >>> results = await episodic_memory.search(
@@ -382,10 +385,9 @@ class EpisodicMemory(BaseMemory):
 
             # Memory type filter
             if memory_type:
-                filter_conditions["must"].append({
-                    "key": "metadata.type",
-                    "match": {"value": memory_type.value}
-                })
+                filter_conditions["must"].append(
+                    {"key": "metadata.type", "match": {"value": memory_type.value}}
+                )
 
             # Time range filter
             if time_range:
@@ -394,10 +396,7 @@ class EpisodicMemory(BaseMemory):
 
                 time_filter = {
                     "key": "metadata.timestamp",
-                    "range": {
-                        "gte": start_time,
-                        "lte": end_time
-                    }
+                    "range": {"gte": start_time, "lte": end_time},
                 }
                 filter_conditions["must"].append(time_filter)
                 logger.debug(f"Applied time range filter: {start_time} to {end_time}")
@@ -429,22 +428,22 @@ class EpisodicMemory(BaseMemory):
         self,
         participant_email: str,
         limit: int = 10,
-        time_range: dict[str, float] | None = None
+        time_range: dict[str, float] | None = None,
     ) -> list[MemoryItem]:
         """
         Search episodic memories by participant involvement.
-        
+
         Finds all episodic memories involving a specific participant
         for relationship tracking and interaction history analysis.
-        
+
         Args:
             participant_email: Email address of participant to search for
             limit: Maximum number of results to return
             time_range: Optional time range for temporal filtering
-            
+
         Returns:
             List of episodic memories involving the specified participant
-            
+
         Example:
             >>> # Find all interactions with a specific investor
             >>> interactions = await episodic_memory.search_by_participants(
@@ -458,7 +457,7 @@ class EpisodicMemory(BaseMemory):
             # Build participant filter
             participant_filter = {
                 "key": "metadata.participants",
-                "match": {"any": [participant_email]}
+                "match": {"any": [participant_email]},
             }
 
             # Combine with time range if provided
@@ -469,16 +468,14 @@ class EpisodicMemory(BaseMemory):
                     "key": "metadata.timestamp",
                     "range": {
                         "gte": time_range.get("start", 0),
-                        "lte": time_range.get("end", datetime.now(UTC).timestamp())
-                    }
+                        "lte": time_range.get("end", datetime.now(UTC).timestamp()),
+                    },
                 }
                 filter_conditions["must"].append(time_filter)
 
             # Search with participant filter
             results = await super().search(
-                query=participant_email,
-                limit=limit,
-                filter=filter_conditions
+                query=participant_email, limit=limit, filter=filter_conditions
             )
 
             logger.info(f"Found {len(results)} memories involving {participant_email}")
@@ -493,22 +490,22 @@ class EpisodicMemory(BaseMemory):
         self,
         hours: int = 24,
         limit: int = 10,
-        memory_type: EpisodicMemoryType | None = None
+        memory_type: EpisodicMemoryType | None = None,
     ) -> list[MemoryItem]:
         """
         Retrieve recent episodic memories within specified time window.
-        
+
         Gets the most recent episodic memories for operational context
         and current activity tracking in asset management workflows.
-        
+
         Args:
             hours: Number of hours back to search (default: 24)
-            limit: Maximum number of results to return  
+            limit: Maximum number of results to return
             memory_type: Optional filter by memory type
-            
+
         Returns:
             List of recent episodic memories ordered by recency
-            
+
         Example:
             >>> # Get recent investment decisions
             >>> recent_decisions = await episodic_memory.get_recent_memories(
@@ -522,17 +519,14 @@ class EpisodicMemory(BaseMemory):
             # Calculate time threshold
             cutoff_time = datetime.now(UTC).timestamp() - (hours * 3600)
 
-            time_range = {
-                "start": cutoff_time,
-                "end": datetime.now(UTC).timestamp()
-            }
+            time_range = {"start": cutoff_time, "end": datetime.now(UTC).timestamp()}
 
             # Search with time range filter
             results = await self.search(
                 query="*",  # Match all
                 limit=limit,
                 time_range=time_range,
-                memory_type=memory_type
+                memory_type=memory_type,
             )
 
             logger.info(f"Found {len(results)} recent memories in last {hours} hours")
@@ -546,13 +540,13 @@ class EpisodicMemory(BaseMemory):
     async def get_memory_statistics(self) -> dict[str, Any]:
         """
         Get complete statistics about episodic memory usage.
-        
+
         Provides business intelligence metrics about memory patterns,
         types, and usage for performance monitoring and optimization.
-        
+
         Returns:
             Dictionary containing memory usage statistics and insights
-            
+
         Example:
             >>> stats = await episodic_memory.get_memory_statistics()
             >>> print(f"Total memories: {stats['total_count']}")
@@ -569,7 +563,7 @@ class EpisodicMemory(BaseMemory):
                     "total_count": 0,
                     "memory_types": {},
                     "daily_activity": {},
-                    "average_content_length": 0
+                    "average_content_length": 0,
                 }
 
             # Initialize statistics
@@ -581,7 +575,7 @@ class EpisodicMemory(BaseMemory):
                 "participant_activity": {},
                 "average_content_length": 0,
                 "oldest_memory": None,
-                "newest_memory": None
+                "newest_memory": None,
             }
 
             # Analyze memories
@@ -596,7 +590,9 @@ class EpisodicMemory(BaseMemory):
 
                 # Memory type distribution
                 memory_type = metadata.get("type", "unknown")
-                stats["memory_types"][memory_type] = stats["memory_types"].get(memory_type, 0) + 1
+                stats["memory_types"][memory_type] = (
+                    stats["memory_types"].get(memory_type, 0) + 1
+                )
 
                 # Temporal analysis
                 timestamp = metadata.get("timestamp")
@@ -605,48 +601,64 @@ class EpisodicMemory(BaseMemory):
 
                     # Daily activity
                     date = metadata.get("date", "unknown")
-                    stats["daily_activity"][date] = stats["daily_activity"].get(date, 0) + 1
+                    stats["daily_activity"][date] = (
+                        stats["daily_activity"].get(date, 0) + 1
+                    )
 
                     # Hourly distribution
                     hour = metadata.get("hour", 0)
-                    stats["hourly_distribution"][hour] = stats["hourly_distribution"].get(hour, 0) + 1
+                    stats["hourly_distribution"][hour] = (
+                        stats["hourly_distribution"].get(hour, 0) + 1
+                    )
 
                 # Participant activity
                 participants = metadata.get("participants", [])
                 for participant in participants:
-                    stats["participant_activity"][participant] = stats["participant_activity"].get(participant, 0) + 1
+                    stats["participant_activity"][participant] = (
+                        stats["participant_activity"].get(participant, 0) + 1
+                    )
 
             # Calculate derived statistics
-            stats["average_content_length"] = total_length / len(all_memories) if all_memories else 0
+            stats["average_content_length"] = (
+                total_length / len(all_memories) if all_memories else 0
+            )
 
             if timestamps:
-                stats["oldest_memory"] = datetime.fromtimestamp(min(timestamps), UTC).isoformat()
-                stats["newest_memory"] = datetime.fromtimestamp(max(timestamps), UTC).isoformat()
+                stats["oldest_memory"] = datetime.fromtimestamp(
+                    min(timestamps), UTC
+                ).isoformat()
+                stats["newest_memory"] = datetime.fromtimestamp(
+                    max(timestamps), UTC
+                ).isoformat()
 
             # Find most common type
             if stats["memory_types"]:
-                stats["most_common_type"] = max(stats["memory_types"], key=stats["memory_types"].get)
+                stats["most_common_type"] = max(
+                    stats["memory_types"], key=stats["memory_types"].get
+                )
 
             # Find most active participant
             if stats["participant_activity"]:
-                stats["most_active_participant"] = max(stats["participant_activity"], key=stats["participant_activity"].get)
+                stats["most_active_participant"] = max(
+                    stats["participant_activity"], key=stats["participant_activity"].get
+                )
 
-            logger.info(f"Generated statistics for {stats['total_count']} episodic memories")
+            logger.info(
+                f"Generated statistics for {stats['total_count']} episodic memories"
+            )
             return stats
 
         except Exception as e:
             logger.error(f"Error generating memory statistics: {e}")
-            return {
-                "total_count": 0,
-                "error": str(e)
-            }
+            return {"total_count": 0, "error": str(e)}
+
 
 # Demonstration and testing functions
 @log_function()
 async def demo_episodic_memory() -> None:
     """
     Demonstration of episodic memory system capabilities.
-    
+
     Showcases the episodic memory features including
     conversation tracking, decision recording, temporal search,
     and business intelligence for asset management environments.
@@ -666,7 +678,7 @@ async def demo_episodic_memory() -> None:
             subject="PropTech Series B Due Diligence",
             category="investment_opportunity",
             sector="proptech",
-            stage="series_b"
+            stage="series_b",
         )
 
         # Investment decision
@@ -677,7 +689,7 @@ async def demo_episodic_memory() -> None:
             rationale="Strong market position, experienced team, and clear path to profitability",
             deal_value=25000000,
             sector="proptech",
-            approved=True
+            approved=True,
         )
 
         # Client feedback
@@ -686,7 +698,7 @@ async def demo_episodic_memory() -> None:
             feedback_type="positive",
             source="institutional_investor",
             sentiment="positive",
-            quarter="Q3_2024"
+            quarter="Q3_2024",
         )
 
         logger.info("✓ Added sample episodic memories")
@@ -695,8 +707,7 @@ async def demo_episodic_memory() -> None:
         logger.info("Testing semantic search capabilities...")
 
         search_results = await episodic_memory.search(
-            query="PropTech investment decision",
-            limit=5
+            query="PropTech investment decision", limit=5
         )
 
         logger.info(f"Found {len(search_results)} results for PropTech search")
@@ -708,8 +719,7 @@ async def demo_episodic_memory() -> None:
         logger.info("Testing participant-based search...")
 
         participant_results = await episodic_memory.search_by_participants(
-            participant_email="ic@fund.com",
-            limit=10
+            participant_email="ic@fund.com", limit=10
         )
 
         logger.info(f"Found {len(participant_results)} memories involving ic@fund.com")
@@ -718,9 +728,7 @@ async def demo_episodic_memory() -> None:
         logger.info("Testing decision type filtering...")
 
         decision_results = await episodic_memory.search(
-            query="investment",
-            memory_type=EpisodicMemoryType.DECISION,
-            limit=5
+            query="investment", memory_type=EpisodicMemoryType.DECISION, limit=5
         )
 
         logger.info(f"Found {len(decision_results)} investment decisions")
@@ -728,10 +736,7 @@ async def demo_episodic_memory() -> None:
         # Test recent memories
         logger.info("Testing recent memories retrieval...")
 
-        recent_memories = await episodic_memory.get_recent_memories(
-            hours=24,
-            limit=10
-        )
+        recent_memories = await episodic_memory.get_recent_memories(hours=24, limit=10)
 
         logger.info(f"Found {len(recent_memories)} recent memories in last 24 hours")
 
@@ -742,9 +747,11 @@ async def demo_episodic_memory() -> None:
         logger.info("Memory statistics:")
         logger.info(f"  - Total memories: {stats['total_count']}")
         logger.info(f"  - Memory types: {stats['memory_types']}")
-        logger.info(f"  - Average content length: {stats['average_content_length']:.1f} chars")
+        logger.info(
+            f"  - Average content length: {stats['average_content_length']:.1f} chars"
+        )
 
-        if stats.get('most_common_type'):
+        if stats.get("most_common_type"):
             logger.info(f"  - Most common type: {stats['most_common_type']}")
 
         logger.info("EpisodicMemory demonstration completed successfully")
@@ -753,6 +760,9 @@ async def demo_episodic_memory() -> None:
         logger.error(f"EpisodicMemory demonstration failed: {e}")
         raise
 
+
 if __name__ == "__main__":
+    # # Standard library imports
     import asyncio
+
     asyncio.run(demo_episodic_memory())

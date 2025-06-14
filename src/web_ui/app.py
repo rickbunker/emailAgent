@@ -6,15 +6,18 @@ A user-friendly web interface for setting up and managing assets,
 sender mappings, and document classification rules.
 """
 
+# # Standard library imports
 # Standard library imports
 import asyncio
 import json
 import os
 import sys
+import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
+# # Third-party imports
 # Third-party imports
 from flask import (
     Flask,
@@ -23,18 +26,20 @@ from flask import (
     redirect,
     render_template,
     request,
-    url_for,
     send_file,
+    url_for,
 )
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
+# # Local application imports
 # Local imports
 from agents.asset_document_agent import (
     AssetDocumentAgent,
     AssetType,
     DocumentCategory,
+    ProcessingStatus,
 )
 from email_interface import (
     BaseEmailInterface,
@@ -48,6 +53,7 @@ from .human_review import review_queue
 
 # Try to import Qdrant client
 try:
+    # # Third-party imports
     from qdrant_client import QdrantClient
 
     QDRANT_AVAILABLE = True
@@ -201,8 +207,147 @@ class EmailProcessingHistory:
         self._save_history()
 
 
-# Global email processing history
+class ProcessingRunHistory:
+    """Manages complete history of each processing run with full details"""
+
+    def __init__(self, file_path: str = None):
+        self.file_path = file_path or str(
+            Path(config.processed_emails_file).parent / "processing_runs.json"
+        )
+        self.runs = self._load_runs()
+
+    def _load_runs(self) -> list[dict]:
+        """Load processing run history from file"""
+        try:
+            if os.path.exists(self.file_path):
+                with open(self.file_path) as f:
+                    data = json.load(f)
+                    return data.get("runs", [])
+        except Exception as e:
+            logger.warning(f"Failed to load processing run history: {e}")
+        return []
+
+    def _save_runs(self):
+        """Save processing run history to file"""
+        try:
+            os.makedirs(os.path.dirname(self.file_path), exist_ok=True)
+            with open(self.file_path, "w") as f:
+                json.dump(
+                    {"runs": self.runs, "last_updated": datetime.now(UTC).isoformat()},
+                    f,
+                    indent=2,
+                    default=str,
+                )
+        except Exception as e:
+            logger.error(f"Failed to save processing run history: {e}")
+
+    def add_run(
+        self, run_results: dict[str, Any], parameters: dict[str, Any] = None
+    ) -> str:
+        """Add a complete processing run to history"""
+        run_id = str(uuid.uuid4())
+
+        run_entry = {
+            "run_id": run_id,
+            "timestamp": datetime.now(UTC).isoformat(),
+            "parameters": parameters or {},
+            "results": run_results,
+            "summary": {
+                "total_mailboxes": len(run_results.get("results", [])),
+                "total_emails_found": sum(
+                    r.get("total_emails", 0) for r in run_results.get("results", [])
+                ),
+                "total_emails_processed": sum(
+                    r.get("processed_emails", 0) for r in run_results.get("results", [])
+                ),
+                "total_attachments": sum(
+                    sum(
+                        detail.get("attachments_count", 0)
+                        for detail in r.get("processing_details", [])
+                    )
+                    for r in run_results.get("results", [])
+                ),
+                "total_errors": sum(
+                    r.get("errors", 0) for r in run_results.get("results", [])
+                ),
+                "total_duplicates": sum(
+                    sum(
+                        detail.get("processing_info", {}).get("duplicates", 0)
+                        for detail in r.get("processing_details", [])
+                    )
+                    for r in run_results.get("results", [])
+                ),
+                "total_classified": sum(
+                    sum(
+                        detail.get("processing_info", {}).get(
+                            "attachments_classified", 0
+                        )
+                        for detail in r.get("processing_details", [])
+                    )
+                    for r in run_results.get("results", [])
+                ),
+                "total_needs_review": sum(
+                    sum(
+                        len(
+                            detail.get("processing_info", {}).get(
+                                "needs_human_review", []
+                            )
+                        )
+                        for detail in r.get("processing_details", [])
+                    )
+                    for r in run_results.get("results", [])
+                ),
+            },
+        }
+
+        self.runs.insert(
+            0, run_entry
+        )  # Add to beginning for reverse chronological order
+
+        # Keep only last 100 runs to prevent unbounded growth
+        self.runs = self.runs[:100]
+
+        self._save_runs()
+        logger.info(
+            f"Added processing run to history: {run_id} ({run_entry['summary']['total_emails_processed']} emails processed)"
+        )
+        return run_id
+
+    def get_runs(self, limit: int = 50) -> list[dict]:
+        """Get recent processing runs"""
+        return self.runs[:limit]
+
+    def get_run(self, run_id: str) -> dict | None:
+        """Get specific processing run by ID"""
+        for run in self.runs:
+            if run["run_id"] == run_id:
+                return run
+        return None
+
+    def clear_runs(self, before_date: str = None) -> int:
+        """Clear processing runs, optionally before a specific date"""
+        if before_date:
+            cutoff = datetime.fromisoformat(before_date.replace("Z", "+00:00"))
+            original_count = len(self.runs)
+            self.runs = [
+                run
+                for run in self.runs
+                if datetime.fromisoformat(run["timestamp"].replace("Z", "+00:00"))
+                >= cutoff
+            ]
+            removed = original_count - len(self.runs)
+        else:
+            removed = len(self.runs)
+            self.runs.clear()
+
+        self._save_runs()
+        logger.info(f"Cleared {removed} processing runs from history")
+        return removed
+
+
+# Global processing histories
 email_history = EmailProcessingHistory()
+run_history = ProcessingRunHistory()
 
 
 @log_function()
@@ -272,6 +417,7 @@ async def process_mailbox_emails(
         # Create email interface based on type
         if mailbox_type == "microsoft_graph":
             # Microsoft Graph uses credentials_path in constructor
+            # # Local application imports
             from email_interface.msgraph import MicrosoftGraphInterface
 
             email_interface = MicrosoftGraphInterface(
@@ -1179,7 +1325,14 @@ def email_processing() -> str:
     # Get configured mailboxes
     mailboxes = get_configured_mailboxes()
 
-    # Get recent processing history
+    # Get recent processing runs (detailed history)
+    recent_runs = []
+    try:
+        recent_runs = run_history.get_runs(limit=10)
+    except Exception as e:
+        logger.warning(f"Failed to load recent processing runs: {e}")
+
+    # Get legacy processing history for backwards compatibility
     recent_history = []
     try:
         # Get last 10 processed emails from history
@@ -1199,9 +1352,33 @@ def email_processing() -> str:
     return render_template(
         "email_processing.html",
         mailboxes=mailboxes,
-        recent_history=recent_history,
+        recent_runs=recent_runs,  # New detailed run history
+        recent_history=recent_history,  # Legacy per-email history
         total_processed=len(email_history.processed_emails),
+        total_runs=len(run_history.runs),
     )
+
+
+@app.route("/email-processing/runs/<run_id>")
+@log_function()
+def view_processing_run(run_id: str) -> str:
+    """View detailed results of a specific processing run"""
+    try:
+        run = run_history.get_run(run_id)
+
+        if not run:
+            logger.warning(f"Processing run not found: {run_id}")
+            flash("Processing run not found", "error")
+            return redirect(url_for("email_processing"))
+
+        logger.info(f"Viewing processing run: {run_id}")
+        return render_template("processing_run_detail.html", run=run)
+
+    except Exception as e:
+        logger.error(f"Failed to load processing run {run_id}: {e}")
+        return render_template(
+            "error.html", error=f"Failed to load processing run: {e}"
+        )
 
 
 @app.route("/api/process-emails", methods=["POST"])
@@ -1237,17 +1414,41 @@ def api_process_emails() -> tuple[dict, int] | dict:
 
         logger.info(f"Starting email processing for mailbox: {mailbox_id}")
 
+        # Store processing parameters for history
+        processing_parameters = {
+            "mailbox_id": mailbox_id,
+            "mailbox_name": mailbox_config.get("name", mailbox_id),
+            "hours_back": hours_back,
+            "force_reprocess": force_reprocess,
+            "timestamp": datetime.now(UTC).isoformat(),
+        }
+
         # Process emails asynchronously
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
         try:
-            results = loop.run_until_complete(
+            # Process single mailbox (current behavior)
+            single_result = loop.run_until_complete(
                 process_mailbox_emails(mailbox_config, hours_back, force_reprocess)
             )
 
-            logger.info(f"Email processing completed: {results}")
-            return jsonify({"status": "success", "results": results})
+            # Structure results for consistency with multi-mailbox format
+            results = {
+                "status": "success",
+                "results": [single_result],  # Array of mailbox results
+                "total_time": datetime.now(UTC).isoformat(),
+                "parameters": processing_parameters,
+            }
+
+            # Save complete processing run to history
+            run_id = run_history.add_run(results, processing_parameters)
+            logger.info(f"Processing run saved to history: {run_id}")
+
+            logger.info(f"Email processing completed: {single_result}")
+            return jsonify(
+                {"status": "success", "results": single_result, "run_id": run_id}
+            )
 
         finally:
             loop.close()
@@ -1272,7 +1473,7 @@ def api_mailboxes() -> tuple[dict, int] | dict:
 @app.route("/api/processing-history")
 @log_function()
 def api_processing_history() -> tuple[dict, int] | dict:
-    """API endpoint to get email processing history"""
+    """API endpoint to get email processing history (legacy - per email)"""
     try:
         history = []
         for key, info in email_history.processed_emails.items():
@@ -1295,6 +1496,38 @@ def api_processing_history() -> tuple[dict, int] | dict:
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/processing-runs")
+@log_function()
+def api_processing_runs() -> tuple[dict, int] | dict:
+    """API endpoint to get complete processing run history with full details"""
+    try:
+        limit = int(request.args.get("limit", 20))
+        runs = run_history.get_runs(limit=limit)
+
+        logger.info(f"Retrieved {len(runs)} processing runs for API")
+        return jsonify({"runs": runs, "total_available": len(run_history.runs)})
+    except Exception as e:
+        logger.error(f"Failed to get processing runs: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/processing-runs/<run_id>")
+@log_function()
+def api_processing_run_detail(run_id: str) -> tuple[dict, int] | dict:
+    """API endpoint to get detailed information for a specific processing run"""
+    try:
+        run = run_history.get_run(run_id)
+
+        if not run:
+            return jsonify({"error": "Processing run not found"}), 404
+
+        logger.info(f"Retrieved detailed info for processing run: {run_id}")
+        return jsonify({"run": run})
+    except Exception as e:
+        logger.error(f"Failed to get processing run detail {run_id}: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/clear-history", methods=["POST"])
 @log_function()
 def api_clear_history() -> tuple[dict, int] | dict:
@@ -1303,9 +1536,21 @@ def api_clear_history() -> tuple[dict, int] | dict:
         data = request.get_json() or {}
         email_id = data.get("email_id")
         mailbox_id = data.get("mailbox_id")
+        clear_runs = data.get(
+            "clear_runs", True
+        )  # Also clear detailed run history by default
+        before_date = data.get(
+            "before_date"
+        )  # Optional: only clear runs before this date
 
-        # Clear processing history
+        # Clear email processing history
         email_history.clear_processed(email_id, mailbox_id)
+
+        # Clear detailed run history if requested
+        removed_runs_count = 0
+        if clear_runs and not email_id and not mailbox_id:
+            # Only clear all runs if clearing all email history
+            removed_runs_count = run_history.clear_runs(before_date)
 
         # Also remove associated human review items
         removed_review_count = 0
@@ -1326,14 +1571,20 @@ def api_clear_history() -> tuple[dict, int] | dict:
             if removed_review_count > 0
             else ""
         )
+        runs_msg = (
+            f" and {removed_runs_count} processing runs"
+            if removed_runs_count > 0
+            else ""
+        )
 
-        logger.info(f"Cleared processing history: {action}{review_msg}")
+        logger.info(f"Cleared processing history: {action}{review_msg}{runs_msg}")
 
         return jsonify(
             {
                 "status": "success",
-                "message": f"Cleared {action}{review_msg}",
+                "message": f"Cleared {action}{review_msg}{runs_msg}",
                 "removed_review_items": removed_review_count,
+                "removed_processing_runs": removed_runs_count,
             }
         )
     except Exception as e:
@@ -1737,6 +1988,546 @@ def view_file(file_path: str) -> str | tuple[str, int]:
     except Exception as e:
         logger.error(f"Failed to view file {file_path}: {e}")
         return f"Error viewing file: {e}", 500
+
+
+# Testing Cleanup Routes
+
+
+@app.route("/testing/cleanup")
+@log_function()
+def testing_cleanup() -> str:
+    """Testing cleanup page with granular control over data deletion"""
+    try:
+        # Get current system status for display
+        stats = {}
+
+        # Asset statistics
+        if asset_agent:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                assets = loop.run_until_complete(asset_agent.list_assets())
+                mappings = loop.run_until_complete(
+                    asset_agent.list_asset_sender_mappings()
+                )
+                stats["assets"] = len(assets)
+                stats["sender_mappings"] = len(mappings)
+            finally:
+                loop.close()
+        else:
+            stats["assets"] = 0
+            stats["sender_mappings"] = 0
+
+        # Email processing statistics
+        stats["email_history"] = len(email_history._load_history())
+        stats["processing_runs"] = len(run_history._load_runs())
+
+        # Human review statistics
+        review_stats = review_queue.get_stats()
+        stats["human_review_items"] = review_stats["total_items"]
+
+        # File system statistics
+        assets_path = Path(config.assets_base_path)
+        total_files = 0
+        if assets_path.exists():
+            for file_path in assets_path.rglob("*"):
+                if file_path.is_file() and not file_path.name.startswith("."):
+                    total_files += 1
+        stats["attachment_files"] = total_files
+
+        # Review attachment files
+        review_attachments_path = Path(config.review_attachments_path)
+        review_files = 0
+        if review_attachments_path.exists():
+            review_files = len(
+                [f for f in review_attachments_path.glob("*") if f.is_file()]
+            )
+        stats["review_files"] = review_files
+
+        logger.info("Testing cleanup page loaded")
+        return render_template("testing_cleanup.html", stats=stats)
+
+    except Exception as e:
+        logger.error(f"Failed to load testing cleanup page: {e}")
+        return render_template("error.html", error=f"Failed to load cleanup page: {e}")
+
+
+@app.route("/api/testing/cleanup", methods=["POST"])
+@log_function()
+def api_testing_cleanup() -> tuple[dict, int] | dict:
+    """API endpoint for granular testing data cleanup"""
+    try:
+        data = request.get_json()
+        cleanup_types = data.get("cleanup_types", [])
+        confirm = data.get("confirm", False)
+
+        if not confirm:
+            return jsonify({"error": "Must confirm cleanup operation"}), 400
+
+        if not cleanup_types:
+            return jsonify({"error": "No cleanup types specified"}), 400
+
+        results = {}
+        total_removed = 0
+
+        # Process each cleanup type
+        if "processed_documents" in cleanup_types:
+            result = _cleanup_processed_documents()
+            results["processed_documents"] = result
+            total_removed += result.get("removed_count", 0)
+
+        if "email_history" in cleanup_types:
+            result = _cleanup_email_history()
+            results["email_history"] = result
+            total_removed += result.get("removed_count", 0)
+
+        if "processing_runs" in cleanup_types:
+            result = _cleanup_processing_runs()
+            results["processing_runs"] = result
+            total_removed += result.get("removed_count", 0)
+
+        if "human_review" in cleanup_types:
+            result = _cleanup_human_review()
+            results["human_review"] = result
+            total_removed += result.get("removed_count", 0)
+
+        if "attachment_files" in cleanup_types:
+            result = _cleanup_attachment_files()
+            results["attachment_files"] = result
+            total_removed += result.get("removed_count", 0)
+
+        if "memory_collections" in cleanup_types:
+            result = _cleanup_memory_collections()
+            results["memory_collections"] = result
+            total_removed += result.get("removed_count", 0)
+
+        if "sender_mappings" in cleanup_types:
+            result = _cleanup_sender_mappings()
+            results["sender_mappings"] = result
+            total_removed += result.get("removed_count", 0)
+
+        if "assets" in cleanup_types:
+            result = _cleanup_assets()
+            results["assets"] = result
+            total_removed += result.get("removed_count", 0)
+
+        logger.info(
+            f"Testing cleanup completed: {len(cleanup_types)} operations, {total_removed} items removed"
+        )
+
+        return jsonify(
+            {
+                "success": True,
+                "message": f"Cleanup completed: {total_removed} items removed",
+                "results": results,
+                "cleanup_types": cleanup_types,
+            }
+        )
+
+    except Exception as e:
+        logger.error(f"Testing cleanup failed: {e}")
+        return jsonify({"error": f"Cleanup failed: {str(e)}"}), 500
+
+
+@log_function()
+def _cleanup_processed_documents() -> dict[str, Any]:
+    """
+    Clear processed documents from Qdrant collection.
+
+    Removes all processed document metadata from the Qdrant collection
+    while preserving the collection structure. This allows documents
+    to be reprocessed without duplicate detection.
+
+    Returns:
+        Dictionary containing operation results with success status,
+        removed count, and descriptive message
+
+    Raises:
+        Exception: If Qdrant operations fail
+    """
+    try:
+        if not asset_agent or not asset_agent.qdrant:
+            return {
+                "success": False,
+                "error": "Asset agent or Qdrant not available",
+                "removed_count": 0,
+            }
+
+        collection_name = asset_agent.COLLECTIONS["processed_documents"]
+
+        # Get count before deletion
+        try:
+            info = asset_agent.qdrant.get_collection(collection_name)
+            before_count = info.points_count
+        except:
+            before_count = 0
+
+        # Delete all points in collection
+        asset_agent.qdrant.delete(
+            collection_name=collection_name,
+            points_selector={
+                "filter": {
+                    "must": [
+                        {
+                            "key": "metadata.type",
+                            "match": {"value": "processed_document"},
+                        }
+                    ]
+                }
+            },
+        )
+
+        logger.info(f"Cleared {before_count} processed documents from Qdrant")
+        return {
+            "success": True,
+            "removed_count": before_count,
+            "message": f"Cleared {before_count} processed documents",
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to cleanup processed documents: {e}")
+        return {"success": False, "error": str(e), "removed_count": 0}
+
+
+@log_function()
+def _cleanup_email_history() -> dict[str, Any]:
+    """
+    Clear email processing history data.
+
+    Removes all email processing history from the JSON file storage,
+    allowing emails to be reprocessed as if they were never seen before.
+
+    Returns:
+        Dictionary containing operation results with success status,
+        removed count, and descriptive message
+
+    Raises:
+        Exception: If file operations fail
+    """
+    try:
+        before_count = len(email_history._load_history())
+        email_history.clear_processed()
+
+        logger.info(f"Cleared {before_count} email history items")
+        return {
+            "success": True,
+            "removed_count": before_count,
+            "message": f"Cleared {before_count} email history items",
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to cleanup email history: {e}")
+        return {"success": False, "error": str(e), "removed_count": 0}
+
+
+@log_function()
+def _cleanup_processing_runs() -> dict[str, Any]:
+    """
+    Clear processing run history data.
+
+    Removes all batch processing run logs and statistics from JSON storage,
+    clearing the history of email processing operations.
+
+    Returns:
+        Dictionary containing operation results with success status,
+        removed count, and descriptive message
+
+    Raises:
+        Exception: If file operations fail
+    """
+    try:
+        before_count = len(run_history._load_runs())
+        run_history.clear_runs()
+
+        logger.info(f"Cleared {before_count} processing runs")
+        return {
+            "success": True,
+            "removed_count": before_count,
+            "message": f"Cleared {before_count} processing runs",
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to cleanup processing runs: {e}")
+        return {"success": False, "error": str(e), "removed_count": 0}
+
+
+@log_function()
+def _cleanup_human_review() -> dict[str, Any]:
+    """
+    Clear human review queue and attachment files.
+
+    Removes all pending and completed human review items from the JSON
+    queue storage, along with their associated attachment files.
+
+    Returns:
+        Dictionary containing operation results with success status,
+        removed count, and descriptive message
+
+    Raises:
+        Exception: If file operations fail
+    """
+    try:
+        before_count = review_queue.get_stats()["total_items"]
+        removed_count = review_queue.clear_all_items()
+
+        logger.info(f"Cleared {removed_count} human review items")
+        return {
+            "success": True,
+            "removed_count": removed_count,
+            "message": f"Cleared {removed_count} human review items",
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to cleanup human review: {e}")
+        return {"success": False, "error": str(e), "removed_count": 0}
+
+
+@log_function()
+def _cleanup_attachment_files() -> dict[str, Any]:
+    """
+    Clear all attachment files from disk storage.
+
+    Removes all saved email attachment files from the assets directory
+    while preserving the folder structure for future use.
+
+    Returns:
+        Dictionary containing operation results with success status,
+        removed count, and descriptive message
+
+    Raises:
+        Exception: If file system operations fail
+    """
+    try:
+        assets_path = Path(config.assets_base_path)
+        removed_count = 0
+
+        if assets_path.exists():
+            # Remove all files but keep asset folder structure
+            for asset_folder in assets_path.iterdir():
+                if asset_folder.is_dir() and not asset_folder.name.startswith("."):
+                    for file_path in asset_folder.rglob("*"):
+                        if file_path.is_file() and not file_path.name.startswith("."):
+                            try:
+                                file_path.unlink()
+                                removed_count += 1
+                            except Exception as e:
+                                logger.warning(
+                                    f"Failed to remove file {file_path}: {e}"
+                                )
+
+            # Also clean special folders
+            for special_folder in ["to_be_reviewed", "uncategorized"]:
+                special_path = assets_path / special_folder
+                if special_path.exists():
+                    for file_path in special_path.rglob("*"):
+                        if file_path.is_file():
+                            try:
+                                file_path.unlink()
+                                removed_count += 1
+                            except Exception as e:
+                                logger.warning(
+                                    f"Failed to remove file {file_path}: {e}"
+                                )
+
+        logger.info(f"Removed {removed_count} attachment files")
+        return {
+            "success": True,
+            "removed_count": removed_count,
+            "message": f"Removed {removed_count} attachment files",
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to cleanup attachment files: {e}")
+        return {"success": False, "error": str(e), "removed_count": 0}
+
+
+@log_function()
+def _cleanup_memory_collections() -> dict[str, Any]:
+    """
+    Clear all memory collections completely.
+
+    Deletes entire memory collections (semantic, episodic, procedural, contacts)
+    from Qdrant. These collections will be automatically recreated when
+    first accessed by the memory systems.
+
+    Returns:
+        Dictionary containing operation results with success status,
+        removed count, and descriptive message
+
+    Raises:
+        Exception: If Qdrant operations fail
+    """
+    try:
+        if not asset_agent or not asset_agent.qdrant:
+            return {
+                "success": False,
+                "error": "Qdrant not available",
+                "removed_count": 0,
+            }
+
+        memory_collections = ["semantic", "episodic", "procedural", "contacts"]
+        total_removed = 0
+
+        for collection_name in memory_collections:
+            try:
+                # Check if collection exists
+                collections = asset_agent.qdrant.get_collections()
+                if collection_name in [c.name for c in collections.collections]:
+                    info = asset_agent.qdrant.get_collection(collection_name)
+                    points_count = info.points_count
+
+                    # Delete the entire collection
+                    asset_agent.qdrant.delete_collection(collection_name)
+                    total_removed += points_count
+
+                    logger.info(
+                        f"Deleted memory collection '{collection_name}' with {points_count} items"
+                    )
+
+            except Exception as e:
+                logger.warning(
+                    f"Failed to delete memory collection '{collection_name}': {e}"
+                )
+
+        logger.info(f"Cleared {total_removed} items from memory collections")
+        return {
+            "success": True,
+            "removed_count": total_removed,
+            "message": f"Cleared {total_removed} memory items",
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to cleanup memory collections: {e}")
+        return {"success": False, "error": str(e), "removed_count": 0}
+
+
+@log_function()
+def _cleanup_sender_mappings() -> dict[str, Any]:
+    """
+    Clear all sender-asset mapping relationships.
+
+    Removes all sender-to-asset mappings from the Qdrant collection
+    while preserving the collection structure. This disconnects all
+    email senders from their associated assets.
+
+    Returns:
+        Dictionary containing operation results with success status,
+        removed count, and descriptive message
+
+    Raises:
+        Exception: If Qdrant operations fail
+    """
+    try:
+        if not asset_agent or not asset_agent.qdrant:
+            return {
+                "success": False,
+                "error": "Asset agent not available",
+                "removed_count": 0,
+            }
+
+        collection_name = asset_agent.COLLECTIONS["asset_sender_mappings"]
+
+        # Get count before deletion
+        try:
+            info = asset_agent.qdrant.get_collection(collection_name)
+            before_count = info.points_count
+        except:
+            before_count = 0
+
+        # Delete all points in collection
+        asset_agent.qdrant.delete(
+            collection_name=collection_name,
+            points_selector={
+                "filter": {"must": [{"key": "mapping_id", "range": {"gte": ""}}]}
+            },
+        )
+
+        logger.info(f"Cleared {before_count} sender mappings")
+        return {
+            "success": True,
+            "removed_count": before_count,
+            "message": f"Cleared {before_count} sender mappings",
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to cleanup sender mappings: {e}")
+        return {"success": False, "error": str(e), "removed_count": 0}
+
+
+@log_function()
+def _cleanup_assets() -> dict[str, Any]:
+    """
+    Clear all asset definitions (DANGEROUS OPERATION).
+
+    WARNING: Removes all asset definitions from Qdrant and deletes
+    their corresponding folders from disk. This is a destructive
+    operation that cannot be undone.
+
+    Returns:
+        Dictionary containing operation results with success status,
+        removed count, and descriptive message
+
+    Raises:
+        Exception: If Qdrant or file system operations fail
+    """
+    try:
+        if not asset_agent or not asset_agent.qdrant:
+            return {
+                "success": False,
+                "error": "Asset agent not available",
+                "removed_count": 0,
+            }
+
+        collection_name = asset_agent.COLLECTIONS["assets"]
+
+        # Get count before deletion
+        try:
+            info = asset_agent.qdrant.get_collection(collection_name)
+            before_count = info.points_count
+        except:
+            before_count = 0
+
+        # Delete all points in collection
+        asset_agent.qdrant.delete(
+            collection_name=collection_name,
+            points_selector={
+                "filter": {"must": [{"key": "deal_id", "range": {"gte": ""}}]}
+            },
+        )
+
+        # Also remove asset folders from disk
+        assets_path = Path(config.assets_base_path)
+        if assets_path.exists():
+            for asset_folder in assets_path.iterdir():
+                if asset_folder.is_dir() and not asset_folder.name.startswith("."):
+                    # Only remove folders that look like asset folders (uuid_name format)
+                    if (
+                        "_" in asset_folder.name
+                        and len(asset_folder.name.split("_")[0]) > 20
+                    ):
+                        try:
+                            # # Standard library imports
+                            import shutil
+
+                            shutil.rmtree(asset_folder)
+                            logger.info(f"Removed asset folder: {asset_folder.name}")
+                        except Exception as e:
+                            logger.warning(
+                                f"Failed to remove asset folder {asset_folder}: {e}"
+                            )
+
+        logger.warning(
+            f"DELETED {before_count} assets - this removes asset definitions!"
+        )
+        return {
+            "success": True,
+            "removed_count": before_count,
+            "message": f"DELETED {before_count} assets",
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to cleanup assets: {e}")
+        return {"success": False, "error": str(e), "removed_count": 0}
 
 
 @app.errorhandler(404)

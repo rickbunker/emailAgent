@@ -19,6 +19,12 @@ from src.web_ui.app import create_app
 @pytest.fixture(scope="module")
 def app() -> Flask:  # type: ignore[return-type]
     """Return a Flask application configured for testing."""
+    # Set environment variable to ensure proper initialization
+    # # Standard library imports
+    import os
+
+    os.environ["WERKZEUG_RUN_MAIN"] = "true"
+
     app = create_app()
     app.config.update(
         {

@@ -5,6 +5,7 @@ Provides decorators and utilities for logging function entry/exit, arguments,
 return values, and exceptions across different log levels and output destinations.
 """
 
+# # Standard library imports
 import functools
 import inspect
 import logging
@@ -42,9 +43,16 @@ class LogConfig:
     max_arg_length: int = 500  # Max chars for argument values
 
     # Sensitive data filtering
-    sensitive_keys: list[str] = field(default_factory=lambda: [
-        'password', 'token', 'secret', 'key', 'credential', 'auth'
-    ])
+    sensitive_keys: list[str] = field(
+        default_factory=lambda: [
+            "password",
+            "token",
+            "secret",
+            "key",
+            "credential",
+            "auth",
+        ]
+    )
 
 
 class EmailAgentLogger:
@@ -64,8 +72,7 @@ class EmailAgentLogger:
         logger.handlers.clear()
 
         formatter = logging.Formatter(
-            self.config.format_string,
-            datefmt=self.config.date_format
+            self.config.format_string, datefmt=self.config.date_format
         )
 
         # Console handler
@@ -80,11 +87,13 @@ class EmailAgentLogger:
             log_path = Path(self.config.log_file)
             log_path.parent.mkdir(parents=True, exist_ok=True)
 
+            # # Standard library imports
             from logging.handlers import RotatingFileHandler
+
             file_handler = RotatingFileHandler(
                 self.config.log_file,
                 maxBytes=self.config.max_file_size,
-                backupCount=self.config.backup_count
+                backupCount=self.config.backup_count,
             )
             file_handler.setFormatter(formatter)
             logger.addHandler(file_handler)
@@ -108,7 +117,9 @@ class EmailAgentLogger:
         except Exception:
             return f"<{type(value).__name__} repr_error>"
 
-    def _format_arguments(self, args: tuple, kwargs: dict, bound_args: inspect.BoundArguments) -> str:
+    def _format_arguments(
+        self, args: tuple, kwargs: dict, bound_args: inspect.BoundArguments
+    ) -> str:
         """Format function arguments for logging."""
         if not self.config.log_arguments:
             return ""
@@ -130,23 +141,41 @@ class EmailAgentLogger:
         sanitized_value = self._sanitize_value("return", return_value)
         return f" -> {sanitized_value}"
 
-    def log_function_entry(self, func_name: str, args: tuple, kwargs: dict, bound_args: inspect.BoundArguments) -> None:
+    def log_function_entry(
+        self,
+        func_name: str,
+        args: tuple,
+        kwargs: dict,
+        bound_args: inspect.BoundArguments,
+    ) -> None:
         """Log function entry."""
         if self.logger.isEnabledFor(logging.INFO):
-            args_str = self._format_arguments(args, kwargs, bound_args) if self.logger.isEnabledFor(logging.DEBUG) else ""
+            args_str = (
+                self._format_arguments(args, kwargs, bound_args)
+                if self.logger.isEnabledFor(logging.DEBUG)
+                else ""
+            )
             self.logger.info(f"🔵 ENTER {func_name}{args_str}")
 
-    def log_function_exit(self, func_name: str, return_value: Any, execution_time: float) -> None:
+    def log_function_exit(
+        self, func_name: str, return_value: Any, execution_time: float
+    ) -> None:
         """Log function exit."""
         if self.logger.isEnabledFor(logging.DEBUG):
             return_str = self._format_return_value(return_value)
-            time_str = f" [{execution_time:.3f}s]" if self.config.log_execution_time else ""
+            time_str = (
+                f" [{execution_time:.3f}s]" if self.config.log_execution_time else ""
+            )
             self.logger.debug(f"🟢 EXIT  {func_name}{return_str}{time_str}")
 
-    def log_function_exception(self, func_name: str, exception: Exception, execution_time: float) -> None:
+    def log_function_exception(
+        self, func_name: str, exception: Exception, execution_time: float
+    ) -> None:
         """Log function exception."""
         time_str = f" [{execution_time:.3f}s]" if self.config.log_execution_time else ""
-        self.logger.error(f"🔴 ERROR {func_name} raised {type(exception).__name__}: {exception}{time_str}")
+        self.logger.error(
+            f"🔴 ERROR {func_name} raised {type(exception).__name__}: {exception}{time_str}"
+        )
 
     def debug(self, message: str, *args, **kwargs) -> None:
         """Log debug message."""
@@ -188,7 +217,7 @@ def get_logger(name: str | None = None) -> EmailAgentLogger:
     if name is None:
         # Get the calling module name
         frame = inspect.currentframe().f_back
-        name = frame.f_globals.get('__name__', 'emailagent')
+        name = frame.f_globals.get("__name__", "emailagent")
 
     if name not in _loggers:
         _loggers[name] = EmailAgentLogger(name, _global_config)
@@ -201,28 +230,29 @@ def log_function(
     level: str | None = None,
     log_args: bool | None = None,
     log_return: bool | None = None,
-    log_time: bool | None = None
+    log_time: bool | None = None,
 ) -> Callable:
     """
     Decorator to log function entry, exit, arguments, and return values.
-    
+
     Args:
         logger: Logger instance to use (defaults to auto-detected)
         level: Override log level for this function
         log_args: Override argument logging for this function
         log_return: Override return value logging for this function
         log_time: Override execution time logging for this function
-        
+
     Usage:
         @log_function()
         def my_function(arg1, arg2="default"):
             return "result"
-            
+
         @log_function(level="DEBUG", log_args=True)
         async def async_function(data):
             await some_operation(data)
             return {"status": "success"}
     """
+
     def decorator(func: Callable) -> Callable:
         # Get logger for this function
         nonlocal logger
@@ -296,10 +326,15 @@ def log_function(
 
 
 # Convenience decorators for common use cases
-def log_debug(func: Callable | None = None, **kwargs) -> Callable | Callable[[Callable], Callable]:
+def log_debug(
+    func: Callable | None = None, **kwargs
+) -> Callable | Callable[[Callable], Callable]:
     """Decorator to log function at DEBUG level with full details."""
+
     def decorator(f: Callable) -> Callable:
-        return log_function(level="DEBUG", log_args=True, log_return=True, log_time=True, **kwargs)(f)
+        return log_function(
+            level="DEBUG", log_args=True, log_return=True, log_time=True, **kwargs
+        )(f)
 
     if func is None:
         return decorator
@@ -307,10 +342,15 @@ def log_debug(func: Callable | None = None, **kwargs) -> Callable | Callable[[Ca
         return decorator(func)
 
 
-def log_info(func: Callable | None = None, **kwargs) -> Callable | Callable[[Callable], Callable]:
+def log_info(
+    func: Callable | None = None, **kwargs
+) -> Callable | Callable[[Callable], Callable]:
     """Decorator to log function at INFO level with entry only."""
+
     def decorator(f: Callable) -> Callable:
-        return log_function(level="INFO", log_args=False, log_return=False, log_time=False, **kwargs)(f)
+        return log_function(
+            level="INFO", log_args=False, log_return=False, log_time=False, **kwargs
+        )(f)
 
     if func is None:
         return decorator
@@ -325,7 +365,7 @@ if __name__ == "__main__":
         level="DEBUG",
         log_to_file=True,
         log_to_stdout=True,
-        log_file="logs/test_logging.log"
+        log_file="logs/test_logging.log",
     )
     configure_logging(test_config)
 
@@ -350,7 +390,9 @@ if __name__ == "__main__":
     result1 = test_function("test_item", 100, "hidden_password")
 
     print("\nTesting async function:")  # noqa: T201
+    # # Standard library imports
     import asyncio
+
     result2 = asyncio.run(async_test_function({"key1": "value1"}, "hidden_token"))
 
     print(f"\nResults: {result1}, {result2}")  # noqa: T201

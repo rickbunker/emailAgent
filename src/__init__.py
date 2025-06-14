@@ -1,14 +1,14 @@
 """
 Email Agent - Asset Document Management System
 
-A LangGraph-based email management system specialized for asset document 
-management in private market investments including commercial real estate, private equity, 
+A LangGraph-based email management system specialized for asset document
+management in private market investments including commercial real estate, private equity,
 private credit, and infrastructure investments.
 
 Core Features:
     - Gmail and Microsoft Graph API integration
     - AI-powered document classification (25+ categories)
-    - ClamAV virus scanning and SpamAssassin spam detection  
+    - ClamAV virus scanning and SpamAssassin spam detection
     - Qdrant vector database memory system
     - Complete logging and monitoring
     - Async/await architecture for optimal performance
@@ -26,6 +26,7 @@ License -- for Inveniam use only
 Copyright 2025 by Inveniam Capital Partners, LLC and Rick Bunker
 """
 
+# # Standard library imports
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -49,34 +50,34 @@ __all__ = [
     "memory",
     "tools",
     "utils",
-
     # Configuration
     "config",
-
     # Logging utilities
     "get_logger",
     "configure_logging",
     "LogConfig",
     "log_function",
-
     # Package metadata
     "__version__",
     "__author__",
     "__description__",
 ]
 
+
 @log_function()
-def initialize_package(log_level: str = "INFO", log_to_file: bool = True) -> dict[str, Any]:
+def initialize_package(
+    log_level: str = "INFO", log_to_file: bool = True
+) -> dict[str, Any]:
     """
     Initialize the Email Agent package with logging configuration.
-    
+
     Args:
         log_level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
         log_to_file: Whether to enable file logging
-        
+
     Returns:
         Dict containing initialization status and configuration
-        
+
     Raises:
         ImportError: If required dependencies are missing
         ConfigurationError: If configuration is invalid
@@ -89,7 +90,7 @@ def initialize_package(log_level: str = "INFO", log_to_file: bool = True) -> dic
             level=log_level,
             log_to_file=log_to_file,
             log_to_stdout=True,
-            log_file="logs/emailagent.log"
+            log_file="logs/emailagent.log",
         )
         configure_logging(config)
 
@@ -100,7 +101,7 @@ def initialize_package(log_level: str = "INFO", log_to_file: bool = True) -> dic
             "log_to_file": log_to_file,
             "components_available": __all__[:5],  # Core components only
             "python_version": sys.version,
-            "package_path": str(Path(__file__).parent)
+            "package_path": str(Path(__file__).parent),
         }
 
         logger.info(f"Email Agent v{__version__} initialized successfully")
@@ -110,11 +111,12 @@ def initialize_package(log_level: str = "INFO", log_to_file: bool = True) -> dic
         logger.error(f"Failed to initialize Email Agent package: {e}")
         raise
 
+
 @log_function()
 def get_package_info() -> dict[str, Any]:
     """
     Get complete package information.
-    
+
     Returns:
         Dict containing package version, components, and system info
     """
@@ -130,7 +132,7 @@ def get_package_info() -> dict[str, Any]:
             "email_interface": "Gmail and Microsoft Graph integration",
             "memory": "Qdrant vector database system",
             "tools": "Security and utility tools",
-            "utils": "Logging and utility modules"
+            "utils": "Logging and utility modules",
         },
         "features": [
             "Gmail API integration",
@@ -139,10 +141,10 @@ def get_package_info() -> dict[str, Any]:
             "Virus scanning (ClamAV)",
             "Spam detection (SpamAssassin)",
             "Vector database memory",
-            "Complete logging"
+            "Complete logging",
         ],
         "python_version": sys.version,
-        "package_path": str(Path(__file__).parent)
+        "package_path": str(Path(__file__).parent),
     }
 
     return package_info

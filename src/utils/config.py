@@ -4,6 +4,7 @@ Configuration management for Email Agent.
 Loads configuration from environment variables with sensible defaults.
 """
 
+# # Standard library imports
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -12,6 +13,26 @@ from .logging_system import get_logger
 
 # Initialize logger
 logger = get_logger(__name__)
+
+# Project root directory (parent of src/)
+# Get the actual project root by finding the directory containing 'src'
+_config_file = Path(__file__).resolve()  # This file is in src/utils/config.py
+_src_dir = _config_file.parent.parent  # Go up to src/
+PROJECT_ROOT = _src_dir.parent  # Go up to project root
+
+# Verify we found the right directory (should contain app.py and requirements.txt)
+if (
+    not (PROJECT_ROOT / "app.py").exists()
+    or not (PROJECT_ROOT / "requirements.txt").exists()
+):
+    # Fallback: search upward for the project root
+    current = _config_file.parent
+    while current.parent != current:  # Stop at filesystem root
+        if (current / "app.py").exists() and (current / "requirements.txt").exists():
+            PROJECT_ROOT = current
+            break
+        current = current.parent
+
 
 @dataclass
 class EmailAgentConfig:
@@ -67,11 +88,11 @@ class EmailAgentConfig:
     processed_emails_file: str
     human_review_queue_file: str
     review_attachments_path: str
-    
+
     # Email Search Configuration
     inbox_labels: list[str]
     max_search_results: int
-    
+
     # Mailbox Configuration
     gmail_mailbox_id: str
     gmail_mailbox_name: str
@@ -79,82 +100,112 @@ class EmailAgentConfig:
     msgraph_mailbox_name: str
 
     @classmethod
-    def from_env(cls) -> 'EmailAgentConfig':
+    def from_env(cls) -> "EmailAgentConfig":
         """Load configuration from environment variables."""
 
         # Helper function to parse boolean values
         def parse_bool(value: str, default: bool = False) -> bool:
             if not value:
                 return default
-            return value.lower() in ('true', '1', 'yes', 'on')
+            return value.lower() in ("true", "1", "yes", "on")
 
         # Helper function to parse list values
-        def parse_list(value: str, separator: str = ',') -> list[str]:
+        def parse_list(value: str, separator: str = ",") -> list[str]:
             if not value:
                 return []
             return [item.strip() for item in value.split(separator) if item.strip()]
 
         return cls(
             # Gmail Configuration
-            gmail_credentials_path=os.getenv('GMAIL_CREDENTIALS_PATH', 'config/gmail_credentials.json'),
-            gmail_token_path=os.getenv('GMAIL_TOKEN_PATH', 'config/gmail_token.json'),
-
+            gmail_credentials_path=os.getenv(
+                "GMAIL_CREDENTIALS_PATH",
+                str(PROJECT_ROOT / "config/gmail_credentials.json"),
+            ),
+            gmail_token_path=os.getenv(
+                "GMAIL_TOKEN_PATH", str(PROJECT_ROOT / "config/gmail_token.json")
+            ),
             # Microsoft Graph Configuration
-            msgraph_credentials_path=os.getenv('MSGRAPH_CREDENTIALS_PATH', 'config/msgraph_credentials.json'),
-
+            msgraph_credentials_path=os.getenv(
+                "MSGRAPH_CREDENTIALS_PATH",
+                str(PROJECT_ROOT / "config/msgraph_credentials.json"),
+            ),
             # Database/Storage
-            qdrant_host=os.getenv('QDRANT_HOST', 'localhost'),
-            qdrant_port=int(os.getenv('QDRANT_PORT', '6333')),
-            qdrant_api_key=os.getenv('QDRANT_API_KEY'),
-
+            qdrant_host=os.getenv("QDRANT_HOST", "localhost"),
+            qdrant_port=int(os.getenv("QDRANT_PORT", "6333")),
+            qdrant_api_key=os.getenv("QDRANT_API_KEY"),
             # Application Settings
-            flask_env=os.getenv('FLASK_ENV', 'development'),
-            flask_secret_key=os.getenv('FLASK_SECRET_KEY', 'dev-secret-key-change-in-production'),
-            flask_host=os.getenv('FLASK_HOST', '0.0.0.0'),
-            flask_port=int(os.getenv('FLASK_PORT', '5001')),
-
+            flask_env=os.getenv("FLASK_ENV", "development"),
+            flask_secret_key=os.getenv(
+                "FLASK_SECRET_KEY", "dev-secret-key-change-in-production"
+            ),
+            flask_host=os.getenv("FLASK_HOST", "0.0.0.0"),
+            flask_port=int(os.getenv("FLASK_PORT", "5001")),
             # Processing Configuration
-            assets_base_path=os.getenv('ASSETS_BASE_PATH', './assets'),
-            processed_attachments_path=os.getenv('PROCESSED_ATTACHMENTS_PATH', './processed_attachments'),
-            default_hours_back=int(os.getenv('DEFAULT_HOURS_BACK', '24')),
-            max_emails_per_batch=int(os.getenv('MAX_EMAILS_PER_BATCH', '100')),
-            enable_virus_scanning=parse_bool(os.getenv('ENABLE_VIRUS_SCANNING', 'true')),
-            enable_spam_filtering=parse_bool(os.getenv('ENABLE_SPAM_FILTERING', 'true')),
-
+            assets_base_path=os.getenv(
+                "ASSETS_BASE_PATH", str(PROJECT_ROOT / "assets")
+            ),
+            processed_attachments_path=os.getenv(
+                "PROCESSED_ATTACHMENTS_PATH",
+                str(PROJECT_ROOT / "processed_attachments"),
+            ),
+            default_hours_back=int(os.getenv("DEFAULT_HOURS_BACK", "24")),
+            max_emails_per_batch=int(os.getenv("MAX_EMAILS_PER_BATCH", "100")),
+            enable_virus_scanning=parse_bool(
+                os.getenv("ENABLE_VIRUS_SCANNING", "true")
+            ),
+            enable_spam_filtering=parse_bool(
+                os.getenv("ENABLE_SPAM_FILTERING", "true")
+            ),
             # Human Review Thresholds
-            low_confidence_threshold=float(os.getenv('LOW_CONFIDENCE_THRESHOLD', '0.7')),
-            requires_review_threshold=float(os.getenv('REQUIRES_REVIEW_THRESHOLD', '0.5')),
-
+            low_confidence_threshold=float(
+                os.getenv("LOW_CONFIDENCE_THRESHOLD", "0.7")
+            ),
+            requires_review_threshold=float(
+                os.getenv("REQUIRES_REVIEW_THRESHOLD", "0.5")
+            ),
             # Logging
-            log_level=os.getenv('LOG_LEVEL', 'INFO').upper(),
-            log_file_path=os.getenv('LOG_FILE_PATH', 'logs/email_agent.log'),
-            log_max_size_mb=int(os.getenv('LOG_MAX_SIZE_MB', '10')),
-            log_backup_count=int(os.getenv('LOG_BACKUP_COUNT', '5')),
-
+            log_level=os.getenv("LOG_LEVEL", "INFO").upper(),
+            log_file_path=os.getenv(
+                "LOG_FILE_PATH", str(PROJECT_ROOT / "logs/email_agent.log")
+            ),
+            log_max_size_mb=int(os.getenv("LOG_MAX_SIZE_MB", "10")),
+            log_backup_count=int(os.getenv("LOG_BACKUP_COUNT", "5")),
             # Security
-            max_attachment_size_mb=int(os.getenv('MAX_ATTACHMENT_SIZE_MB', '50')),
-            allowed_file_extensions=parse_list(os.getenv('ALLOWED_FILE_EXTENSIONS', 'pdf,docx,xlsx,jpg,png,txt')),
-            clamav_socket_path=os.getenv('CLAMAV_SOCKET_PATH'),
-
+            max_attachment_size_mb=int(os.getenv("MAX_ATTACHMENT_SIZE_MB", "50")),
+            allowed_file_extensions=parse_list(
+                os.getenv("ALLOWED_FILE_EXTENSIONS", "pdf,docx,xlsx,jpg,png,txt")
+            ),
+            clamav_socket_path=os.getenv("CLAMAV_SOCKET_PATH"),
             # Development
-            debug=parse_bool(os.getenv('DEBUG', 'false')),
-            development_mode=parse_bool(os.getenv('DEVELOPMENT_MODE', 'false')),
-
+            debug=parse_bool(os.getenv("DEBUG", "false")),
+            development_mode=parse_bool(os.getenv("DEVELOPMENT_MODE", "false")),
             # Web UI Configuration
-            web_ui_log_file=os.getenv('WEB_UI_LOG_FILE', 'logs/web_ui.log'),
-            processed_emails_file=os.getenv('PROCESSED_EMAILS_FILE', 'data/processed_emails.json'),
-            human_review_queue_file=os.getenv('HUMAN_REVIEW_QUEUE_FILE', 'data/human_review_queue.json'),
-            review_attachments_path=os.getenv('REVIEW_ATTACHMENTS_PATH', 'data/review_attachments'),
-            
+            web_ui_log_file=os.getenv(
+                "WEB_UI_LOG_FILE", str(PROJECT_ROOT / "logs/web_ui.log")
+            ),
+            processed_emails_file=os.getenv(
+                "PROCESSED_EMAILS_FILE",
+                str(PROJECT_ROOT / "data/processed_emails.json"),
+            ),
+            human_review_queue_file=os.getenv(
+                "HUMAN_REVIEW_QUEUE_FILE",
+                str(PROJECT_ROOT / "data/human_review_queue.json"),
+            ),
+            review_attachments_path=os.getenv(
+                "REVIEW_ATTACHMENTS_PATH", str(PROJECT_ROOT / "data/review_attachments")
+            ),
             # Email Search Configuration
-            inbox_labels=parse_list(os.getenv('INBOX_LABELS', 'INBOX,Inbox')),
-            max_search_results=int(os.getenv('MAX_SEARCH_RESULTS', '100')),
-            
+            inbox_labels=parse_list(os.getenv("INBOX_LABELS", "INBOX,Inbox")),
+            max_search_results=int(os.getenv("MAX_SEARCH_RESULTS", "100")),
             # Mailbox Configuration
-            gmail_mailbox_id=os.getenv('GMAIL_MAILBOX_ID', 'gmail_primary'),
-            gmail_mailbox_name=os.getenv('GMAIL_MAILBOX_NAME', 'Gmail (Primary Account)'),
-            msgraph_mailbox_id=os.getenv('MSGRAPH_MAILBOX_ID', 'msgraph_primary'),
-            msgraph_mailbox_name=os.getenv('MSGRAPH_MAILBOX_NAME', 'Microsoft 365 (Primary Account)')
+            gmail_mailbox_id=os.getenv("GMAIL_MAILBOX_ID", "gmail_primary"),
+            gmail_mailbox_name=os.getenv(
+                "GMAIL_MAILBOX_NAME", "Gmail (Primary Account)"
+            ),
+            msgraph_mailbox_id=os.getenv("MSGRAPH_MAILBOX_ID", "msgraph_primary"),
+            msgraph_mailbox_name=os.getenv(
+                "MSGRAPH_MAILBOX_NAME", "Microsoft 365 (Primary Account)"
+            ),
         )
 
     def validate(self) -> list[str]:
@@ -164,7 +215,7 @@ class EmailAgentConfig:
         # Check required credential files exist
         for path, name in [
             (self.gmail_credentials_path, "Gmail credentials"),
-            (self.msgraph_credentials_path, "Microsoft Graph credentials")
+            (self.msgraph_credentials_path, "Microsoft Graph credentials"),
         ]:
             if not Path(path).exists():
                 errors.append(f"{name} file not found: {path}")
@@ -180,7 +231,7 @@ class EmailAgentConfig:
         for path, name in [
             (self.assets_base_path, "Assets base directory"),
             (self.processed_attachments_path, "Processed attachments directory"),
-            (Path(self.log_file_path).parent, "Log directory")
+            (Path(self.log_file_path).parent, "Log directory"),
         ]:
             try:
                 Path(path).mkdir(parents=True, exist_ok=True)
@@ -191,13 +242,13 @@ class EmailAgentConfig:
 
     def is_production(self) -> bool:
         """Check if running in production mode."""
-        return self.flask_env.lower() == 'production'
+        return self.flask_env.lower() == "production"
 
     def get_credential_path(self, service: str) -> str:
         """Get credential path for a specific service."""
-        if service.lower() == 'gmail':
+        if service.lower() == "gmail":
             return self.gmail_credentials_path
-        elif service.lower() in ['msgraph', 'microsoft', 'graph']:
+        elif service.lower() in ["msgraph", "microsoft", "graph"]:
             return self.msgraph_credentials_path
         else:
             raise ValueError(f"Unknown service: {service}")

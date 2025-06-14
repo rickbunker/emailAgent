@@ -275,6 +275,51 @@ Before committing code, verify:
 - [ ] Tests written for new functionality
 - [ ] Security considerations addressed
 
+## 🧪 Testing Workflow
+
+### **Required Testing During Development**
+
+**After Modest Changes** (bug fixes, small feature additions, refactoring):
+```bash
+make test-quick
+```
+- Runs fast linting (ruff), type checking (mypy quick), and tests
+- Skips slower tools (bandit, full pylint)
+- **Use this frequently during development**
+
+**After Significant Changes** (new features, major refactoring, before commits):
+```bash
+make test
+```
+- Runs full test suite with all quality checks
+- Includes security scanning, comprehensive linting, and full type checking
+- **Required before committing to main branch**
+
+### **Integration with Code Review Checklist**
+
+Add to your development workflow:
+- [ ] `make test-quick` passes after each coding session
+- [ ] `make test` passes before creating pull requests
+- [ ] All tests pass locally before pushing changes
+- [ ] New functionality includes corresponding tests
+
+### **Quick Reference Commands**
+```bash
+make test-quick    # Fast checks during development
+make test          # Full validation before commit
+make format        # Auto-fix formatting issues
+make lint          # Run linting checks only
+make type-check    # Run type checking only
+```
+
+### **When Tests Fail**
+1. **Formatting issues**: Run `make format` to auto-fix
+2. **Type errors**: Add missing type hints, fix syntax issues
+3. **Linting warnings**: Use `--fix` flag or fix manually
+4. **Test failures**: Fix the underlying issue, don't ignore tests
+
+> 📖 **For complete testing documentation, see [`docs/TESTING_GUIDE.md`](./TESTING_GUIDE.md)**
+
 ## 🛠️ Development Tools
 
 ### Recommended VS Code Extensions

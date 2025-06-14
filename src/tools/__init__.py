@@ -39,12 +39,14 @@ License -- for Inveniam use only
 Copyright 2025 by Inveniam Capital Partners, LLC and Rick Bunker
 """
 
+# # Standard library imports
 # Core logging system
 import os
 import sys
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
+# # Local application imports
 from utils.logging_system import get_logger, log_function
 
 # Initialize package logger
@@ -67,16 +69,15 @@ __license__ = "for Inveniam use only"
 # Public API exports
 __all__ = [
     # SpamAssassin integration
-    'SpamAssassinIntegration',
-    'SpamAssassinMode',
-    'SpamConfidence',
-    'SpamAnalysisResult',
-    'check_email_spam',
-
+    "SpamAssassinIntegration",
+    "SpamAssassinMode",
+    "SpamConfidence",
+    "SpamAnalysisResult",
+    "check_email_spam",
     # Package metadata
-    '__version__',
-    '__author__',
-    '__license__'
+    "__version__",
+    "__author__",
+    "__license__",
 ]
 
 # Package initialization logging
@@ -84,15 +85,16 @@ logger.info(f"Tools package initialized - Version {__version__}")
 logger.debug("SpamAssassin integration loaded with configuration")
 logger.debug("Security tools ready for EmailAgent operations")
 
+
 # Package-level convenience functions
 @log_function()
 def get_available_tools() -> list:
     """
     Get list of available tools and integrations.
-    
+
     Returns:
         List of available tool names and integrations
-        
+
     Example:
         >>> from tools import get_available_tools
         >>> tools = get_available_tools()
@@ -102,30 +104,31 @@ def get_available_tools() -> list:
     logger.info("Retrieving available tools and integrations")
 
     return [
-        'spamassassin',
-        'security_scanner',
-        'document_processor',
-        'performance_monitor',
-        'api_connector'
+        "spamassassin",
+        "security_scanner",
+        "document_processor",
+        "performance_monitor",
+        "api_connector",
     ]
+
 
 @log_function()
 def get_tool_info(tool_name: str) -> dict:
     """
     Get complete information about a specific tool.
-    
+
     Provides detailed information about tool capabilities,
     configuration options, and usage for deployment planning.
-    
+
     Args:
         tool_name: Tool identifier name
-        
+
     Returns:
         Dictionary containing tool information and capabilities
-        
+
     Raises:
         ValueError: If tool name is not supported
-        
+
     Example:
         >>> from tools import get_tool_info
         >>> info = get_tool_info('spamassassin')
@@ -136,122 +139,125 @@ def get_tool_info(tool_name: str) -> dict:
     logger.info(f"Retrieving tool information for: {tool_name}")
 
     tool_info = {
-        'spamassassin': {
-            'name': 'SpamAssassin Integration',
-            'description': 'spam detection and email security',
-            'capabilities': [
-                'Multi-mode spam detection (command-line and daemon)',
-                'confidence scoring for asset management',
-                'Business context spam analysis and filtering',
-                'Performance monitoring and health checking',
-                'Complete error handling and recovery',
-                'Asset management confidence levels'
+        "spamassassin": {
+            "name": "SpamAssassin Integration",
+            "description": "spam detection and email security",
+            "capabilities": [
+                "Multi-mode spam detection (command-line and daemon)",
+                "confidence scoring for asset management",
+                "Business context spam analysis and filtering",
+                "Performance monitoring and health checking",
+                "Complete error handling and recovery",
+                "Asset management confidence levels",
             ],
-            'use_cases': [
-                'Email security and spam filtering',
-                'Regulatory compliance email validation',
-                'Business communication security',
-                'Automated email classification',
-                'Security audit and reporting'
+            "use_cases": [
+                "Email security and spam filtering",
+                "Regulatory compliance email validation",
+                "Business communication security",
+                "Automated email classification",
+                "Security audit and reporting",
             ],
-            'confidence_levels': ['very_low', 'low', 'medium', 'high', 'very_high'],
-            'modes': ['command_line', 'daemon']
+            "confidence_levels": ["very_low", "low", "medium", "high", "very_high"],
+            "modes": ["command_line", "daemon"],
         },
-        'security_scanner': {
-            'name': 'Security Scanner Integration',
-            'description': 'Complete security scanning and validation',
-            'capabilities': [
-                'Virus and malware detection',
-                'Attachment security scanning',
-                'Content security validation',
-                'Threat intelligence integration',
-                'Security policy enforcement',
-                'Compliance validation'
+        "security_scanner": {
+            "name": "Security Scanner Integration",
+            "description": "Complete security scanning and validation",
+            "capabilities": [
+                "Virus and malware detection",
+                "Attachment security scanning",
+                "Content security validation",
+                "Threat intelligence integration",
+                "Security policy enforcement",
+                "Compliance validation",
             ],
-            'use_cases': [
-                'Email attachment security',
-                'Document security validation',
-                'Threat detection and prevention',
-                'Compliance security checks',
-                'Security audit and reporting'
-            ]
+            "use_cases": [
+                "Email attachment security",
+                "Document security validation",
+                "Threat detection and prevention",
+                "Compliance security checks",
+                "Security audit and reporting",
+            ],
         },
-        'document_processor': {
-            'name': 'Document Processing Tools',
-            'description': 'document analysis and classification',
-            'capabilities': [
-                'Document type classification',
-                'Content extraction and analysis',
-                'Regulatory document detection',
-                'Business context classification',
-                'Metadata extraction and enrichment',
-                'Quality validation and scoring'
+        "document_processor": {
+            "name": "Document Processing Tools",
+            "description": "document analysis and classification",
+            "capabilities": [
+                "Document type classification",
+                "Content extraction and analysis",
+                "Regulatory document detection",
+                "Business context classification",
+                "Metadata extraction and enrichment",
+                "Quality validation and scoring",
             ],
-            'use_cases': [
-                'Asset document classification',
-                'Regulatory filing detection',
-                'Investment document processing',
-                'Compliance document validation',
-                'Business intelligence extraction'
-            ]
+            "use_cases": [
+                "Asset document classification",
+                "Regulatory filing detection",
+                "Investment document processing",
+                "Compliance document validation",
+                "Business intelligence extraction",
+            ],
         },
-        'performance_monitor': {
-            'name': 'Performance Monitoring Tools',
-            'description': 'System performance and health monitoring',
-            'capabilities': [
-                'Real-time performance tracking',
-                'Resource utilization monitoring',
-                'Performance bottleneck detection',
-                'Health status reporting',
-                'Performance optimization recommendations',
-                'Alerting and notification systems'
+        "performance_monitor": {
+            "name": "Performance Monitoring Tools",
+            "description": "System performance and health monitoring",
+            "capabilities": [
+                "Real-time performance tracking",
+                "Resource utilization monitoring",
+                "Performance bottleneck detection",
+                "Health status reporting",
+                "Performance optimization recommendations",
+                "Alerting and notification systems",
             ],
-            'use_cases': [
-                'System health monitoring',
-                'Performance optimization',
-                'Capacity planning',
-                'Operational monitoring',
-                'Performance troubleshooting'
-            ]
+            "use_cases": [
+                "System health monitoring",
+                "Performance optimization",
+                "Capacity planning",
+                "Operational monitoring",
+                "Performance troubleshooting",
+            ],
         },
-        'api_connector': {
-            'name': 'API Connector Tools',
-            'description': 'External service integration and connectivity',
-            'capabilities': [
-                'External API integration',
-                'Service connectivity management',
-                'Data synchronization tools',
-                'Authentication and authorization',
-                'Rate limiting and throttling',
-                'Error handling and retry logic'
+        "api_connector": {
+            "name": "API Connector Tools",
+            "description": "External service integration and connectivity",
+            "capabilities": [
+                "External API integration",
+                "Service connectivity management",
+                "Data synchronization tools",
+                "Authentication and authorization",
+                "Rate limiting and throttling",
+                "Error handling and retry logic",
             ],
-            'use_cases': [
-                'Third-party service integration',
-                'Data synchronization',
-                'External authentication',
-                'Service orchestration',
-                'API gateway functionality'
-            ]
-        }
+            "use_cases": [
+                "Third-party service integration",
+                "Data synchronization",
+                "External authentication",
+                "Service orchestration",
+                "API gateway functionality",
+            ],
+        },
     }
 
     if tool_name not in tool_info:
         supported_tools = list(tool_info.keys())
-        raise ValueError(f"Unsupported tool: '{tool_name}'. Supported tools: {supported_tools}")
+        raise ValueError(
+            f"Unsupported tool: '{tool_name}'. Supported tools: {supported_tools}"
+        )
 
     return tool_info[tool_name]
+
 
 @log_function()
 def get_package_info() -> dict:
     """
     Get complete package information and metadata.
-    
+
     Provides detailed information about the tools package
     capabilities, version, and available utilities.
-    
+
     Returns:
         Dictionary containing package information and metadata
-        
+
     Example:
         >>> from tools import get_package_info
         >>> info = get_package_info()
@@ -261,42 +267,43 @@ def get_package_info() -> dict:
     logger.info("Retrieving tools package information")
 
     return {
-        'name': 'EmailAgent Tools Package',
-        'version': __version__,
-        'author': __author__,
-        'license': __license__,
-        'description': 'Complete tools and integrations for private market asset management',
-        'capabilities': [
-            'Enterprise spam detection and filtering',
-            'Security scanning and validation',
-            'Document processing and classification',
-            'Performance monitoring and optimization',
-            'External API integrations'
+        "name": "EmailAgent Tools Package",
+        "version": __version__,
+        "author": __author__,
+        "license": __license__,
+        "description": "Complete tools and integrations for private market asset management",
+        "capabilities": [
+            "Enterprise spam detection and filtering",
+            "Security scanning and validation",
+            "Document processing and classification",
+            "Performance monitoring and optimization",
+            "External API integrations",
         ],
-        'tools': [
-            'spamassassin_integration',
-            'security_scanner',
-            'document_processor',
-            'performance_monitor',
-            'api_connector'
+        "tools": [
+            "spamassassin_integration",
+            "security_scanner",
+            "document_processor",
+            "performance_monitor",
+            "api_connector",
         ],
-        'business_context': 'Asset management email automation and security'
+        "business_context": "Asset management email automation and security",
     }
+
 
 @log_function()
 async def validate_tool_configuration(tool_name: str) -> dict:
     """
     Validate tool configuration and availability.
-    
+
     Performs complete validation of tool configuration,
     dependencies, and operational readiness for deployment.
-    
+
     Args:
         tool_name: Tool to validate configuration for
-        
+
     Returns:
         Dictionary containing validation results and recommendations
-        
+
     Example:
         >>> from tools import validate_tool_configuration
         >>> validation = await validate_tool_configuration('spamassassin')
@@ -306,94 +313,97 @@ async def validate_tool_configuration(tool_name: str) -> dict:
     logger.info(f"Validating tool configuration: {tool_name}")
 
     try:
-        if tool_name == 'spamassassin':
+        if tool_name == "spamassassin":
             # Validate SpamAssassin configuration
             spam_integration = SpamAssassinIntegration()
             health_status = await spam_integration.health_check()
 
             return {
-                'tool': tool_name,
-                'ready': health_status.get('healthy', False),
-                'status': health_status.get('status', 'unknown'),
-                'details': health_status,
-                'recommendations': [
-                    'Ensure SpamAssassin is properly installed',
-                    'Verify daemon mode availability if required',
-                    'Check command-line tool accessibility',
-                    'Validate configuration and rule updates'
-                ]
+                "tool": tool_name,
+                "ready": health_status.get("healthy", False),
+                "status": health_status.get("status", "unknown"),
+                "details": health_status,
+                "recommendations": [
+                    "Ensure SpamAssassin is properly installed",
+                    "Verify daemon mode availability if required",
+                    "Check command-line tool accessibility",
+                    "Validate configuration and rule updates",
+                ],
             }
 
         else:
             # Generic validation for other tools
             return {
-                'tool': tool_name,
-                'ready': False,
-                'status': 'not_implemented',
-                'details': f"Validation not yet implemented for {tool_name}",
-                'recommendations': [
-                    f'Implement validation for {tool_name}',
-                    'Add configuration checks',
-                    'Verify dependencies and requirements',
-                    'Test operational functionality'
-                ]
+                "tool": tool_name,
+                "ready": False,
+                "status": "not_implemented",
+                "details": f"Validation not yet implemented for {tool_name}",
+                "recommendations": [
+                    f"Implement validation for {tool_name}",
+                    "Add configuration checks",
+                    "Verify dependencies and requirements",
+                    "Test operational functionality",
+                ],
             }
 
     except Exception as e:
         logger.error(f"Tool validation failed for {tool_name}: {e}")
         return {
-            'tool': tool_name,
-            'ready': False,
-            'status': 'validation_failed',
-            'error': str(e),
-            'recommendations': [
-                'Check tool installation and configuration',
-                'Verify dependencies are installed',
-                'Review error logs for specific issues',
-                'Contact support if problems persist'
-            ]
+            "tool": tool_name,
+            "ready": False,
+            "status": "validation_failed",
+            "error": str(e),
+            "recommendations": [
+                "Check tool installation and configuration",
+                "Verify dependencies are installed",
+                "Review error logs for specific issues",
+                "Contact support if problems persist",
+            ],
         }
+
 
 # Tool configuration constants for asset management environments
 TOOL_CONSTANTS = {
-    'SPAMASSASSIN_DEFAULTS': {
-        'mode': 'command_line',
-        'timeout': 30,
-        'confidence_threshold': 0.7,
-        'max_email_size': 10 * 1024 * 1024  # 10MB
+    "SPAMASSASSIN_DEFAULTS": {
+        "mode": "command_line",
+        "timeout": 30,
+        "confidence_threshold": 0.7,
+        "max_email_size": 10 * 1024 * 1024,  # 10MB
     },
-    'SECURITY_THRESHOLDS': {
-        'max_attachment_size': 50 * 1024 * 1024,  # 50MB
-        'max_attachments_count': 20,
-        'virus_scan_timeout': 60,
-        'threat_score_threshold': 0.8
+    "SECURITY_THRESHOLDS": {
+        "max_attachment_size": 50 * 1024 * 1024,  # 50MB
+        "max_attachments_count": 20,
+        "virus_scan_timeout": 60,
+        "threat_score_threshold": 0.8,
     },
-    'PERFORMANCE_LIMITS': {
-        'max_processing_time': 300,  # 5 minutes
-        'memory_limit_mb': 1024,
-        'cpu_limit_percent': 80,
-        'concurrent_operations': 10
+    "PERFORMANCE_LIMITS": {
+        "max_processing_time": 300,  # 5 minutes
+        "memory_limit_mb": 1024,
+        "cpu_limit_percent": 80,
+        "concurrent_operations": 10,
     },
-    'BUSINESS_CATEGORIES': [
-        'investment_document',
-        'regulatory_filing',
-        'compliance_notification',
-        'due_diligence',
-        'fund_performance',
-        'investor_communication',
-        'operational_update',
-        'market_intelligence'
-    ]
+    "BUSINESS_CATEGORIES": [
+        "investment_document",
+        "regulatory_filing",
+        "compliance_notification",
+        "due_diligence",
+        "fund_performance",
+        "investor_communication",
+        "operational_update",
+        "market_intelligence",
+    ],
 }
 
 # Export tool constants and additional functions
-__all__.extend([
-    'get_available_tools',
-    'get_tool_info',
-    'get_package_info',
-    'validate_tool_configuration',
-    'TOOL_CONSTANTS'
-])
+__all__.extend(
+    [
+        "get_available_tools",
+        "get_tool_info",
+        "get_package_info",
+        "validate_tool_configuration",
+        "TOOL_CONSTANTS",
+    ]
+)
 
 logger.debug("Tools package initialization completed successfully")
 logger.debug(f"Exported tools: {len(__all__)} components available")

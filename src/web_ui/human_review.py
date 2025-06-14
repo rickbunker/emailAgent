@@ -180,11 +180,11 @@ class HumanReviewQueue:
 
         # Convert to dict for JSON storage (excluding binary content)
         review_dict = asdict(review_item)
-        
+
         # Ensure binary content is completely removed before JSON serialization
-        if 'attachment_content' in review_dict:
-            del review_dict['attachment_content']
-        
+        if "attachment_content" in review_dict:
+            del review_dict["attachment_content"]
+
         # Also ensure no nested binary data exists
         for key, value in review_dict.items():
             if isinstance(value, bytes):
@@ -197,7 +197,9 @@ class HumanReviewQueue:
             with open(content_file, "wb") as f:
                 f.write(review_item.attachment_content)
         except Exception as content_error:
-            logger.warning(f"Failed to save attachment content for {review_id}: {content_error}")
+            logger.warning(
+                f"Failed to save attachment content for {review_id}: {content_error}"
+            )
 
         self.queue.append(review_dict)
         self._save_queue()
@@ -261,12 +263,16 @@ class HumanReviewQueue:
         await self._store_learning_experience(item)
 
         self._save_queue()
-        
+
         if is_asset_related:
-            logger.info(f"Review completed for item: {review_id} -> asset {human_asset_id}")
+            logger.info(
+                f"Review completed for item: {review_id} -> asset {human_asset_id}"
+            )
         else:
-            logger.info(f"Review completed for item: {review_id} -> marked as non-asset-related")
-            
+            logger.info(
+                f"Review completed for item: {review_id} -> marked as non-asset-related"
+            )
+
         return True
 
     async def _store_learning_experience(self, review_item: dict[str, Any]) -> None:
@@ -274,7 +280,7 @@ class HumanReviewQueue:
 
         # Determine if this is asset-related
         is_asset_related = review_item.get("is_asset_related", True)
-        
+
         # Create comprehensive learning content
         learning_content = f"""
 Human Review Correction - {'Asset Matching' if is_asset_related else 'Non-Asset Classification'} Learning
@@ -389,7 +395,7 @@ LEARNING INSIGHTS:
     def _determine_correction_type(self, review_item: dict[str, Any]) -> str:
         """Determine the type of correction made"""
         is_asset_related = review_item.get("is_asset_related", True)
-        
+
         if not is_asset_related:
             return "marked_as_non_asset_related"
         elif not review_item["system_asset_suggestions"]:
@@ -429,16 +435,16 @@ LEARNING INSIGHTS:
         """Remove all review items associated with a specific email"""
         removed_count = 0
         items_to_remove = []
-        
+
         # Find items to remove
         for item in self.queue:
             if item["email_id"] == email_id and item["mailbox_id"] == mailbox_id:
                 items_to_remove.append(item)
-        
+
         # Remove items and their attachment files
         for item in items_to_remove:
             review_id = item["review_id"]
-            
+
             # Remove attachment content file
             content_file = Path(config.review_attachments_path) / review_id
             try:
@@ -447,23 +453,23 @@ LEARNING INSIGHTS:
                     logger.debug(f"Removed attachment file for review: {review_id}")
             except Exception as e:
                 logger.warning(f"Failed to remove attachment file for {review_id}: {e}")
-            
+
             # Remove from queue
             self.queue.remove(item)
             removed_count += 1
             logger.info(f"Removed review item: {review_id} (email: {email_id})")
-        
+
         # Save updated queue
         if removed_count > 0:
             self._save_queue()
             logger.info(f"Removed {removed_count} review items for email: {email_id}")
-        
+
         return removed_count
 
     def clear_all_items(self) -> int:
         """Remove all review items (for complete history clear)"""
         removed_count = len(self.queue)
-        
+
         # Remove all attachment files
         attachments_path = Path(config.review_attachments_path)
         if attachments_path.exists():
@@ -474,14 +480,14 @@ LEARNING INSIGHTS:
                 logger.info("Removed all review attachment files")
             except Exception as e:
                 logger.warning(f"Failed to remove some attachment files: {e}")
-        
+
         # Clear queue
         self.queue.clear()
         self._save_queue()
-        
+
         if removed_count > 0:
             logger.info(f"Cleared all {removed_count} review items")
-        
+
         return removed_count
 
 

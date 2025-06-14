@@ -1,0 +1,401 @@
+{% extends "base.html" %}
+
+{% block title %}Testing Cleanup - Email Agent{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="h3 mb-0">
+                <i class="bi bi-trash text-warning"></i>
+                Testing Cleanup Control
+            </h1>
+            <p class="text-muted mb-0">Granular control over system data for testing purposes</p>
+        </div>
+    </div>
+
+    <!-- Warning Alert -->
+    <div class="alert alert-warning" role="alert">
+        <i class="bi bi-exclamation-triangle"></i>
+        <strong>Warning:</strong> This page allows you to delete system data permanently.
+        Use with caution and only for testing purposes. Some operations cannot be undone.
+    </div>
+
+    <!-- Current System Status -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-bar-chart"></i> Current System Status</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="text-center">
+                        <h4 class="text-primary">{{ stats.assets }}</h4>
+                        <small class="text-muted">Assets</small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="text-center">
+                        <h4 class="text-info">{{ stats.sender_mappings }}</h4>
+                        <small class="text-muted">Sender Mappings</small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="text-center">
+                        <h4 class="text-success">{{ stats.email_history }}</h4>
+                        <small class="text-muted">Email History Items</small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="text-center">
+                        <h4 class="text-warning">{{ stats.human_review_items }}</h4>
+                        <small class="text-muted">Review Items</small>
+                    </div>
+                </div>
+            </div>
+            <hr class="my-3">
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="text-center">
+                        <h4 class="text-secondary">{{ stats.processing_runs }}</h4>
+                        <small class="text-muted">Processing Runs</small>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="text-center">
+                        <h4 class="text-secondary">{{ stats.attachment_files }}</h4>
+                        <small class="text-muted">Attachment Files</small>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="text-center">
+                        <h4 class="text-secondary">{{ stats.review_files }}</h4>
+                        <small class="text-muted">Review Files</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cleanup Categories -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-gear"></i> Select Data to Clean Up</h5>
+        </div>
+        <div class="card-body">
+            <form id="cleanupForm">
+                <!-- Processing Data -->
+                <div class="mb-4">
+                    <h6 class="text-primary">📊 Processing Data</h6>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" value="processed_documents"
+                                    id="processedDocs">
+                                <label class="form-check-label" for="processedDocs">
+                                    <strong>Processed Documents History</strong>
+                                    <br><small class="text-muted">Clears document processing metadata (prevents
+                                        duplicate detection)</small>
+                                </label>
+                            </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" value="email_history" id="emailHistory">
+                                <label class="form-check-label" for="emailHistory">
+                                    <strong>Email Processing History</strong>
+                                    <br><small class="text-muted">Clears which emails have been processed (allows
+                                        reprocessing)</small>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" value="processing_runs"
+                                    id="processingRuns">
+                                <label class="form-check-label" for="processingRuns">
+                                    <strong>Processing Run History</strong>
+                                    <br><small class="text-muted">Clears batch processing run logs and
+                                        statistics</small>
+                                </label>
+                            </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" value="human_review" id="humanReview">
+                                <label class="form-check-label" for="humanReview">
+                                    <strong>Human Review Queue</strong>
+                                    <br><small class="text-muted">Clears pending and completed human review
+                                        items</small>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- File System Data -->
+                <div class="mb-4">
+                    <h6 class="text-success">📁 File System Data</h6>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" value="attachment_files"
+                                    id="attachmentFiles">
+                                <label class="form-check-label" for="attachmentFiles">
+                                    <strong>Attachment Files</strong>
+                                    <br><small class="text-muted">Removes all saved attachment files from disk (keeps
+                                        folder structure)</small>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Memory System Data -->
+                <div class="mb-4">
+                    <h6 class="text-info">🧠 Memory System Data</h6>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" value="memory_collections"
+                                    id="memoryCollections">
+                                <label class="form-check-label" for="memoryCollections">
+                                    <strong>All Memory Collections</strong>
+                                    <br><small class="text-muted">Clears semantic, episodic, procedural, and contact
+                                        memory</small>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Asset Management Data -->
+                <div class="mb-4">
+                    <h6 class="text-warning">🏢 Asset Management Data</h6>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" value="sender_mappings"
+                                    id="senderMappings">
+                                <label class="form-check-label" for="senderMappings">
+                                    <strong>Sender-Asset Mappings</strong>
+                                    <br><small class="text-muted">Removes relationships between email senders and
+                                        assets</small>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input text-danger" type="checkbox" value="assets" id="assets">
+                                <label class="form-check-label" for="assets">
+                                    <strong class="text-danger">⚠️ Asset Definitions</strong>
+                                    <br><small class="text-danger">DANGER: Removes all asset definitions and
+                                        folders!</small>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Selection Buttons -->
+                <div class="mb-4">
+                    <h6>Quick Selection</h6>
+                    <div class="btn-group" role="group">
+                        <button type="button" class="btn btn-outline-primary btn-sm" onclick="selectProcessingData()">
+                            Processing Data Only
+                        </button>
+                        <button type="button" class="btn btn-outline-success btn-sm" onclick="selectSafeCleanup()">
+                            Safe Testing Cleanup
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="selectAll()">
+                            Select All
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="selectNone()">
+                            Clear All
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Confirmation -->
+                <div class="mb-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="confirmCleanup" required>
+                        <label class="form-check-label" for="confirmCleanup">
+                            <strong>I understand this will permanently delete the selected data</strong>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-danger" id="cleanupBtn" disabled>
+                        <i class="bi bi-trash"></i> Execute Cleanup
+                    </button>
+                    <button type="button" class="btn btn-secondary" onclick="window.location.reload()">
+                        <i class="bi bi-arrow-clockwise"></i> Refresh Status
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Results Area -->
+    <div id="resultsArea" class="mt-4" style="display: none;">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-check-circle"></i> Cleanup Results</h5>
+            </div>
+            <div class="card-body">
+                <div id="resultsContent"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const form = document.getElementById('cleanupForm');
+        const confirmCheckbox = document.getElementById('confirmCleanup');
+        const cleanupBtn = document.getElementById('cleanupBtn');
+
+        // Enable/disable cleanup button based on confirmation
+        confirmCheckbox.addEventListener('change', function () {
+            cleanupBtn.disabled = !this.checked;
+        });
+
+        // Quick selection functions
+        window.selectProcessingData = function () {
+            selectNone();
+            ['processedDocs', 'emailHistory', 'processingRuns', 'humanReview'].forEach(id => {
+                document.getElementById(id).checked = true;
+            });
+        };
+
+        window.selectSafeCleanup = function () {
+            selectNone();
+            ['processedDocs', 'emailHistory', 'processingRuns', 'humanReview', 'attachmentFiles'].forEach(id => {
+                const element = document.getElementById(id);
+                if (element) element.checked = true;
+            });
+        };
+
+        window.selectAll = function () {
+            document.querySelectorAll('input[type="checkbox"]:not(#confirmCleanup)').forEach(cb => {
+                cb.checked = true;
+            });
+        };
+
+        window.selectNone = function () {
+            document.querySelectorAll('input[type="checkbox"]:not(#confirmCleanup)').forEach(cb => {
+                cb.checked = false;
+            });
+        };
+
+        // Form submission
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            // Get selected cleanup types
+            const cleanupTypes = [];
+            document.querySelectorAll('input[type="checkbox"]:not(#confirmCleanup):checked').forEach(cb => {
+                cleanupTypes.push(cb.value);
+            });
+
+            if (cleanupTypes.length === 0) {
+                alert('Please select at least one cleanup type.');
+                return;
+            }
+
+            // Additional confirmation for dangerous operations
+            if (cleanupTypes.includes('assets')) {
+                if (!confirm('⚠️ WARNING: You have selected to delete ALL ASSETS. This will remove all asset definitions and cannot be undone. Are you absolutely sure?')) {
+                    return;
+                }
+            }
+
+            // Show loading state
+            cleanupBtn.disabled = true;
+            cleanupBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Cleaning up...';
+
+            // Execute cleanup
+            fetch('/api/testing/cleanup', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    cleanup_types: cleanupTypes,
+                    confirm: true
+                })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showResults(data);
+                    } else {
+                        alert('Cleanup failed: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    alert('Cleanup failed: ' + error);
+                })
+                .finally(() => {
+                    // Reset button
+                    cleanupBtn.disabled = !confirmCheckbox.checked;
+                    cleanupBtn.innerHTML = '<i class="bi bi-trash"></i> Execute Cleanup';
+                });
+        });
+
+        function showResults(data) {
+            const resultsArea = document.getElementById('resultsArea');
+            const resultsContent = document.getElementById('resultsContent');
+
+            let html = `
+            <div class="alert alert-success">
+                <h6><i class="bi bi-check-circle"></i> Cleanup Completed Successfully</h6>
+                <p class="mb-0">${data.message}</p>
+            </div>
+            <h6>Detailed Results:</h6>
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Category</th>
+                            <th>Status</th>
+                            <th>Items Removed</th>
+                            <th>Message</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+            Object.entries(data.results).forEach(([category, result]) => {
+                const statusBadge = result.success ?
+                    '<span class="badge bg-success">Success</span>' :
+                    '<span class="badge bg-danger">Failed</span>';
+
+                html += `
+                <tr>
+                    <td>${category.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</td>
+                    <td>${statusBadge}</td>
+                    <td>${result.removed_count || 0}</td>
+                    <td>${result.message || result.error || ''}</td>
+                </tr>
+            `;
+            });
+
+            html += `
+                    </tbody>
+                </table>
+            </div>
+            <div class="mt-3">
+                <button class="btn btn-primary" onclick="window.location.reload()">
+                    <i class="bi bi-arrow-clockwise"></i> Refresh Page
+                </button>
+            </div>
+        `;
+
+            resultsContent.innerHTML = html;
+            resultsArea.style.display = 'block';
+            resultsArea.scrollIntoView({ behavior: 'smooth' });
+        }
+    });
+</script>
+{% endblock %}

@@ -60,6 +60,9 @@ import_heading_firstparty = "# Local application imports"
 
 [tool.mypy]
 python_version = "3.8"
+mypy_path = ["src"]
+namespace_packages = true
+explicit_package_bases = true
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
@@ -92,6 +95,10 @@ module = [
     "msgraph_core.*",
     "langchain.*",
     "openai.*",
+    "psutil.*",
+    "msal.*",
+    "google_auth_oauthlib.*",
+    "googleapiclient.*",
 ]
 ignore_missing_imports = true
 
@@ -99,6 +106,7 @@ ignore_missing_imports = true
 minversion = "6.0"
 addopts = "-ra -q --strict-markers --strict-config"
 testpaths = ["tests"]
+pythonpath = ["."]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]

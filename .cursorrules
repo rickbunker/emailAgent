@@ -51,6 +51,9 @@ def your_function(param: str, data: Dict[str, Any]) -> Optional[ResultType]:
     return result
 ```
 
+## be tidy
+- clean up after yourself.  don't leave random test files all over the place.  don't leave editor windows open when you won't be using them again.
+
 ## 🔗 Full Standards
 For complete guidelines, examples, and detailed explanations, see:
 **`/docs/CODING_STANDARDS.md`** 

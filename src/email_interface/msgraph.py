@@ -18,7 +18,7 @@ Business Context:
     Designed for private market asset management firms requiring reliable
     integration with Microsoft 365 environments for processing sensitive
     financial communications, deal documents, and investor correspondence.
-    
+
 Technical Architecture:
     - MSAL (Microsoft Authentication Library) for OAuth 2.0 flows
     - Async HTTP client for high-performance API interactions
@@ -38,6 +38,7 @@ License -- for Inveniam use only
 Copyright 2025 by Inveniam Capital Partners, LLC and Rick Bunker
 """
 
+# # Standard library imports
 import asyncio
 import base64
 import http.server
@@ -56,11 +57,13 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
+# # Third-party imports
 import aiohttp
 import msal
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
+# # Local application imports
 from utils.logging_system import get_logger, log_function
 
 from .base import (
@@ -80,14 +83,15 @@ from .base import (
 # Initialize logger
 logger = get_logger(__name__)
 
+
 class AuthorizationHandler(http.server.SimpleHTTPRequestHandler):
     """
     OAuth 2.0 authorization callback handler for Microsoft Graph authentication.
-    
+
     Handles the OAuth callback from Microsoft identity platform during
     interactive authentication flows, extracting authorization codes and
     providing user-friendly feedback during the authentication process.
-    
+
     Business Context:
         Provides authentication experience for asset management
         users accessing Microsoft 365 email systems securely.
@@ -97,29 +101,29 @@ class AuthorizationHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self) -> None:
         """
         Handle GET request with OAuth authorization callback.
-        
+
         Processes the OAuth callback from Microsoft identity platform,
         extracts authorization code, and provides appropriate user feedback
         with styling for business environments.
-        
+
         Raises:
             None: Gracefully handles all errors with appropriate HTTP responses
         """
         try:
-            if self.path.startswith('/?code='):
+            if self.path.startswith("/?code="):
                 # Extract authorization code and state from callback
                 parsed = urlparse(self.path)
                 query_params = parse_qs(parsed.query)
 
-                if 'code' in query_params:
-                    self.server.auth_code = query_params['code'][0]
-                    self.server.state = query_params.get('state', [None])[0]
+                if "code" in query_params:
+                    self.server.auth_code = query_params["code"][0]
+                    self.server.state = query_params.get("state", [None])[0]
 
                     logger.info("OAuth authorization code received successfully")
 
                     # Send success response
                     self.send_response(200)
-                    self.send_header('Content-type', 'text/html')
+                    self.send_header("Content-type", "text/html")
                     self.end_headers()
 
                     success_html = """
@@ -153,12 +157,14 @@ class AuthorizationHandler(http.server.SimpleHTTPRequestHandler):
                     logger.error("OAuth callback missing authorization code")
                     self._send_error_response("No authorization code received")
 
-            elif self.path.startswith('/?error='):
+            elif self.path.startswith("/?error="):
                 # Handle OAuth errors
                 parsed = urlparse(self.path)
                 query_params = parse_qs(parsed.query)
-                error_code = query_params.get('error', ['unknown'])[0]
-                error_description = query_params.get('error_description', ['Unknown error'])[0]
+                error_code = query_params.get("error", ["unknown"])[0]
+                error_description = query_params.get(
+                    "error_description", ["Unknown error"]
+                )[0]
 
                 logger.error(f"OAuth error: {error_code} - {error_description}")
                 self._send_error_response(f"Authentication failed: {error_description}")
@@ -174,7 +180,7 @@ class AuthorizationHandler(http.server.SimpleHTTPRequestHandler):
     def _send_error_response(self, error_message: str) -> None:
         """Send error response to user."""
         self.send_response(400)
-        self.send_header('Content-type', 'text/html')
+        self.send_header("Content-type", "text/html")
         self.end_headers()
 
         error_html = f"""
@@ -206,7 +212,7 @@ class AuthorizationHandler(http.server.SimpleHTTPRequestHandler):
     def _send_waiting_response(self) -> None:
         """Send waiting response to user."""
         self.send_response(200)
-        self.send_header('Content-type', 'text/html')
+        self.send_header("Content-type", "text/html")
         self.end_headers()
 
         waiting_html = """
@@ -241,14 +247,15 @@ class AuthorizationHandler(http.server.SimpleHTTPRequestHandler):
         """Suppress default HTTP server logging to avoid noise."""
         pass
 
+
 class MicrosoftGraphInterface(BaseEmailInterface):
     """
     Microsoft Graph API integration for email management.
-    
+
     Provides complete email management capabilities through Microsoft Graph API
     with production-grade authentication, error handling, and monitoring designed
     for private market asset management environments.
-    
+
     Features:
         - OAuth 2.0 authentication with interactive web flow
         - Complete email operations (CRUD, search, labels)
@@ -256,12 +263,12 @@ class MicrosoftGraphInterface(BaseEmailInterface):
         - Business-context error handling and retry logic
         - Performance monitoring and health checking
         - Async operations for high-throughput processing
-        
+
     Business Context:
         Designed for asset management firms requiring reliable Microsoft 365
         integration for processing sensitive financial communications, investor
         updates, and deal-related correspondence with institutional-grade security.
-        
+
     Technical Architecture:
         - MSAL for OAuth 2.0 authentication flows
         - Async HTTP client for API interactions
@@ -272,13 +279,13 @@ class MicrosoftGraphInterface(BaseEmailInterface):
 
     # Microsoft Graph API configuration
     SCOPES = [
-        'https://graph.microsoft.com/Mail.ReadWrite',
-        'https://graph.microsoft.com/Mail.Send',
-        'https://graph.microsoft.com/User.Read'
+        "https://graph.microsoft.com/Mail.ReadWrite",
+        "https://graph.microsoft.com/Mail.Send",
+        "https://graph.microsoft.com/User.Read",
     ]
 
-    GRAPH_ENDPOINT = 'https://graph.microsoft.com/v1.0'
-    AUTH_ENDPOINT = 'https://login.microsoftonline.com'
+    GRAPH_ENDPOINT = "https://graph.microsoft.com/v1.0"
+    AUTH_ENDPOINT = "https://login.microsoftonline.com"
 
     # API limits and timeouts
     DEFAULT_PAGE_SIZE = 25
@@ -286,22 +293,24 @@ class MicrosoftGraphInterface(BaseEmailInterface):
     REQUEST_TIMEOUT = 30
     AUTH_TIMEOUT = 300  # 5 minutes for authentication
 
-    def __init__(self, credentials_path: str = "config/msgraph_credentials.json") -> None:
+    def __init__(
+        self, credentials_path: str = "config/msgraph_credentials.json"
+    ) -> None:
         """
         Initialize Microsoft Graph interface with complete configuration.
-        
+
         Sets up the Microsoft Graph API client with OAuth 2.0 authentication,
         async HTTP client configuration, and logging for production
         deployment in asset management environments.
-        
+
         Args:
             credentials_path: Path to Microsoft Graph credentials JSON file
-            
+
         Raises:
             FileNotFoundError: If credentials file not found
             ValueError: If credentials file is invalid
             RuntimeError: If required dependencies are missing
-            
+
         Note:
             Requires valid Microsoft Graph application registration with
             appropriate permissions for email access in the target tenant.
@@ -326,45 +335,55 @@ class MicrosoftGraphInterface(BaseEmailInterface):
         self.error_count = 0
         self.total_request_time = 0.0
 
-        self.logger.info(f"Microsoft Graph interface initialized for {self.credentials.get('application_name', 'Unknown App')}")
+        self.logger.info(
+            f"Microsoft Graph interface initialized for {self.credentials.get('application_name', 'Unknown App')}"
+        )
 
     @log_function()
     def _load_credentials(self) -> dict[str, Any]:
         """
         Load and validate Microsoft Graph credentials from file.
-        
+
         Loads OAuth 2.0 application credentials required for Microsoft Graph
         authentication including client ID, tenant ID, and application metadata.
-        
+
         Returns:
             Dictionary containing validated credentials
-            
+
         Raises:
             FileNotFoundError: If credentials file doesn't exist
             ValueError: If credentials file is invalid or missing required fields
         """
         if not self.credentials_path.exists():
-            raise FileNotFoundError(f"Microsoft Graph credentials file not found: {self.credentials_path}")
+            raise FileNotFoundError(
+                f"Microsoft Graph credentials file not found: {self.credentials_path}"
+            )
 
         try:
             with open(self.credentials_path) as f:
                 credentials = json.load(f)
 
             # Validate required fields
-            required_fields = ['client_id', 'tenant_id']
-            missing_fields = [field for field in required_fields if field not in credentials]
+            required_fields = ["client_id", "tenant_id"]
+            missing_fields = [
+                field for field in required_fields if field not in credentials
+            ]
 
             if missing_fields:
-                raise ValueError(f"Missing required credential fields: {missing_fields}")
+                raise ValueError(
+                    f"Missing required credential fields: {missing_fields}"
+                )
 
             # Validate field formats
-            if not credentials['client_id'] or len(credentials['client_id']) < 10:
+            if not credentials["client_id"] or len(credentials["client_id"]) < 10:
                 raise ValueError("Invalid client_id in credentials")
 
-            if not credentials['tenant_id'] or len(credentials['tenant_id']) < 10:
+            if not credentials["tenant_id"] or len(credentials["tenant_id"]) < 10:
                 raise ValueError("Invalid tenant_id in credentials")
 
-            self.logger.info(f"Loaded Microsoft Graph credentials for tenant: {credentials['tenant_id'][:8]}...")
+            self.logger.info(
+                f"Loaded Microsoft Graph credentials for tenant: {credentials['tenant_id'][:8]}..."
+            )
             return credentials
 
         except json.JSONDecodeError as e:
@@ -376,19 +395,19 @@ class MicrosoftGraphInterface(BaseEmailInterface):
     async def connect(self) -> bool:
         """
         Establish connection to Microsoft Graph using OAuth 2.0 authentication.
-        
+
         Performs complete OAuth 2.0 authentication flow with Microsoft identity
         platform including token caching, refresh logic, and interactive authentication
         when required. Provides user experience for business environments.
-        
+
         Returns:
             True if connection successful, False otherwise
-            
+
         Raises:
             AuthenticationError: If authentication fails
             ConnectionError: If network connection fails
             RuntimeError: If critical components are unavailable
-            
+
         Business Flow:
             1. Check for cached authentication tokens
             2. Attempt silent token refresh if expired
@@ -400,16 +419,15 @@ class MicrosoftGraphInterface(BaseEmailInterface):
             self.logger.info("Starting Microsoft Graph authentication flow")
 
             # Extract credentials
-            client_id = self.credentials['client_id']
-            tenant_id = self.credentials['tenant_id']
+            client_id = self.credentials["client_id"]
+            tenant_id = self.credentials["tenant_id"]
             redirect_uri = "http://localhost:8080"
 
             authority = f"{self.AUTH_ENDPOINT}/{tenant_id}"
 
             # Create MSAL public client application
             self.app = msal.PublicClientApplication(
-                client_id=client_id,
-                authority=authority
+                client_id=client_id, authority=authority
             )
 
             # Check for cached tokens first
@@ -419,24 +437,40 @@ class MicrosoftGraphInterface(BaseEmailInterface):
             if accounts:
                 self.logger.info(f"Found {len(accounts)} cached Microsoft account(s)")
                 # Attempt silent token acquisition
-                token_result = self.app.acquire_token_silent(self.SCOPES, account=accounts[0])
+                token_result = self.app.acquire_token_silent(
+                    self.SCOPES, account=accounts[0]
+                )
 
                 if token_result:
-                    self.logger.info("Successfully acquired token silently (cached/refreshed)")
+                    self.logger.info(
+                        "Successfully acquired token silently (cached/refreshed)"
+                    )
                 else:
-                    self.logger.info("Silent token acquisition failed - interactive authentication required")
+                    self.logger.info(
+                        "Silent token acquisition failed - interactive authentication required"
+                    )
 
             # If no cached token or silent acquisition failed, do interactive flow
             if not token_result:
-                token_result = await self._perform_interactive_authentication(redirect_uri)
+                token_result = await self._perform_interactive_authentication(
+                    redirect_uri
+                )
 
             # Validate token result
-            if not token_result or 'access_token' not in token_result:
-                error_msg = token_result.get('error_description', 'Unknown authentication error') if token_result else 'No token received'
-                raise AuthenticationError(f"Microsoft Graph authentication failed: {error_msg}")
+            if not token_result or "access_token" not in token_result:
+                error_msg = (
+                    token_result.get(
+                        "error_description", "Unknown authentication error"
+                    )
+                    if token_result
+                    else "No token received"
+                )
+                raise AuthenticationError(
+                    f"Microsoft Graph authentication failed: {error_msg}"
+                )
 
             # Store access token
-            self.access_token = token_result['access_token']
+            self.access_token = token_result["access_token"]
             self.logger.info("Microsoft Graph access token acquired successfully")
 
             # Initialize HTTP session
@@ -444,11 +478,13 @@ class MicrosoftGraphInterface(BaseEmailInterface):
 
             # Validate connection by getting user profile
             profile = await self.get_profile()
-            self.user_email = profile.get('email')
-            self.display_name = profile.get('name')
+            self.user_email = profile.get("email")
+            self.display_name = profile.get("name")
             self.is_connected = True
 
-            self.logger.info(f"Microsoft Graph connection established for {self.user_email}")
+            self.logger.info(
+                f"Microsoft Graph connection established for {self.user_email}"
+            )
             return True
 
         except AuthenticationError:
@@ -458,20 +494,22 @@ class MicrosoftGraphInterface(BaseEmailInterface):
             raise ConnectionError(f"Failed to connect to Microsoft Graph: {e}")
 
     @log_function()
-    async def _perform_interactive_authentication(self, redirect_uri: str) -> dict[str, Any] | None:
+    async def _perform_interactive_authentication(
+        self, redirect_uri: str
+    ) -> dict[str, Any] | None:
         """
         Perform interactive OAuth 2.0 authentication with web browser.
-        
+
         Launches interactive authentication flow using system web browser
         with callback handling and user experience optimized
         for business environments.
-        
+
         Args:
             redirect_uri: OAuth callback URI for authorization code
-            
+
         Returns:
             Token result dictionary or None if authentication failed
-            
+
         Raises:
             AuthenticationError: If interactive authentication fails
             RuntimeError: If local server cannot be started
@@ -485,7 +523,9 @@ class MicrosoftGraphInterface(BaseEmailInterface):
 
         for attempt in range(max_port_attempts):
             try:
-                server = socketserver.TCPServer(("", port + attempt), AuthorizationHandler)
+                server = socketserver.TCPServer(
+                    ("", port + attempt), AuthorizationHandler
+                )
                 server.auth_code = None
                 server.state = None
                 port = port + attempt
@@ -505,12 +545,13 @@ class MicrosoftGraphInterface(BaseEmailInterface):
 
             # Initialize authorization code flow
             flow = self.app.initiate_auth_code_flow(
-                scopes=self.SCOPES,
-                redirect_uri=actual_redirect_uri
+                scopes=self.SCOPES, redirect_uri=actual_redirect_uri
             )
 
             if "auth_uri" not in flow:
-                raise AuthenticationError("Failed to create Microsoft Graph authorization flow")
+                raise AuthenticationError(
+                    "Failed to create Microsoft Graph authorization flow"
+                )
 
             auth_url = flow["auth_uri"]
 
@@ -539,19 +580,22 @@ class MicrosoftGraphInterface(BaseEmailInterface):
                 elapsed += poll_interval
 
                 if elapsed % 30 == 0:  # Progress update every 30 seconds
-                    self.logger.info(f"Still waiting for authentication... ({elapsed}s elapsed)")
+                    self.logger.info(
+                        f"Still waiting for authentication... ({elapsed}s elapsed)"
+                    )
 
             if not server.auth_code:
-                raise AuthenticationError(f"Authentication timeout after {timeout_seconds} seconds")
+                raise AuthenticationError(
+                    f"Authentication timeout after {timeout_seconds} seconds"
+                )
 
             # Complete the flow with authorization code and state
-            auth_response = {'code': server.auth_code}
+            auth_response = {"code": server.auth_code}
             if server.state:
-                auth_response['state'] = server.state
+                auth_response["state"] = server.state
 
             token_result = self.app.acquire_token_by_auth_code_flow(
-                auth_code_flow=flow,
-                auth_response=auth_response
+                auth_code_flow=flow, auth_response=auth_response
             )
 
             self.logger.info("Interactive authentication completed successfully")
@@ -568,7 +612,7 @@ class MicrosoftGraphInterface(BaseEmailInterface):
     async def _initialize_http_session(self) -> None:
         """
         Initialize async HTTP session for Microsoft Graph API calls.
-        
+
         Creates configured aiohttp session with appropriate headers,
         timeouts, and error handling for API interactions.
         """
@@ -577,9 +621,9 @@ class MicrosoftGraphInterface(BaseEmailInterface):
 
         # Configure session with authentication headers
         headers = {
-            'Authorization': f'Bearer {self.access_token}',
-            'Content-Type': 'application/json',
-            'User-Agent': 'EmailAgent-MicrosoftGraph/1.0'
+            "Authorization": f"Bearer {self.access_token}",
+            "Content-Type": "application/json",
+            "User-Agent": "EmailAgent-MicrosoftGraph/1.0",
         }
 
         timeout = aiohttp.ClientTimeout(total=self.REQUEST_TIMEOUT)
@@ -587,7 +631,7 @@ class MicrosoftGraphInterface(BaseEmailInterface):
         self.session = aiohttp.ClientSession(
             headers=headers,
             timeout=timeout,
-            raise_for_status=False  # Handle errors manually
+            raise_for_status=False,  # Handle errors manually
         )
 
         self.logger.info("HTTP session initialized for Microsoft Graph API")
@@ -596,7 +640,7 @@ class MicrosoftGraphInterface(BaseEmailInterface):
     async def disconnect(self) -> None:
         """
         Disconnect from Microsoft Graph and cleanup resources.
-        
+
         Properly closes HTTP sessions, clears authentication tokens,
         and resets connection state with complete cleanup.
         """
@@ -625,13 +669,13 @@ class MicrosoftGraphInterface(BaseEmailInterface):
     async def get_profile(self) -> dict[str, Any]:
         """
         Retrieve user profile information from Microsoft Graph.
-        
+
         Gets complete user profile including email address, display name,
         and other relevant information for business context and logging.
-        
+
         Returns:
             Dictionary containing user profile information
-            
+
         Raises:
             ConnectionError: If not connected to Microsoft Graph
             EmailSystemError: If profile retrieval fails
@@ -649,21 +693,30 @@ class MicrosoftGraphInterface(BaseEmailInterface):
 
                     # Extract relevant profile information
                     profile = {
-                        'email': profile_data.get('mail') or profile_data.get('userPrincipalName'),
-                        'name': profile_data.get('displayName', 'Unknown User'),
-                        'id': profile_data.get('id'),
-                        'job_title': profile_data.get('jobTitle'),
-                        'department': profile_data.get('department'),
-                        'office_location': profile_data.get('officeLocation')
+                        "email": profile_data.get("mail")
+                        or profile_data.get("userPrincipalName"),
+                        "name": profile_data.get("displayName", "Unknown User"),
+                        "id": profile_data.get("id"),
+                        "job_title": profile_data.get("jobTitle"),
+                        "department": profile_data.get("department"),
+                        "office_location": profile_data.get("officeLocation"),
                     }
 
                     self.logger.info(f"Retrieved profile for {profile['email']}")
                     return profile
 
                 else:
-                    error_data = await response.json() if response.content_type == 'application/json' else {}
-                    error_msg = error_data.get('error', {}).get('message', f'HTTP {response.status}')
-                    raise EmailSystemError(f"Failed to get Microsoft Graph profile: {error_msg}")
+                    error_data = (
+                        await response.json()
+                        if response.content_type == "application/json"
+                        else {}
+                    )
+                    error_msg = error_data.get("error", {}).get(
+                        "message", f"HTTP {response.status}"
+                    )
+                    raise EmailSystemError(
+                        f"Failed to get Microsoft Graph profile: {error_msg}"
+                    )
 
         except Exception as e:
             if isinstance(e, EmailSystemError):
@@ -697,47 +750,47 @@ class MicrosoftGraphInterface(BaseEmailInterface):
                 if criteria.date_after.tzinfo is None:
                     # Add UTC timezone if naive datetime
                     criteria.date_after = criteria.date_after.replace(tzinfo=UTC)
-                iso_date = criteria.date_after.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+                iso_date = criteria.date_after.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
                 filters.append(f"receivedDateTime ge {iso_date}")
             if criteria.date_before:
                 # Use proper ISO format for Microsoft Graph compatibility
                 if criteria.date_before.tzinfo is None:
                     # Add UTC timezone if naive datetime
                     criteria.date_before = criteria.date_before.replace(tzinfo=UTC)
-                iso_date = criteria.date_before.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+                iso_date = criteria.date_before.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
                 filters.append(f"receivedDateTime le {iso_date}")
 
             # Build URL
             url = f"{self.GRAPH_ENDPOINT}/me/messages"
             params = {
-                '$top': str(criteria.max_results),
-                '$orderby': 'receivedDateTime desc'
+                "$top": str(criteria.max_results),
+                "$orderby": "receivedDateTime desc",
             }
 
             # If searching for attachments, expand to include attachment data
             if criteria.has_attachments:
-                params['$expand'] = 'attachments'
+                params["$expand"] = "attachments"
 
             if filters:
                 # Microsoft Graph requires: properties in $orderby must also appear in $filter
                 # AND properties in $orderby must appear FIRST in $filter
 
                 # Check if we already have receivedDateTime filters from date criteria
-                has_date_filter = any('receivedDateTime' in f for f in filters)
+                has_date_filter = any("receivedDateTime" in f for f in filters)
                 if not has_date_filter:
                     # Add minimal date filter only if no date criteria specified
                     date_filter = "receivedDateTime ge 1900-01-01T00:00:00Z"
                     all_filters = [date_filter] + filters
                 else:
                     # Move existing receivedDateTime filters to the front
-                    date_filters = [f for f in filters if 'receivedDateTime' in f]
-                    other_filters = [f for f in filters if 'receivedDateTime' not in f]
+                    date_filters = [f for f in filters if "receivedDateTime" in f]
+                    other_filters = [f for f in filters if "receivedDateTime" not in f]
                     all_filters = date_filters + other_filters
 
-                params['$filter'] = ' and '.join(all_filters)
+                params["$filter"] = " and ".join(all_filters)
 
             if criteria.query:
-                params['$search'] = f'"{criteria.query}"'
+                params["$search"] = f'"{criteria.query}"'
 
             # Handle labels (folders)
             if criteria.labels:
@@ -748,22 +801,30 @@ class MicrosoftGraphInterface(BaseEmailInterface):
 
             async with self.session.get(url, params=params) as response:
                 if response.status == 401:
-                    raise AuthenticationError("Microsoft Graph token expired or invalid")
+                    raise AuthenticationError(
+                        "Microsoft Graph token expired or invalid"
+                    )
                 elif response.status != 200:
-                    raise EmailSystemError(f"Failed to list messages: HTTP {response.status}")
+                    raise EmailSystemError(
+                        f"Failed to list messages: HTTP {response.status}"
+                    )
 
                 data = await response.json()
-                messages = data.get('value', [])
+                messages = data.get("value", [])
 
                 # Convert to Email objects
                 emails = []
-                include_attachments = criteria.has_attachments  # Include attachments if we searched for them
+                include_attachments = (
+                    criteria.has_attachments
+                )  # Include attachments if we searched for them
                 for msg in messages:
                     try:
                         email_obj = self._parse_graph_message(msg, include_attachments)
                         emails.append(email_obj)
                     except Exception as e:
-                        logger.warning("Failed to parse message %s: %s", msg.get('id'), e)
+                        logger.warning(
+                            "Failed to parse message %s: %s", msg.get("id"), e
+                        )
                         continue
 
                 return emails
@@ -771,25 +832,31 @@ class MicrosoftGraphInterface(BaseEmailInterface):
         except aiohttp.ClientError as e:
             raise EmailSystemError(f"Failed to list Microsoft Graph messages: {e}")
 
-    async def get_email(self, email_id: str, include_attachments: bool = False) -> Email:
+    async def get_email(
+        self, email_id: str, include_attachments: bool = False
+    ) -> Email:
         """Get a specific email by ID."""
         if not self.session:
             raise ConnectionError("Not connected to Microsoft Graph")
 
         try:
             # Get message with attachments if requested
-            expand = '$expand=attachments' if include_attachments else ''
+            expand = "$expand=attachments" if include_attachments else ""
             url = f"{self.GRAPH_ENDPOINT}/me/messages/{email_id}"
             if expand:
                 url += f"?{expand}"
 
             async with self.session.get(url) as response:
                 if response.status == 401:
-                    raise AuthenticationError("Microsoft Graph token expired or invalid")
+                    raise AuthenticationError(
+                        "Microsoft Graph token expired or invalid"
+                    )
                 elif response.status == 404:
                     raise EmailNotFoundError(f"Email {email_id} not found")
                 elif response.status != 200:
-                    raise EmailSystemError(f"Failed to get message: HTTP {response.status}")
+                    raise EmailSystemError(
+                        f"Failed to get message: HTTP {response.status}"
+                    )
 
                 data = await response.json()
                 return self._parse_graph_message(data, include_attachments)
@@ -805,77 +872,86 @@ class MicrosoftGraphInterface(BaseEmailInterface):
         try:
             # Build message
             message = {
-                'subject': request.subject,
-                'toRecipients': [
+                "subject": request.subject,
+                "toRecipients": [
                     {
-                        'emailAddress': {
-                            'address': addr.address,
-                            'name': addr.name or addr.address
+                        "emailAddress": {
+                            "address": addr.address,
+                            "name": addr.name or addr.address,
                         }
-                    } for addr in request.to
+                    }
+                    for addr in request.to
                 ],
-                'body': {
-                    'contentType': 'HTML' if request.body_html else 'Text',
-                    'content': request.body_html or request.body_text or ''
-                }
+                "body": {
+                    "contentType": "HTML" if request.body_html else "Text",
+                    "content": request.body_html or request.body_text or "",
+                },
             }
 
             if request.cc:
-                message['ccRecipients'] = [
+                message["ccRecipients"] = [
                     {
-                        'emailAddress': {
-                            'address': addr.address,
-                            'name': addr.name or addr.address
+                        "emailAddress": {
+                            "address": addr.address,
+                            "name": addr.name or addr.address,
                         }
-                    } for addr in request.cc
+                    }
+                    for addr in request.cc
                 ]
 
             if request.bcc:
-                message['bccRecipients'] = [
+                message["bccRecipients"] = [
                     {
-                        'emailAddress': {
-                            'address': addr.address,
-                            'name': addr.name or addr.address
+                        "emailAddress": {
+                            "address": addr.address,
+                            "name": addr.name or addr.address,
                         }
-                    } for addr in request.bcc
+                    }
+                    for addr in request.bcc
                 ]
 
             # Set importance
             if request.importance == EmailImportance.HIGH:
-                message['importance'] = 'high'
+                message["importance"] = "high"
             elif request.importance == EmailImportance.LOW:
-                message['importance'] = 'low'
+                message["importance"] = "low"
             else:
-                message['importance'] = 'normal'
+                message["importance"] = "normal"
 
             # Handle reply threading
             if request.reply_to_message_id:
                 # For replies, we should use the reply endpoint instead
                 url = f"{self.GRAPH_ENDPOINT}/me/messages/{request.reply_to_message_id}/reply"
-                payload = {'message': message}
+                payload = {"message": message}
             else:
                 url = f"{self.GRAPH_ENDPOINT}/me/sendMail"
-                payload = {'message': message}
+                payload = {"message": message}
 
             # Add attachments
             if request.attachments:
-                message['attachments'] = []
+                message["attachments"] = []
                 for attachment in request.attachments:
                     if attachment.content:
                         content_bytes = base64.b64encode(attachment.content).decode()
-                        message['attachments'].append({
-                            '@odata.type': '#microsoft.graph.fileAttachment',
-                            'name': attachment.filename,
-                            'contentType': attachment.content_type,
-                            'contentBytes': content_bytes
-                        })
+                        message["attachments"].append(
+                            {
+                                "@odata.type": "#microsoft.graph.fileAttachment",
+                                "name": attachment.filename,
+                                "contentType": attachment.content_type,
+                                "contentBytes": content_bytes,
+                            }
+                        )
 
             async with self.session.post(url, json=payload) as response:
                 if response.status == 401:
-                    raise AuthenticationError("Microsoft Graph token expired or invalid")
+                    raise AuthenticationError(
+                        "Microsoft Graph token expired or invalid"
+                    )
                 elif response.status not in [200, 202]:
                     error_text = await response.text()
-                    raise EmailSystemError(f"Failed to send message: HTTP {response.status} - {error_text}")
+                    raise EmailSystemError(
+                        f"Failed to send message: HTTP {response.status} - {error_text}"
+                    )
 
                 # Microsoft Graph doesn't return message ID on send
                 # Return a placeholder ID
@@ -886,11 +962,11 @@ class MicrosoftGraphInterface(BaseEmailInterface):
 
     async def mark_as_read(self, email_id: str) -> bool:
         """Mark email as read."""
-        return await self._update_message(email_id, {'isRead': True})
+        return await self._update_message(email_id, {"isRead": True})
 
     async def mark_as_unread(self, email_id: str) -> bool:
         """Mark email as unread."""
-        return await self._update_message(email_id, {'isRead': False})
+        return await self._update_message(email_id, {"isRead": False})
 
     async def delete_email(self, email_id: str) -> bool:
         """Delete an email."""
@@ -902,11 +978,15 @@ class MicrosoftGraphInterface(BaseEmailInterface):
 
             async with self.session.delete(url) as response:
                 if response.status == 401:
-                    raise AuthenticationError("Microsoft Graph token expired or invalid")
+                    raise AuthenticationError(
+                        "Microsoft Graph token expired or invalid"
+                    )
                 elif response.status == 404:
                     raise EmailNotFoundError(f"Email {email_id} not found")
                 elif response.status != 204:
-                    raise EmailSystemError(f"Failed to delete message: HTTP {response.status}")
+                    raise EmailSystemError(
+                        f"Failed to delete message: HTTP {response.status}"
+                    )
 
                 return True
 
@@ -923,13 +1003,17 @@ class MicrosoftGraphInterface(BaseEmailInterface):
 
             async with self.session.get(url) as response:
                 if response.status == 401:
-                    raise AuthenticationError("Microsoft Graph token expired or invalid")
+                    raise AuthenticationError(
+                        "Microsoft Graph token expired or invalid"
+                    )
                 elif response.status != 200:
-                    raise EmailSystemError(f"Failed to get folders: HTTP {response.status}")
+                    raise EmailSystemError(
+                        f"Failed to get folders: HTTP {response.status}"
+                    )
 
                 data = await response.json()
-                folders = data.get('value', [])
-                return [folder['displayName'] for folder in folders]
+                folders = data.get("value", [])
+                return [folder["displayName"] for folder in folders]
 
         except aiohttp.ClientError as e:
             raise EmailSystemError(f"Failed to get Microsoft Graph folders: {e}")
@@ -949,20 +1033,26 @@ class MicrosoftGraphInterface(BaseEmailInterface):
 
             # Move message to folder
             url = f"{self.GRAPH_ENDPOINT}/me/messages/{email_id}/move"
-            payload = {'destinationId': folder_id}
+            payload = {"destinationId": folder_id}
 
             async with self.session.post(url, json=payload) as response:
                 if response.status == 401:
-                    raise AuthenticationError("Microsoft Graph token expired or invalid")
+                    raise AuthenticationError(
+                        "Microsoft Graph token expired or invalid"
+                    )
                 elif response.status == 404:
                     raise EmailNotFoundError(f"Email {email_id} not found")
                 elif response.status not in [200, 201]:
-                    raise EmailSystemError(f"Failed to move message: HTTP {response.status}")
+                    raise EmailSystemError(
+                        f"Failed to move message: HTTP {response.status}"
+                    )
 
                 return True
 
         except aiohttp.ClientError as e:
-            raise EmailSystemError(f"Failed to add label to Microsoft Graph message: {e}")
+            raise EmailSystemError(
+                f"Failed to add label to Microsoft Graph message: {e}"
+            )
 
     async def remove_label(self, email_id: str, label: str) -> bool:
         """Move email from folder back to inbox."""
@@ -979,17 +1069,25 @@ class MicrosoftGraphInterface(BaseEmailInterface):
 
             async with self.session.get(url) as response:
                 if response.status == 401:
-                    raise AuthenticationError("Microsoft Graph token expired or invalid")
+                    raise AuthenticationError(
+                        "Microsoft Graph token expired or invalid"
+                    )
                 elif response.status == 404:
-                    raise EmailNotFoundError(f"Attachment {attachment_id} not found in email {email_id}")
+                    raise EmailNotFoundError(
+                        f"Attachment {attachment_id} not found in email {email_id}"
+                    )
                 elif response.status != 200:
-                    raise EmailSystemError(f"Failed to download attachment: HTTP {response.status}")
+                    raise EmailSystemError(
+                        f"Failed to download attachment: HTTP {response.status}"
+                    )
 
                 content = await response.read()
                 return content
 
         except aiohttp.ClientError as e:
-            raise EmailSystemError(f"Failed to download Microsoft Graph attachment: {e}")
+            raise EmailSystemError(
+                f"Failed to download Microsoft Graph attachment: {e}"
+            )
 
     # Helper methods
     async def _run_in_executor(self, func: Callable, *args: Any, **kwargs: Any) -> Any:
@@ -1007,11 +1105,15 @@ class MicrosoftGraphInterface(BaseEmailInterface):
 
             async with self.session.patch(url, json=update_data) as response:
                 if response.status == 401:
-                    raise AuthenticationError("Microsoft Graph token expired or invalid")
+                    raise AuthenticationError(
+                        "Microsoft Graph token expired or invalid"
+                    )
                 elif response.status == 404:
                     raise EmailNotFoundError(f"Email {email_id} not found")
                 elif response.status != 200:
-                    raise EmailSystemError(f"Failed to update message: HTTP {response.status}")
+                    raise EmailSystemError(
+                        f"Failed to update message: HTTP {response.status}"
+                    )
 
                 return True
 
@@ -1031,74 +1133,81 @@ class MicrosoftGraphInterface(BaseEmailInterface):
                     return {}
 
                 data = await response.json()
-                folders = data.get('value', [])
-                return {folder['displayName']: folder['id'] for folder in folders}
+                folders = data.get("value", [])
+                return {folder["displayName"]: folder["id"] for folder in folders}
 
         except aiohttp.ClientError:
             return {}
 
-    def _parse_graph_message(self, message: dict[str, Any], include_attachments: bool = False) -> Email:
+    def _parse_graph_message(
+        self, message: dict[str, Any], include_attachments: bool = False
+    ) -> Email:
         """Parse Microsoft Graph message into Email object."""
 
         # Extract basic fields
-        subject = message.get('subject', '')
-        sender_data = message.get('from', {}).get('emailAddress', {})
+        subject = message.get("subject", "")
+        sender_data = message.get("from", {}).get("emailAddress", {})
         sender = EmailAddress(
-            address=sender_data.get('address', ''),
-            name=sender_data.get('name')
+            address=sender_data.get("address", ""), name=sender_data.get("name")
         )
 
         # Parse recipients
         recipients = []
-        for recipient in message.get('toRecipients', []):
-            addr_data = recipient.get('emailAddress', {})
-            recipients.append(EmailAddress(
-                address=addr_data.get('address', ''),
-                name=addr_data.get('name')
-            ))
+        for recipient in message.get("toRecipients", []):
+            addr_data = recipient.get("emailAddress", {})
+            recipients.append(
+                EmailAddress(
+                    address=addr_data.get("address", ""), name=addr_data.get("name")
+                )
+            )
 
         cc = []
-        for recipient in message.get('ccRecipients', []):
-            addr_data = recipient.get('emailAddress', {})
-            cc.append(EmailAddress(
-                address=addr_data.get('address', ''),
-                name=addr_data.get('name')
-            ))
+        for recipient in message.get("ccRecipients", []):
+            addr_data = recipient.get("emailAddress", {})
+            cc.append(
+                EmailAddress(
+                    address=addr_data.get("address", ""), name=addr_data.get("name")
+                )
+            )
 
         # Parse dates
         sent_date = None
         received_date = None
 
-        if message.get('sentDateTime'):
-            sent_date = datetime.fromisoformat(message['sentDateTime'].replace('Z', '+00:00'))
-        if message.get('receivedDateTime'):
-            received_date = datetime.fromisoformat(message['receivedDateTime'].replace('Z', '+00:00'))
+        if message.get("sentDateTime"):
+            sent_date = datetime.fromisoformat(
+                message["sentDateTime"].replace("Z", "+00:00")
+            )
+        if message.get("receivedDateTime"):
+            received_date = datetime.fromisoformat(
+                message["receivedDateTime"].replace("Z", "+00:00")
+            )
 
         # Parse body
-        body_data = message.get('body', {})
+        body_data = message.get("body", {})
         body_text = None
         body_html = None
 
-        if body_data.get('contentType') == 'text':
-            body_text = body_data.get('content')
-        elif body_data.get('contentType') == 'html':
-            body_html = body_data.get('content')
+        if body_data.get("contentType") == "text":
+            body_text = body_data.get("content")
+        elif body_data.get("contentType") == "html":
+            body_html = body_data.get("content")
 
         # Parse attachments
         attachments = []
-        if include_attachments and message.get('attachments'):
-            for att in message['attachments']:
+        if include_attachments and message.get("attachments"):
+            for att in message["attachments"]:
                 attachment = EmailAttachment(
-                    filename=att.get('name', ''),
-                    content_type=att.get('contentType', ''),
-                    size=att.get('size', 0),
-                    attachment_id=att.get('id')
+                    filename=att.get("name", ""),
+                    content_type=att.get("contentType", ""),
+                    size=att.get("size", 0),
+                    attachment_id=att.get("id"),
                 )
 
                 # If content is included
-                if att.get('contentBytes'):
+                if att.get("contentBytes"):
                     try:
-                        attachment.content = base64.b64decode(att['contentBytes'])
+                        attachment.content = base64.b64decode(att["contentBytes"])
                     except:
                         pass
 
@@ -1106,31 +1215,31 @@ class MicrosoftGraphInterface(BaseEmailInterface):
 
         # Parse importance
         importance = EmailImportance.NORMAL
-        graph_importance = message.get('importance', 'normal').lower()
-        if graph_importance == 'high':
+        graph_importance = message.get("importance", "normal").lower()
+        if graph_importance == "high":
             importance = EmailImportance.HIGH
-        elif graph_importance == 'low':
+        elif graph_importance == "low":
             importance = EmailImportance.LOW
 
         # Parse flags
-        is_read = message.get('isRead', False)
-        is_flagged = message.get('flag', {}).get('flagStatus') == 'flagged'
+        is_read = message.get("isRead", False)
+        is_flagged = message.get("flag", {}).get("flagStatus") == "flagged"
 
         # Build headers dict from available data
         headers = {
-            'subject': subject,
-            'from': str(sender),
-            'to': ', '.join([str(r) for r in recipients]),
-            'message-id': message.get('internetMessageId'),
-            'date': message.get('sentDateTime', ''),
+            "subject": subject,
+            "from": str(sender),
+            "to": ", ".join([str(r) for r in recipients]),
+            "message-id": message.get("internetMessageId"),
+            "date": message.get("sentDateTime", ""),
         }
 
-        if message.get('conversationId'):
-            headers['conversation-id'] = message['conversationId']
+        if message.get("conversationId"):
+            headers["conversation-id"] = message["conversationId"]
 
         return Email(
-            id=message['id'],
-            thread_id=message.get('conversationId'),
+            id=message["id"],
+            thread_id=message.get("conversationId"),
             subject=subject,
             sender=sender,
             recipients=recipients,
@@ -1145,7 +1254,7 @@ class MicrosoftGraphInterface(BaseEmailInterface):
             received_date=received_date,
             headers=headers,
             labels=[],  # Microsoft Graph uses folders, not labels
-            message_id=message.get('internetMessageId'),
+            message_id=message.get("internetMessageId"),
             in_reply_to=None,  # Would need to parse this from headers
-            raw_data=message
+            raw_data=message,
         )

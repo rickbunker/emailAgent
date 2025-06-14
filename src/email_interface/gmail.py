@@ -18,7 +18,7 @@ Business Context:
     Designed for private market asset management firms using Google Workspace
     for processing sensitive financial communications, deal documents, and
     investor correspondence with institutional-grade security and compliance.
-    
+
 Technical Architecture:
     - Google Auth library for OAuth 2.0 flows
     - Gmail API v1 for complete email operations
@@ -38,6 +38,7 @@ License -- for Inveniam use only
 Copyright 2025 by Inveniam Capital Partners, LLC and Rick Bunker
 """
 
+# # Standard library imports
 import asyncio
 import base64
 import email
@@ -53,14 +54,16 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from typing import Any
 
+# # Third-party imports
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
+# # Local application imports
 from utils.logging_system import get_logger, log_function
 
 from .base import (
@@ -79,14 +82,15 @@ from .base import (
 # Initialize logger
 logger = get_logger(__name__)
 
+
 class GmailInterface(BaseEmailInterface):
     """
     Gmail API integration for email management.
-    
+
     Provides complete email management capabilities through Gmail API v1
     with production-grade authentication, error handling, and monitoring designed
     for private market asset management environments using Google Workspace.
-    
+
     Features:
         - OAuth 2.0 authentication with Google Identity platform
         - Complete email operations (CRUD, search, labels)
@@ -95,12 +99,12 @@ class GmailInterface(BaseEmailInterface):
         - Business-context error handling and retry logic
         - Performance monitoring and health checking
         - Contacts integration for sender validation
-        
+
     Business Context:
         Designed for asset management firms requiring reliable Google Workspace
         integration for processing sensitive financial communications, investor
         updates, and deal-related correspondence with business security.
-        
+
     Technical Architecture:
         - Google Auth libraries for OAuth 2.0 authentication
         - Gmail API v1 for email operations
@@ -111,10 +115,10 @@ class GmailInterface(BaseEmailInterface):
 
     # Gmail API scopes for complete email access
     SCOPES = [
-        'https://www.googleapis.com/auth/gmail.readonly',
-        'https://www.googleapis.com/auth/gmail.send',
-        'https://www.googleapis.com/auth/gmail.modify',
-        'https://www.googleapis.com/auth/contacts.readonly'  # For contact integration
+        "https://www.googleapis.com/auth/gmail.readonly",
+        "https://www.googleapis.com/auth/gmail.send",
+        "https://www.googleapis.com/auth/gmail.modify",
+        "https://www.googleapis.com/auth/contacts.readonly",  # For contact integration
     ]
 
     # API configuration and limits
@@ -126,14 +130,14 @@ class GmailInterface(BaseEmailInterface):
     def __init__(self) -> None:
         """
         Initialize Gmail interface with complete configuration.
-        
+
         Sets up the Gmail API client with OAuth 2.0 authentication,
         thread pool for blocking operations, and logging
         for production deployment in asset management environments.
-        
+
         Raises:
             RuntimeError: If required Google libraries are missing
-            
+
         Note:
             Requires valid Google OAuth 2.0 credentials for Gmail API access
             with appropriate scopes for email management operations.
@@ -159,25 +163,25 @@ class GmailInterface(BaseEmailInterface):
     async def connect(self, credentials: dict[str, Any]) -> bool:
         """
         Establish connection to Gmail using OAuth 2.0 authentication.
-        
+
         Performs complete OAuth 2.0 authentication flow with Google Identity
         platform including token caching, refresh logic, and interactive authentication
         when required. Provides user experience for business environments.
-        
+
         Args:
             credentials: Authentication configuration containing one of:
                 - 'credentials_file': Path to OAuth 2.0 credentials.json (first-time auth)
                 - 'token_file': Path to token.json file (existing auth)
                 - 'token_data': Direct token data dictionary
-                
+
         Returns:
             True if connection successful, False otherwise
-            
+
         Raises:
             AuthenticationError: If authentication fails
             ConnectionError: If network connection fails
             ValueError: If credentials configuration is invalid
-            
+
         Business Flow:
             1. Validate credentials configuration
             2. Check for cached authentication tokens
@@ -192,12 +196,20 @@ class GmailInterface(BaseEmailInterface):
             creds = None
 
             # Load existing token if available
-            if 'token_file' in credentials and os.path.exists(credentials['token_file']):
-                self.logger.info(f"Loading cached token from {credentials['token_file']}")
-                creds = Credentials.from_authorized_user_file(credentials['token_file'], self.SCOPES)
-            elif 'token_data' in credentials:
+            if "token_file" in credentials and os.path.exists(
+                credentials["token_file"]
+            ):
+                self.logger.info(
+                    f"Loading cached token from {credentials['token_file']}"
+                )
+                creds = Credentials.from_authorized_user_file(
+                    credentials["token_file"], self.SCOPES
+                )
+            elif "token_data" in credentials:
                 self.logger.info("Loading token from provided token data")
-                creds = Credentials.from_authorized_user_info(credentials['token_data'], self.SCOPES)
+                creds = Credentials.from_authorized_user_info(
+                    credentials["token_data"], self.SCOPES
+                )
 
             # Handle token validation and refresh
             if not creds or not creds.valid:
@@ -208,26 +220,34 @@ class GmailInterface(BaseEmailInterface):
                     self.logger.info("Gmail token refreshed successfully")
                 else:
                     # Perform full OAuth flow
-                    if 'credentials_file' not in credentials:
-                        raise AuthenticationError("No credentials file provided for initial Gmail authentication")
+                    if "credentials_file" not in credentials:
+                        raise AuthenticationError(
+                            "No credentials file provided for initial Gmail authentication"
+                        )
 
                     self.logger.info("Starting interactive Gmail OAuth flow")
-                    creds = await self._perform_oauth_flow(credentials['credentials_file'])
+                    creds = await self._perform_oauth_flow(
+                        credentials["credentials_file"]
+                    )
 
                 # Save refreshed/new token for future use
-                if 'token_file' in credentials:
-                    self.logger.info(f"Saving Gmail token to {credentials['token_file']}")
-                    with open(credentials['token_file'], 'w') as token:
+                if "token_file" in credentials:
+                    self.logger.info(
+                        f"Saving Gmail token to {credentials['token_file']}"
+                    )
+                    with open(credentials["token_file"], "w") as token:
                         token.write(creds.to_json())
 
             # Build Gmail service
             self.credentials = creds
-            self.service = await self._run_in_executor(lambda: build('gmail', 'v1', credentials=creds))
+            self.service = await self._run_in_executor(
+                lambda: build("gmail", "v1", credentials=creds)
+            )
 
             # Validate connection by getting user profile
             profile = await self.get_profile()
-            self.user_email = profile.get('email')
-            self.display_name = profile.get('name')
+            self.user_email = profile.get("email")
+            self.display_name = profile.get("name")
             self.is_connected = True
 
             self.logger.info(f"Gmail connection established for {self.user_email}")
@@ -243,25 +263,29 @@ class GmailInterface(BaseEmailInterface):
     async def _perform_oauth_flow(self, credentials_file: str) -> Credentials:
         """
         Perform interactive OAuth 2.0 flow with Google Identity platform.
-        
+
         Launches interactive authentication flow using system web browser
         with user experience optimized for business environments.
-        
+
         Args:
             credentials_file: Path to Google OAuth 2.0 credentials JSON file
-            
+
         Returns:
             Validated Google credentials object
-            
+
         Raises:
             AuthenticationError: If OAuth flow fails
             FileNotFoundError: If credentials file doesn't exist
         """
         if not os.path.exists(credentials_file):
-            raise FileNotFoundError(f"Gmail credentials file not found: {credentials_file}")
+            raise FileNotFoundError(
+                f"Gmail credentials file not found: {credentials_file}"
+            )
 
         try:
-            flow = InstalledAppFlow.from_client_secrets_file(credentials_file, self.SCOPES)
+            flow = InstalledAppFlow.from_client_secrets_file(
+                credentials_file, self.SCOPES
+            )
 
             self.logger.info("Starting Gmail OAuth 2.0 flow")
             logger.info("🌐 Opening browser for Gmail authentication...")
@@ -283,7 +307,7 @@ class GmailInterface(BaseEmailInterface):
     async def disconnect(self) -> None:
         """
         Disconnect from Gmail and cleanup resources.
-        
+
         Properly closes service connections, clears authentication tokens,
         and resets connection state with complete cleanup.
         """
@@ -307,13 +331,13 @@ class GmailInterface(BaseEmailInterface):
     async def get_profile(self) -> dict[str, Any]:
         """
         Retrieve user profile information from Gmail.
-        
+
         Gets complete user profile including email address, display name,
         and Gmail-specific information for business context and logging.
-        
+
         Returns:
             Dictionary containing user profile information
-            
+
         Raises:
             ConnectionError: If not connected to Gmail
             EmailSystemError: If profile retrieval fails
@@ -324,19 +348,19 @@ class GmailInterface(BaseEmailInterface):
         try:
             # Get Gmail profile information
             gmail_profile = await self._run_in_executor(
-                self.service.users().getProfile(userId='me').execute
+                self.service.users().getProfile(userId="me").execute
             )
 
             # Extract user information
-            email_address = gmail_profile.get('emailAddress', '')
-            name = email_address.split('@')[0] if email_address else 'Gmail User'
+            email_address = gmail_profile.get("emailAddress", "")
+            name = email_address.split("@")[0] if email_address else "Gmail User"
 
             profile = {
-                'email': email_address,
-                'name': name,
-                'messages_total': gmail_profile.get('messagesTotal', 0),
-                'threads_total': gmail_profile.get('threadsTotal', 0),
-                'history_id': gmail_profile.get('historyId')
+                "email": email_address,
+                "name": name,
+                "messages_total": gmail_profile.get("messagesTotal", 0),
+                "threads_total": gmail_profile.get("threadsTotal", 0),
+                "history_id": gmail_profile.get("historyId"),
             }
 
             self.logger.info(f"Retrieved Gmail profile for {email_address}")
@@ -353,18 +377,18 @@ class GmailInterface(BaseEmailInterface):
     async def _run_in_executor(self, func: Callable, *args: Any, **kwargs: Any) -> Any:
         """
         Execute blocking Gmail API calls in thread pool.
-        
+
         Provides async interface for blocking Google API calls with
         proper error handling and performance tracking.
-        
+
         Args:
             func: Blocking function to execute
             *args: Function arguments
             **kwargs: Function keyword arguments
-            
+
         Returns:
             Function result
-            
+
         Raises:
             Exception: Propagates any exception from the function call
         """
@@ -415,35 +439,34 @@ class GmailInterface(BaseEmailInterface):
             if criteria.is_flagged:
                 query_parts.append("is:starred")
             if criteria.date_after:
-                date_str = criteria.date_after.strftime('%Y/%m/%d')
+                date_str = criteria.date_after.strftime("%Y/%m/%d")
                 query_parts.append(f"after:{date_str}")
             if criteria.date_before:
-                date_str = criteria.date_before.strftime('%Y/%m/%d')
+                date_str = criteria.date_before.strftime("%Y/%m/%d")
                 query_parts.append(f"before:{date_str}")
             for label in criteria.labels:
                 query_parts.append(f"label:{label}")
 
-            query = ' '.join(query_parts) if query_parts else None
+            query = " ".join(query_parts) if query_parts else None
 
             # Search for messages
             result = await self._run_in_executor(
-                self.service.users().messages().list(
-                    userId='me',
-                    q=query,
-                    maxResults=criteria.max_results
-                ).execute
+                self.service.users()
+                .messages()
+                .list(userId="me", q=query, maxResults=criteria.max_results)
+                .execute
             )
 
-            messages = result.get('messages', [])
+            messages = result.get("messages", [])
 
             # Get full message details
             emails = []
             for msg in messages:
                 try:
-                    email_obj = await self.get_email(msg['id'])
+                    email_obj = await self.get_email(msg["id"])
                     emails.append(email_obj)
                 except Exception as e:
-                    logger.warning("Failed to get email %s: %s", msg['id'], e)
+                    logger.warning("Failed to get email %s: %s", msg["id"], e)
                     continue
 
             return emails
@@ -451,7 +474,9 @@ class GmailInterface(BaseEmailInterface):
         except HttpError as e:
             raise EmailSystemError(f"Failed to list Gmail messages: {e}")
 
-    async def get_email(self, email_id: str, include_attachments: bool = False) -> Email:
+    async def get_email(
+        self, email_id: str, include_attachments: bool = False
+    ) -> Email:
         """Get a specific email by ID."""
         if not self.service:
             raise ConnectionError("Not connected to Gmail")
@@ -459,11 +484,10 @@ class GmailInterface(BaseEmailInterface):
         try:
             # Get message
             message = await self._run_in_executor(
-                self.service.users().messages().get(
-                    userId='me',
-                    id=email_id,
-                    format='full'
-                ).execute
+                self.service.users()
+                .messages()
+                .get(userId="me", id=email_id, format="full")
+                .execute
             )
 
             return await self._parse_gmail_message(message, include_attachments)
@@ -481,26 +505,26 @@ class GmailInterface(BaseEmailInterface):
         try:
             # Create message
             if request.body_html:
-                message = MIMEMultipart('alternative')
+                message = MIMEMultipart("alternative")
                 if request.body_text:
-                    message.attach(MIMEText(request.body_text, 'plain'))
-                message.attach(MIMEText(request.body_html, 'html'))
+                    message.attach(MIMEText(request.body_text, "plain"))
+                message.attach(MIMEText(request.body_html, "html"))
             else:
-                message = MIMEText(request.body_text or '', 'plain')
+                message = MIMEText(request.body_text or "", "plain")
 
             # Set headers
-            message['to'] = ', '.join([addr.address for addr in request.to])
-            message['subject'] = request.subject
+            message["to"] = ", ".join([addr.address for addr in request.to])
+            message["subject"] = request.subject
 
             if request.cc:
-                message['cc'] = ', '.join([addr.address for addr in request.cc])
+                message["cc"] = ", ".join([addr.address for addr in request.cc])
             if request.bcc:
-                message['bcc'] = ', '.join([addr.address for addr in request.bcc])
+                message["bcc"] = ", ".join([addr.address for addr in request.bcc])
 
             # Handle reply threading
             if request.reply_to_message_id:
-                message['In-Reply-To'] = request.reply_to_message_id
-                message['References'] = request.reply_to_message_id
+                message["In-Reply-To"] = request.reply_to_message_id
+                message["References"] = request.reply_to_message_id
 
             # Add attachments
             if request.attachments:
@@ -511,17 +535,20 @@ class GmailInterface(BaseEmailInterface):
                     message.attach(text_part)
                     # Copy headers
                     for key, value in text_part.items():
-                        if key.lower() not in ['content-type', 'content-transfer-encoding']:
+                        if key.lower() not in [
+                            "content-type",
+                            "content-transfer-encoding",
+                        ]:
                             message[key] = value
 
                 for attachment in request.attachments:
                     if attachment.content:
-                        part = MIMEBase('application', 'octet-stream')
+                        part = MIMEBase("application", "octet-stream")
                         part.set_payload(attachment.content)
                         encoders.encode_base64(part)
                         part.add_header(
-                            'Content-Disposition',
-                            f'attachment; filename= {attachment.filename}'
+                            "Content-Disposition",
+                            f"attachment; filename= {attachment.filename}",
                         )
                         message.attach(part)
 
@@ -530,24 +557,24 @@ class GmailInterface(BaseEmailInterface):
 
             # Send message
             result = await self._run_in_executor(
-                self.service.users().messages().send(
-                    userId='me',
-                    body={'raw': raw_message}
-                ).execute
+                self.service.users()
+                .messages()
+                .send(userId="me", body={"raw": raw_message})
+                .execute
             )
 
-            return result['id']
+            return result["id"]
 
         except HttpError as e:
             raise EmailSystemError(f"Failed to send Gmail message: {e}")
 
     async def mark_as_read(self, email_id: str) -> bool:
         """Mark email as read."""
-        return await self._modify_labels(email_id, remove_labels=['UNREAD'])
+        return await self._modify_labels(email_id, remove_labels=["UNREAD"])
 
     async def mark_as_unread(self, email_id: str) -> bool:
         """Mark email as unread."""
-        return await self._modify_labels(email_id, add_labels=['UNREAD'])
+        return await self._modify_labels(email_id, add_labels=["UNREAD"])
 
     async def delete_email(self, email_id: str) -> bool:
         """Delete an email (move to trash)."""
@@ -556,10 +583,7 @@ class GmailInterface(BaseEmailInterface):
 
         try:
             await self._run_in_executor(
-                self.service.users().messages().trash(
-                    userId='me',
-                    id=email_id
-                ).execute
+                self.service.users().messages().trash(userId="me", id=email_id).execute
             )
             return True
         except HttpError as e:
@@ -574,11 +598,11 @@ class GmailInterface(BaseEmailInterface):
 
         try:
             result = await self._run_in_executor(
-                self.service.users().labels().list(userId='me').execute
+                self.service.users().labels().list(userId="me").execute
             )
 
-            labels = result.get('labels', [])
-            return [label['name'] for label in labels]
+            labels = result.get("labels", [])
+            return [label["name"] for label in labels]
 
         except HttpError as e:
             raise EmailSystemError(f"Failed to get Gmail labels: {e}")
@@ -599,7 +623,7 @@ class GmailInterface(BaseEmailInterface):
         try:
             # Build People API service
             people_service = await self._run_in_executor(
-                build, 'people', 'v1', credentials=self.credentials
+                build, "people", "v1", credentials=self.credentials
             )
 
             contacts = []
@@ -613,56 +637,59 @@ class GmailInterface(BaseEmailInterface):
 
                 # Build request parameters
                 request_params = {
-                    'resourceName': 'people/me',
-                    'personFields': 'names,emailAddresses',
-                    'pageSize': 1000  # Maximum allowed per page
+                    "resourceName": "people/me",
+                    "personFields": "names,emailAddresses",
+                    "pageSize": 1000,  # Maximum allowed per page
                 }
 
                 if next_page_token:
-                    request_params['pageToken'] = next_page_token
+                    request_params["pageToken"] = next_page_token
 
                 # Get contacts page
                 results = await self._run_in_executor(
                     people_service.people().connections().list(**request_params).execute
                 )
 
-                connections = results.get('connections', [])
+                connections = results.get("connections", [])
                 logger.debug("Page %d: Found %d contacts", page_count, len(connections))
 
                 # Process contacts from this page
                 for person in connections:
-                    contact = {
-                        'name': '',
-                        'emails': []
-                    }
+                    contact = {"name": "", "emails": []}
 
                     # Get name
-                    names = person.get('names', [])
+                    names = person.get("names", [])
                     if names:
-                        contact['name'] = names[0].get('displayName', '')
+                        contact["name"] = names[0].get("displayName", "")
 
                     # Get email addresses
-                    emails = person.get('emailAddresses', [])
+                    emails = person.get("emailAddresses", [])
                     for email in emails:
-                        email_addr = email.get('value', '').lower()
+                        email_addr = email.get("value", "").lower()
                         if email_addr:
-                            contact['emails'].append(email_addr)
+                            contact["emails"].append(email_addr)
 
                     # Only add contacts that have email addresses
-                    if contact['emails']:
+                    if contact["emails"]:
                         contacts.append(contact)
 
                 # Check if there are more pages
-                next_page_token = results.get('nextPageToken')
+                next_page_token = results.get("nextPageToken")
                 if not next_page_token:
                     break
 
                 # Safety limit to prevent infinite loops
                 if page_count > 10:
-                    logger.warning("Stopped at page %d to prevent infinite loop", page_count)
+                    logger.warning(
+                        "Stopped at page %d to prevent infinite loop", page_count
+                    )
                     break
 
-            logger.info("Total contacts with emails: %d (from %d pages)", len(contacts), page_count)
+            logger.info(
+                "Total contacts with emails: %d (from %d pages)",
+                len(contacts),
+                page_count,
+            )
             return contacts
 
         except Exception as e:
@@ -670,7 +697,12 @@ class GmailInterface(BaseEmailInterface):
             return []
 
     # Helper methods
-    async def _modify_labels(self, email_id: str, add_labels: list[str] = None, remove_labels: list[str] = None) -> bool:
+    async def _modify_labels(
+        self,
+        email_id: str,
+        add_labels: list[str] = None,
+        remove_labels: list[str] = None,
+    ) -> bool:
         """Modify labels on an email."""
         if not self.service:
             raise ConnectionError("Not connected to Gmail")
@@ -678,16 +710,15 @@ class GmailInterface(BaseEmailInterface):
         try:
             body = {}
             if add_labels:
-                body['addLabelIds'] = add_labels
+                body["addLabelIds"] = add_labels
             if remove_labels:
-                body['removeLabelIds'] = remove_labels
+                body["removeLabelIds"] = remove_labels
 
             await self._run_in_executor(
-                self.service.users().messages().modify(
-                    userId='me',
-                    id=email_id,
-                    body=body
-                ).execute
+                self.service.users()
+                .messages()
+                .modify(userId="me", id=email_id, body=body)
+                .execute
             )
             return True
 
@@ -696,66 +727,70 @@ class GmailInterface(BaseEmailInterface):
                 raise EmailNotFoundError(f"Email {email_id} not found")
             raise EmailSystemError(f"Failed to modify Gmail message labels: {e}")
 
-    async def _parse_gmail_message(self, message: dict[str, Any], include_attachments: bool = False) -> Email:
+    async def _parse_gmail_message(
+        self, message: dict[str, Any], include_attachments: bool = False
+    ) -> Email:
         """Parse Gmail API message into Email object."""
 
         headers = {}
-        for header in message['payload'].get('headers', []):
-            headers[header['name'].lower()] = header['value']
+        for header in message["payload"].get("headers", []):
+            headers[header["name"].lower()] = header["value"]
 
         # Extract basic fields
-        subject = headers.get('subject', '')
-        sender = self._parse_email_address(headers.get('from', ''))
-        message_id = headers.get('message-id')
-        in_reply_to = headers.get('in-reply-to')
+        subject = headers.get("subject", "")
+        sender = self._parse_email_address(headers.get("from", ""))
+        message_id = headers.get("message-id")
+        in_reply_to = headers.get("in-reply-to")
 
         # Parse recipients
         recipients = []
-        if 'to' in headers:
-            for addr in headers['to'].split(','):
+        if "to" in headers:
+            for addr in headers["to"].split(","):
                 recipients.append(self._parse_email_address(addr.strip()))
 
         cc = []
-        if 'cc' in headers:
-            for addr in headers['cc'].split(','):
+        if "cc" in headers:
+            for addr in headers["cc"].split(","):
                 cc.append(self._parse_email_address(addr.strip()))
 
         # Parse dates
         sent_date = None
-        if 'date' in headers:
+        if "date" in headers:
             try:
-                sent_date = email.utils.parsedate_to_datetime(headers['date'])
+                sent_date = email.utils.parsedate_to_datetime(headers["date"])
             except:
                 pass
 
         # Parse body
-        body_text, body_html = await self._extract_body(message['payload'])
+        body_text, body_html = await self._extract_body(message["payload"])
 
         # Parse attachments
         attachments = []
         if include_attachments:
-            attachments = await self._extract_attachments(message['payload'], message['id'])
+            attachments = await self._extract_attachments(
+                message["payload"], message["id"]
+            )
 
         # Determine importance
         importance = EmailImportance.NORMAL
-        priority = headers.get('x-priority', headers.get('priority', ''))
-        if priority in ['1', 'high']:
+        priority = headers.get("x-priority", headers.get("priority", ""))
+        if priority in ["1", "high"]:
             importance = EmailImportance.HIGH
-        elif priority in ['5', 'low']:
+        elif priority in ["5", "low"]:
             importance = EmailImportance.LOW
 
         # Parse labels and flags
         labels = []
-        is_read = 'UNREAD' not in message.get('labelIds', [])
-        is_flagged = 'STARRED' in message.get('labelIds', [])
+        is_read = "UNREAD" not in message.get("labelIds", [])
+        is_flagged = "STARRED" in message.get("labelIds", [])
 
-        for label_id in message.get('labelIds', []):
-            if label_id not in ['UNREAD', 'STARRED', 'IMPORTANT']:
+        for label_id in message.get("labelIds", []):
+            if label_id not in ["UNREAD", "STARRED", "IMPORTANT"]:
                 labels.append(label_id)
 
         return Email(
-            id=message['id'],
-            thread_id=message.get('threadId'),
+            id=message["id"],
+            thread_id=message.get("threadId"),
             subject=subject,
             sender=sender,
             recipients=recipients,
@@ -772,22 +807,24 @@ class GmailInterface(BaseEmailInterface):
             labels=labels,
             message_id=message_id,
             in_reply_to=in_reply_to,
-            raw_data=message
+            raw_data=message,
         )
 
-    async def _extract_body(self, payload: dict[str, Any]) -> tuple[str | None, str | None]:
+    async def _extract_body(
+        self, payload: dict[str, Any]
+    ) -> tuple[str | None, str | None]:
         """Extract text and HTML body from Gmail message payload."""
         body_text = None
         body_html = None
 
-        if 'parts' in payload:
+        if "parts" in payload:
             # Multipart message
-            for part in payload['parts']:
-                if part['mimeType'] == 'text/plain':
-                    body_text = await self._decode_body_data(part['body'])
-                elif part['mimeType'] == 'text/html':
-                    body_html = await self._decode_body_data(part['body'])
-                elif part['mimeType'].startswith('multipart/'):
+            for part in payload["parts"]:
+                if part["mimeType"] == "text/plain":
+                    body_text = await self._decode_body_data(part["body"])
+                elif part["mimeType"] == "text/html":
+                    body_html = await self._decode_body_data(part["body"])
+                elif part["mimeType"].startswith("multipart/"):
                     # Nested multipart
                     nested_text, nested_html = await self._extract_body(part)
                     if nested_text:
@@ -796,53 +833,61 @@ class GmailInterface(BaseEmailInterface):
                         body_html = nested_html
         else:
             # Single part message
-            if payload['mimeType'] == 'text/plain':
-                body_text = await self._decode_body_data(payload['body'])
-            elif payload['mimeType'] == 'text/html':
-                body_html = await self._decode_body_data(payload['body'])
+            if payload["mimeType"] == "text/plain":
+                body_text = await self._decode_body_data(payload["body"])
+            elif payload["mimeType"] == "text/html":
+                body_html = await self._decode_body_data(payload["body"])
 
         return body_text, body_html
 
     async def _decode_body_data(self, body_data: dict[str, Any]) -> str | None:
         """Decode Gmail message body data."""
-        if 'data' not in body_data:
+        if "data" not in body_data:
             return None
 
         try:
-            data = body_data['data']
+            data = body_data["data"]
             # Gmail uses URL-safe base64 encoding
-            decoded = base64.urlsafe_b64decode(data + '===')  # Add padding
-            return decoded.decode('utf-8')
+            decoded = base64.urlsafe_b64decode(data + "===")  # Add padding
+            return decoded.decode("utf-8")
         except Exception as e:
             logger.warning("Failed to decode body data: %s", e)
             return None
 
-    async def _extract_attachments(self, payload: dict[str, Any], message_id: str) -> list[EmailAttachment]:
+    async def _extract_attachments(
+        self, payload: dict[str, Any], message_id: str
+    ) -> list[EmailAttachment]:
         """Extract attachments from Gmail message."""
         attachments = []
 
-        if 'parts' in payload:
-            for part in payload['parts']:
-                if 'filename' in part and part['filename']:
+        if "parts" in payload:
+            for part in payload["parts"]:
+                if "filename" in part and part["filename"]:
                     # This is an attachment
                     attachment = EmailAttachment(
-                        filename=part['filename'],
-                        content_type=part['mimeType'],
-                        size=part['body'].get('size', 0),
-                        attachment_id=part['body'].get('attachmentId')
+                        filename=part["filename"],
+                        content_type=part["mimeType"],
+                        size=part["body"].get("size", 0),
+                        attachment_id=part["body"].get("attachmentId"),
                     )
 
                     # Optionally load content
-                    if part['body'].get('attachmentId'):
+                    if part["body"].get("attachmentId"):
                         try:
                             att_data = await self._run_in_executor(
-                                self.service.users().messages().attachments().get(
-                                    userId='me',
+                                self.service.users()
+                                .messages()
+                                .attachments()
+                                .get(
+                                    userId="me",
                                     messageId=message_id,
-                                    id=part['body']['attachmentId']
-                                ).execute
+                                    id=part["body"]["attachmentId"],
+                                )
+                                .execute
                             )
-                            attachment.content = base64.urlsafe_b64decode(att_data['data'])
+                            attachment.content = base64.urlsafe_b64decode(
+                                att_data["data"]
+                            )
                         except Exception as e:
                             logger.warning("Failed to load attachment content: %s", e)
 
