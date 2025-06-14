@@ -505,7 +505,7 @@ class ContactExtractor:
             re.findall(r"\b(i|me|my|we|us|our|you|your)\b", content)
         )
         questions = len(re.findall(r"\?", content))
-        exclamations = len(re.findall(r"!", content))
+        _exclamations = len(re.findall(r"!", content))
 
         # Check for signature-like patterns
         signature_indicators = len(

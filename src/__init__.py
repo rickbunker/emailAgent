@@ -29,7 +29,7 @@ Copyright 2025 by Inveniam Capital Partners, LLC and Rick Bunker
 # # Standard library imports
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 # Logging system
 from .utils.logging_system import LogConfig, configure_logging, get_logger, log_function

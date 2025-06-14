@@ -698,7 +698,7 @@ async def demo_procedural_memory() -> None:
         # Add sample investment rules
         logger.info("Adding sample investment rules...")
 
-        investment_rule_id = await procedural_memory.add_investment_rule(
+        _investment_rule_id = await procedural_memory.add_investment_rule(
             content="Investment committee approval required for any single investment exceeding $50M",
             rule_name="large_investment_approval",
             threshold_amount=50000000,
@@ -710,7 +710,7 @@ async def demo_procedural_memory() -> None:
         # Add compliance rule
         logger.info("Adding compliance rule...")
 
-        compliance_rule_id = await procedural_memory.add_compliance_rule(
+        _compliance_rule_id = await procedural_memory.add_compliance_rule(
             content="All investment documents must be reviewed for anti-money laundering compliance",
             rule_name="aml_document_review",
             regulation_source="SEC_AML_Guidelines",

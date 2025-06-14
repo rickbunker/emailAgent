@@ -402,17 +402,17 @@ class SpamAssassinIntegration:
                 stdout, stderr, process.returncode, SpamAssassinMode.COMMAND
             )
 
-        except subprocess.TimeoutExpired:
+        except subprocess.TimeoutExpired as exc:
             process.kill()
             self.logger.error(
                 f"SpamAssassin command timeout after {self.ANALYSIS_TIMEOUT} seconds"
             )
             raise RuntimeError(
                 f"SpamAssassin analysis timeout ({self.ANALYSIS_TIMEOUT}s)"
-            )
+            ) from exc
         except Exception as e:
             self.logger.error(f"SpamAssassin command execution failed: {e}")
-            raise RuntimeError(f"SpamAssassin execution error: {e}")
+            raise RuntimeError(f"SpamAssassin execution error: {e}") from e
 
     @log_function()
     async def _analyze_with_spamc_daemon(
@@ -461,17 +461,17 @@ class SpamAssassinIntegration:
 
             return self._parse_spamc_output(stdout, stderr, SpamAssassinMode.DAEMON)
 
-        except subprocess.TimeoutExpired:
+        except subprocess.TimeoutExpired as exc:
             process.kill()
             self.logger.error(
                 f"SpamAssassin daemon timeout after {self.ANALYSIS_TIMEOUT} seconds"
             )
             raise RuntimeError(
                 f"SpamAssassin daemon timeout ({self.ANALYSIS_TIMEOUT}s)"
-            )
+            ) from exc
         except Exception as e:
             self.logger.error(f"SpamAssassin daemon execution failed: {e}")
-            raise RuntimeError(f"SpamAssassin daemon error: {e}")
+            raise RuntimeError(f"SpamAssassin daemon error: {e}") from e
 
     @log_function()
     def _parse_spamassassin_output(

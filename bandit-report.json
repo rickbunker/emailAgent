@@ -1,6 +1,6 @@
 {
   "errors": [],
-  "generated_at": "2025-06-14T02:48:44Z",
+  "generated_at": "2025-06-14T03:01:39Z",
   "metrics": {
     "_totals": {
       "CONFIDENCE.HIGH": 19,
@@ -11,7 +11,7 @@
       "SEVERITY.LOW": 20,
       "SEVERITY.MEDIUM": 1,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 15189,
+      "loc": 15188,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -323,7 +323,7 @@
       "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 1998,
+      "loc": 1997,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -410,7 +410,7 @@
       "test_name": "subprocess_without_shell_equals_true"
     },
     {
-      "code": "662                 Path(temp_path).unlink()\n663             except:\n664                 pass\n665 \n",
+      "code": "662                 Path(temp_path).unlink()\n663             except Exception:\n664                 pass\n665 \n",
       "col_offset": 12,
       "end_col_offset": 20,
       "filename": "src/agents/asset_document_agent.py",
@@ -431,7 +431,7 @@
       "test_name": "try_except_pass"
     },
     {
-      "code": "795             health[\"base_path_writable\"] = True\n796         except:\n797             pass\n798 \n",
+      "code": "795             health[\"base_path_writable\"] = True\n796         except Exception:\n797             pass\n798 \n",
       "col_offset": 8,
       "end_col_offset": 16,
       "filename": "src/agents/asset_document_agent.py",

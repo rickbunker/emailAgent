@@ -621,7 +621,7 @@ async def demo_semantic_memory() -> None:
         # Add sample sender knowledge
         logger.info("Adding sample sender knowledge...")
 
-        sender_id = await semantic_memory.add_sender_knowledge(
+        _sender_id = await semantic_memory.add_sender_knowledge(
             content="Responds within 2 hours during business hours, prefers detailed technical analysis in investment proposals",
             sender_email="investment@blackstone.com",
             sender_domain="blackstone.com",
@@ -634,7 +634,7 @@ async def demo_semantic_memory() -> None:
         # Add email type knowledge
         logger.info("Adding email type knowledge...")
 
-        email_type_id = await semantic_memory.add_email_type_knowledge(
+        _email_type_id = await semantic_memory.add_email_type_knowledge(
             content="Investment inquiries typically include fund size, target returns, and investment timeline",
             email_type="investment_inquiry",
             classification_criteria="mentions fund, investment, capital, returns",
@@ -650,7 +650,7 @@ async def demo_semantic_memory() -> None:
         # Add domain knowledge
         logger.info("Adding domain expertise...")
 
-        domain_id = await semantic_memory.add_domain_knowledge(
+        _domain_id = await semantic_memory.add_domain_knowledge(
             content="Real estate private equity typically requires 6-12 month due diligence periods for large transactions ($100M+)",
             domain="real_estate",
             expertise_area="private_equity_due_diligence",

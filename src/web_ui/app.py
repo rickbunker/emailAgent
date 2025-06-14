@@ -2159,7 +2159,7 @@ def _cleanup_processed_documents() -> dict[str, Any]:
         try:
             info = asset_agent.qdrant.get_collection(collection_name)
             before_count = info.points_count
-        except:
+        except Exception:
             before_count = 0
 
         # Delete all points in collection
@@ -2267,7 +2267,6 @@ def _cleanup_human_review() -> dict[str, Any]:
         Exception: If file operations fail
     """
     try:
-        before_count = review_queue.get_stats()["total_items"]
         removed_count = review_queue.clear_all_items()
 
         logger.info(f"Cleared {removed_count} human review items")
@@ -2431,7 +2430,7 @@ def _cleanup_sender_mappings() -> dict[str, Any]:
         try:
             info = asset_agent.qdrant.get_collection(collection_name)
             before_count = info.points_count
-        except:
+        except Exception:
             before_count = 0
 
         # Delete all points in collection
@@ -2484,7 +2483,7 @@ def _cleanup_assets() -> dict[str, Any]:
         try:
             info = asset_agent.qdrant.get_collection(collection_name)
             before_count = info.points_count
-        except:
+        except Exception:
             before_count = 0
 
         # Delete all points in collection

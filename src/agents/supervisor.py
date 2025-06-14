@@ -534,7 +534,7 @@ class EmailSupervisor:
             )
 
             content_lower = email.content.lower()
-            subject_lower = email.subject.lower()
+            _subject_lower = email.subject.lower()
 
             # Apply procedural rules
             for memory_item, relevance in spam_rules:

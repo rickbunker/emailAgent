@@ -660,7 +660,7 @@ class AssetDocumentAgent:
             # Clean up the temporary file
             try:
                 Path(temp_path).unlink()
-            except:
+            except Exception:
                 pass
 
     async def process_single_attachment(
@@ -793,7 +793,7 @@ class AssetDocumentAgent:
             test_file.touch()
             test_file.unlink()
             health["base_path_writable"] = True
-        except:
+        except Exception:
             pass
 
         return health
@@ -865,7 +865,7 @@ class AssetDocumentAgent:
         try:
             collections = self.qdrant.get_collections()
             return any(c.name == collection_name for c in collections.collections)
-        except:
+        except Exception:
             return False
 
     async def _create_collection(

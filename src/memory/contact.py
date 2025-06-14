@@ -1024,7 +1024,7 @@ async def demo_contact_memory() -> None:
         )
 
         # Investor contact
-        contact2_id = await contact_memory.add_contact(
+        _contact2_id = await contact_memory.add_contact(
             email="sarah.jones@pension.gov",
             name="Sarah Jones",
             organization="State Pension Fund",

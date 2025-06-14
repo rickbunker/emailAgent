@@ -40,19 +40,15 @@ Copyright 2025 by Inveniam Capital Partners, LLC and Rick Bunker
 """
 
 # # Standard library imports
-# Core logging system
 import os
 import sys
 
+# # Local application imports (after path setup)
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 # # Local application imports
 from utils.logging_system import get_logger, log_function
 
-# Initialize package logger
-logger = get_logger(__name__)
-
-# Import core tools and integrations
 from .spamassassin_integration import (
     SpamAnalysisResult,
     SpamAssassinIntegration,
@@ -60,6 +56,9 @@ from .spamassassin_integration import (
     SpamConfidence,
     check_email_spam,
 )
+
+# Initialize package logger
+logger = get_logger(__name__)
 
 # Package metadata
 __version__ = "1.0.0"

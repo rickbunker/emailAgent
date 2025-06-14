@@ -40,26 +40,23 @@ Copyright 2025 by Inveniam Capital Partners, LLC and Rick Bunker
 """
 
 # # Standard library imports
-# Core logging system
 import os
 import sys
 
+# # Local application imports (after path setup)
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 # # Local application imports
 from utils.logging_system import get_logger, log_function
 
-# Initialize package logger
-logger = get_logger(__name__)
-
-# Core memory interfaces and base classes
 from .base import BaseMemory, MemoryItem
 from .contact import ContactConfidence, ContactMemory, ContactRecord, ContactType
-
-# Specialized memory system implementations
 from .episodic import EpisodicMemory, EpisodicMemoryType
 from .procedural import ProceduralMemory, RuleConfidence, RulePriority, RuleType
 from .semantic import KnowledgeConfidence, KnowledgeType, SemanticMemory
+
+# Initialize package logger
+logger = get_logger(__name__)
 
 # Package metadata
 __version__ = "1.0.0"

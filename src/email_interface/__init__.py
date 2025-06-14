@@ -39,19 +39,15 @@ Copyright 2025 by Inveniam Capital Partners, LLC and Rick Bunker
 """
 
 # # Standard library imports
-# Core logging system
 import os
 import sys
 
+# # Local application imports (after path setup)
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 # # Local application imports
 from utils.logging_system import get_logger, log_function
 
-# Initialize package logger
-logger = get_logger(__name__)
-
-# Core base classes and data models
 from .base import (  # Exception hierarchy
     AuthenticationError,
     BaseEmailInterface,
@@ -66,13 +62,12 @@ from .base import (  # Exception hierarchy
     EmailSystemError,
     PermissionError,
 )
-
-# Factory and utility classes
 from .factory import EmailInterfaceFactory, EmailSystemType
-
-# Email system implementations
 from .gmail import GmailInterface
 from .msgraph import MicrosoftGraphInterface
+
+# Initialize package logger
+logger = get_logger(__name__)
 
 # Package metadata
 __version__ = "1.0.0"

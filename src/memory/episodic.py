@@ -672,7 +672,7 @@ async def demo_episodic_memory() -> None:
         logger.info("Adding sample conversations and events...")
 
         # Investment meeting conversation
-        conv_id = await episodic_memory.add_conversation(
+        _conv_id = await episodic_memory.add_conversation(
             content="Discussed Series B investment opportunity in PropTech startup. Strong team with proven track record in real estate technology. Market size estimated at $50B with 15% CAGR.",
             participants=["ic@fund.com", "analyst@fund.com", "ceo@proptech.com"],
             subject="PropTech Series B Due Diligence",
@@ -682,7 +682,7 @@ async def demo_episodic_memory() -> None:
         )
 
         # Investment decision
-        decision_id = await episodic_memory.add_decision(
+        _decision_id = await episodic_memory.add_decision(
             content="Investment Committee approved $25M Series B investment in PropTech startup",
             decision_type="investment_approval",
             decision_maker="Investment Committee",
@@ -693,7 +693,7 @@ async def demo_episodic_memory() -> None:
         )
 
         # Client feedback
-        feedback_id = await episodic_memory.add_feedback(
+        _feedback_id = await episodic_memory.add_feedback(
             content="Portfolio performance exceeded expectations in Q3. Particularly impressed with PropTech allocation strategy.",
             feedback_type="positive",
             source="institutional_investor",
