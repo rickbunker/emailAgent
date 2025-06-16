@@ -41,6 +41,7 @@ Copyright 2025 by Inveniam Capital Partners, LLC and Rick Bunker
 # # Standard library imports
 import asyncio
 import base64
+import binascii
 import http.server
 import json
 import os
@@ -1208,7 +1209,7 @@ class MicrosoftGraphInterface(BaseEmailInterface):
                 if att.get("contentBytes"):
                     try:
                         attachment.content = base64.b64decode(att["contentBytes"])
-                    except:
+                    except (ValueError, TypeError, binascii.Error):
                         pass
 
                 attachments.append(attachment)

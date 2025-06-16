@@ -455,6 +455,31 @@ class SpamDetector:
                 f"(score: {analysis.spam_score:.1f}, time: {analysis.processing_time:.3f}s)"
             )
 
+            self.logger.info("📊 Analysis Results:")
+            self.logger.info(
+                f"   Classification: {'SPAM' if analysis.is_spam else 'CLEAN'}"
+            )
+            self.logger.info(f"   Confidence: {analysis.confidence.value}")
+            self.logger.info(f"   Spam Score: {analysis.spam_score:.1f}/100")
+            self.logger.info(f"   Recommendation: {analysis.recommendation}")
+
+            if analysis.reasons:
+                self.logger.info(
+                    f"   Reasons: {', '.join([r.value for r in analysis.reasons])}"
+                )
+
+            if analysis.blacklist_hits:
+                self.logger.info(
+                    f"   Blacklist Hits: {', '.join(analysis.blacklist_hits)}"
+                )
+
+            if analysis.content_flags:
+                self.logger.info(
+                    f"   Content Flags: {', '.join(analysis.content_flags)}"
+                )
+
+            self.logger.info(f"   Processing Time: {analysis.processing_time:.3f}s")
+
             return analysis
 
         except Exception as e:
@@ -545,7 +570,7 @@ class SpamDetector:
                                 days_ago = (datetime.now(UTC) - class_dt).days
                                 if days_ago <= 30:
                                     recent_spam = True
-                            except:
+                            except (ValueError, TypeError):
                                 pass
 
             if spam_count > 0:
@@ -1131,8 +1156,8 @@ async def demo_spam_detection() -> None:
     analyzes them for spam indicators,
     and displays the analysis results.
     """
-    print("🛡️ Spam Detection Agent Demo")  # noqa: T201
-    print("=" * 50)  # noqa: T201
+    logger.info("🛡️ Spam Detection Agent Demo")
+    logger.info("=" * 50)
 
     # Initialize detector
     detector = SpamDetector()
@@ -1167,44 +1192,36 @@ async def demo_spam_detection() -> None:
 
     # Analyze each email
     for email in test_emails:
-        print(f"\n📧 Analyzing: {email.subject}")  # noqa: T201
-        print(f"   From: {email.sender}")  # noqa: T201
+        logger.info(f"\n📧 Analyzing: {email.subject}")
+        logger.info(f"   From: {email.sender}")
 
         analysis = await detector.analyze_spam(email)
 
-        print("\n📊 Analysis Results:")  # noqa: T201
-        print(
-            f"   Classification: {'SPAM' if analysis.is_spam else 'CLEAN'}"
-        )  # noqa: T201
-        print(f"   Confidence: {analysis.confidence.value}")  # noqa: T201
-        print(f"   Spam Score: {analysis.spam_score:.1f}/100")  # noqa: T201
-        print(f"   Recommendation: {analysis.recommendation}")  # noqa: T201
+        logger.info("📊 Analysis Results:")
+        logger.info(f"   Classification: {'SPAM' if analysis.is_spam else 'CLEAN'}")
+        logger.info(f"   Confidence: {analysis.confidence.value}")
+        logger.info(f"   Spam Score: {analysis.spam_score:.1f}/100")
+        logger.info(f"   Recommendation: {analysis.recommendation}")
 
         if analysis.reasons:
-            print(
-                f"   Reasons: {', '.join([r.value for r in analysis.reasons])}"
-            )  # noqa: T201
+            logger.info(f"   Reasons: {', '.join([r.value for r in analysis.reasons])}")
 
         if analysis.blacklist_hits:
-            print(
-                f"   Blacklist Hits: {', '.join(analysis.blacklist_hits)}"
-            )  # noqa: T201
+            logger.info(f"   Blacklist Hits: {', '.join(analysis.blacklist_hits)}")
 
         if analysis.content_flags:
-            print(
-                f"   Content Flags: {', '.join(analysis.content_flags)}"
-            )  # noqa: T201
+            logger.info(f"   Content Flags: {', '.join(analysis.content_flags)}")
 
-        print(f"   Processing Time: {analysis.processing_time:.3f}s")  # noqa: T201
+        logger.info(f"   Processing Time: {analysis.processing_time:.3f}s")
 
     # Show statistics
     stats = await detector.get_spam_statistics()
-    print("\n📈 Detection Statistics:")  # noqa: T201
-    print(f"   Total Analyses: {stats.get('total_analyses', 0)}")  # noqa: T201
-    print(f"   Spam Detected: {stats.get('spam_detected', 0)}")  # noqa: T201
-    print(f"   Clean Emails: {stats.get('clean_emails', 0)}")  # noqa: T201
+    logger.info("\n📈 Detection Statistics:")
+    logger.info(f"   Total Analyses: {stats.get('total_analyses', 0)}")
+    logger.info(f"   Spam Detected: {stats.get('spam_detected', 0)}")
+    logger.info(f"   Clean Emails: {stats.get('clean_emails', 0)}")
 
-    print("\n✨ Demo completed!")  # noqa: T201
+    logger.info("\n✨ Demo completed!")
 
 
 if __name__ == "__main__":

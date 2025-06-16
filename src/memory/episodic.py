@@ -416,7 +416,7 @@ class EpisodicMemory(BaseMemory):
 
             # Extract MemoryItems from tuples
             results = []
-            for memory_item, similarity_score in search_results:
+            for memory_item, _similarity_score in search_results:
                 results.append(memory_item)
 
             logger.info(f"Found {len(results)} episodic memories matching query")

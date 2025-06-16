@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -18,12 +19,14 @@
             max-height: 300px;
             overflow-y: auto;
         }
+
         .system-analysis {
             background-color: #e9ecef;
             border-left: 4px solid #6c757d;
             padding: 1rem;
             border-radius: 0.25rem;
         }
+
         .system-suggestion {
             background-color: #d1ecf1;
             border: 1px solid #bee5eb;
@@ -33,24 +36,37 @@
             cursor: pointer;
             transition: all 0.2s ease;
         }
+
         .system-suggestion:hover {
             background-color: #b8daff;
             border-color: #7abaff;
         }
+
         .system-suggestion.selected {
             background-color: #d4edda;
             border-color: #c3e6cb;
             border-width: 2px;
         }
-        .confidence-high { border-left-color: #28a745; }
-        .confidence-medium { border-left-color: #ffc107; }
-        .confidence-low { border-left-color: #dc3545; }
+
+        .confidence-high {
+            border-left-color: #28a745;
+        }
+
+        .confidence-medium {
+            border-left-color: #ffc107;
+        }
+
+        .confidence-low {
+            border-left-color: #dc3545;
+        }
+
         .reasoning-box {
             background-color: #fff3cd;
             border: 1px solid #ffeaa7;
             border-radius: 0.25rem;
             padding: 0.75rem;
         }
+
         .learning-insight {
             background-color: #f0f0f0;
             border-left: 3px solid #007bff;
@@ -60,6 +76,7 @@
         }
     </style>
 </head>
+
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
@@ -113,9 +130,9 @@
                             <div class="col-sm-3"><strong>From:</strong></div>
                             <div class="col-sm-9">
                                 {% if review_item.sender_name %}
-                                    {{ review_item.sender_name }} &lt;{{ review_item.sender_email }}&gt;
+                                {{ review_item.sender_name }} &lt;{{ review_item.sender_email }}&gt;
                                 {% else %}
-                                    {{ review_item.sender_email }}
+                                {{ review_item.sender_email }}
                                 {% endif %}
                             </div>
                         </div>
@@ -155,11 +172,13 @@
                         </h5>
                     </div>
                     <div class="card-body">
-                        <div class="system-analysis confidence-{% if review_item.system_confidence >= 0.7 %}high{% elif review_item.system_confidence >= 0.4 %}medium{% else %}low{% endif %}">
+                        <div
+                            class="system-analysis confidence-{% if review_item.system_confidence >= 0.7 %}high{% elif review_item.system_confidence >= 0.4 %}medium{% else %}low{% endif %}">
                             <div class="row mb-2">
                                 <div class="col-sm-4"><strong>Confidence:</strong></div>
                                 <div class="col-sm-8">
-                                    <span class="badge bg-{% if review_item.system_confidence >= 0.7 %}success{% elif review_item.system_confidence >= 0.4 %}warning{% else %}danger{% endif %}">
+                                    <span
+                                        class="badge bg-{% if review_item.system_confidence >= 0.7 %}success{% elif review_item.system_confidence >= 0.4 %}warning{% else %}danger{% endif %}">
                                         {{ "%.1f"|format(review_item.system_confidence * 100) }}%
                                     </span>
                                 </div>
@@ -176,7 +195,8 @@
                             <div class="row mb-2">
                                 <div class="col-sm-4"><strong>Level:</strong></div>
                                 <div class="col-sm-8">
-                                    <span class="badge bg-secondary">{{ review_item.confidence_level.replace('_', ' ').title() }}</span>
+                                    <span class="badge bg-secondary">{{ review_item.confidence_level.replace('_', '
+                                        ').title() }}</span>
                                 </div>
                             </div>
                             {% endif %}
@@ -191,9 +211,8 @@
                         <h6 class="mt-3 mb-2">System Asset Suggestions:</h6>
                         <div id="system-suggestions">
                             {% for suggestion in review_item.system_asset_suggestions %}
-                            <div class="system-suggestion"
-                                 data-asset-id="{{ suggestion.asset_id }}"
-                                 onclick="selectSystemSuggestion(this)">
+                            <div class="system-suggestion" data-asset-id="{{ suggestion.asset_id }}"
+                                onclick="selectSystemSuggestion(this)">
                                 <div class="d-flex justify-content-between align-items-start">
                                     <div>
                                         <strong>{{ suggestion.get('asset_name', 'Unknown Asset') }}</strong>
@@ -201,15 +220,18 @@
                                         <small class="text-muted">ID: {{ suggestion.asset_id[:8] }}...</small>
                                         {% if suggestion.get('asset_type') %}
                                         <br>
-                                        <small class="text-muted">Type: {{ suggestion.asset_type.replace('_', ' ').title() }}</small>
+                                        <small class="text-muted">Type: {{ suggestion.asset_type.replace('_', '
+                                            ').title() }}</small>
                                         {% endif %}
                                     </div>
                                     <div class="text-end">
-                                        <span class="badge bg-{% if suggestion.confidence >= 0.7 %}success{% elif suggestion.confidence >= 0.4 %}warning{% else %}danger{% endif %}">
+                                        <span
+                                            class="badge bg-{% if suggestion.confidence >= 0.7 %}success{% elif suggestion.confidence >= 0.4 %}warning{% else %}danger{% endif %}">
                                             {{ "%.1f"|format(suggestion.confidence * 100) }}%
                                         </span>
                                         <br>
-                                        <small class="text-muted">{{ suggestion.get('reasoning', 'System match') }}</small>
+                                        <small class="text-muted">{{ suggestion.get('reasoning', 'System match')
+                                            }}</small>
                                     </div>
                                 </div>
                             </div>
@@ -222,182 +244,198 @@
 
             <!-- Right Column: Human Review Form -->
             <div class="col-lg-6">
-                <!-- Quick Actions -->
+                <!-- Asset Assignment Review -->
                 <div class="mb-4">
-                    <div class="card border-success">
-                        <div class="card-header bg-success text-white">
+                    <div class="card border-primary">
+                        <div class="card-header bg-primary text-white">
                             <h6 class="mb-0">
-                                <i class="bi bi-check-circle"></i>
-                                Quick Actions
+                                <i class="bi bi-building"></i>
+                                Step 1: Asset Assignment Review
                             </h6>
                         </div>
                         <div class="card-body">
-                            <p class="mb-3">If the system's analysis is correct, you can quickly approve it:</p>
-                            <button type="button" class="btn btn-success btn-lg w-100" onclick="quickApprove()"
-                                    data-has-suggestions="{% if review_item.system_asset_suggestions %}true{% else %}false{% endif %}"
-                                    data-system-confidence="{{ review_item.system_confidence }}"
-                                    data-top-suggestion="{% if review_item.system_asset_suggestions %}{{ review_item.system_asset_suggestions[0].asset_id }}{% endif %}"
-                                    data-document-category="{{ review_item.document_category or 'unknown' }}">
-                                <i class="bi bi-hand-thumbs-up"></i>
-                                System Got It Right - Approve & Learn
+                            {% if review_item.system_asset_suggestions and review_item.system_confidence > 0.3 %}
+                            <div class="alert alert-info mb-3">
+                                <strong>System found asset match:</strong>
+                                <br>
+                                <strong>{{ review_item.system_asset_suggestions[0].get('asset_name', 'Unknown Asset')
+                                    }}</strong>
+                                <small class="d-block text-muted">Confidence: {{
+                                    "%.1f"|format(review_item.system_asset_suggestions[0].confidence * 100) }}%</small>
+                            </div>
+                            <button type="button" class="btn btn-success mb-3 w-100" onclick="approveAssetMatch()">
+                                <i class="bi bi-check-circle"></i> ✅ Asset Match is Correct
                             </button>
-                            <small class="text-muted d-block mt-2">
-                                This will confirm the system's decision and help it learn for similar cases.
-                            </small>
-                        </div>
-                    </div>
-                </div>
+                            <p class="text-center mb-3"><strong>-- OR --</strong></p>
+                            {% else %}
+                            <div class="alert alert-warning mb-3">
+                                <strong>System determined:</strong> Not asset-related
+                            </div>
+                            <button type="button" class="btn btn-success mb-3 w-100" onclick="approveNonAsset()">
+                                <i class="bi bi-check-circle"></i> ✅ Correct - Not Asset-Related
+                            </button>
+                            <p class="text-center mb-3"><strong>-- OR --</strong></p>
+                            {% endif %}
 
-                <!-- Manual Review Form -->
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="card-title mb-0">
-                            <i class="bi bi-person-fill"></i> Manual Review & Correction
-                        </h5>
-                        <p class="mb-0 text-muted">Only use this if the system made an error</p>
-                    </div>
-                    <div class="card-body">
-                        <form id="reviewForm">
-                            <!-- Asset Selection -->
-                            <div class="mb-4">
-                                <label class="form-label"><strong>Select Correct Asset:</strong></label>
+                            <div class="asset-correction-section">
+                                <h6>Correct the Asset Assignment:</h6>
                                 <div class="form-check mb-2">
-                                    <input class="form-check-input" type="radio" name="asset_source" id="not_asset_related" value="not_asset_related">
-                                    <label class="form-check-label" for="not_asset_related">
-                                        <span class="text-danger"><i class="bi bi-x-circle"></i> Not Asset-Related</span>
-                                        <small class="d-block text-muted">This attachment is not related to any asset</small>
+                                    <input class="form-check-input" type="radio" name="asset_choice"
+                                        id="choose_different_asset" value="different">
+                                    <label class="form-check-label" for="choose_different_asset">
+                                        <strong>Choose Different Asset</strong>
                                     </label>
                                 </div>
-                                <div class="form-check mb-2">
-                                    <input class="form-check-input" type="radio" name="asset_source" id="system_suggestion" value="system">
-                                    <label class="form-check-label" for="system_suggestion">
-                                        Use System Suggestion (select from above)
-                                    </label>
-                                </div>
-                                <div class="form-check mb-3">
-                                    <input class="form-check-input" type="radio" name="asset_source" id="manual_selection" value="manual" checked>
-                                    <label class="form-check-label" for="manual_selection">
-                                        Choose from all assets
-                                    </label>
-                                </div>
-
-                                <div id="manual-asset-selection">
-                                    <select class="form-select" id="asset_id" name="asset_id" required>
-                                        <option value="">Select an asset...</option>
+                                <div id="asset-selection" style="display: none;" class="mb-3">
+                                    <select class="form-select" id="correct_asset_id">
+                                        <option value="">Select the correct asset...</option>
                                         {% for asset in assets %}
                                         <option value="{{ asset.deal_id }}">
-                                            {{ asset.deal_name }} ({{ asset.asset_type.value.replace('_', ' ').title() }})
+                                            {{ asset.deal_name }} ({{ asset.asset_type.value.replace('_', ' ').title()
+                                            }})
                                         </option>
                                         {% endfor %}
                                     </select>
                                 </div>
 
-                                <input type="hidden" id="selected_asset_id" name="selected_asset_id">
-                            </div>
-
-                            <!-- Document Category -->
-                            <div class="mb-4" id="document-category-section">
-                                <label for="document_category" class="form-label"><strong>Document Category:</strong></label>
-                                <select class="form-select" id="document_category" name="document_category" required>
-                                    <option value="">Select category...</option>
-                                    <option value="not_asset_related">Not Asset-Related</option>
-                                    {% for category in document_categories %}
-                                    <option value="{{ category.value }}"
-                                            {% if review_item.document_category == category.value %}selected{% endif %}>
-                                        {{ category.value.replace('_', ' ').title() }}
-                                    </option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-
-                            <!-- Human Reasoning -->
-                            <div class="mb-4">
-                                <label for="reasoning" class="form-label"><strong>Why is this the correct match?</strong></label>
-                                <textarea class="form-control" id="reasoning" name="reasoning" rows="3"
-                                          placeholder="Explain your reasoning for this asset match..."></textarea>
-                                <div class="form-text">
-                                    Help the system learn by explaining your decision process.
+                                <div class="form-check mb-3">
+                                    <input class="form-check-input" type="radio" name="asset_choice" id="mark_non_asset"
+                                        value="non_asset">
+                                    <label class="form-check-label" for="mark_non_asset">
+                                        <strong>Mark as Non-Asset-Related</strong>
+                                    </label>
                                 </div>
-                            </div>
 
-                            <!-- Learning Insights -->
-                            <div class="mb-4">
-                                <label class="form-label"><strong>What could help the system get this right?</strong></label>
-                                <div class="reasoning-box">
+                                <!-- Asset Learning Hints -->
+                                <div class="asset-learning-hints mt-3 p-3 bg-light rounded" style="display: none;">
+                                    <h6>Help the system learn about asset assignment:</h6>
                                     <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="filename_pattern">
-                                        <label class="form-check-label" for="filename_pattern">
-                                            Look for specific patterns in filename
-                                        </label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="sender_pattern">
-                                        <label class="form-check-label" for="sender_pattern">
+                                        <input class="form-check-input" type="checkbox" id="asset_sender_pattern">
+                                        <label class="form-check-label" for="asset_sender_pattern">
                                             Remember this sender for this asset
                                         </label>
                                     </div>
                                     <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="subject_pattern">
-                                        <label class="form-check-label" for="subject_pattern">
-                                            Look for keywords in email subject
+                                        <input class="form-check-input" type="checkbox" id="asset_filename_pattern">
+                                        <label class="form-check-label" for="asset_filename_pattern">
+                                            Look for patterns in filename for asset matching
                                         </label>
                                     </div>
                                     <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="content_pattern">
-                                        <label class="form-check-label" for="content_pattern">
-                                            Analyze email body content
+                                        <input class="form-check-input" type="checkbox" id="asset_subject_pattern">
+                                        <label class="form-check-label" for="asset_subject_pattern">
+                                            Use email subject keywords for asset matching
                                         </label>
                                     </div>
+                                    <textarea class="form-control mt-2" id="asset_feedback"
+                                        placeholder="Additional feedback about asset assignment..." rows="2"></textarea>
                                 </div>
                             </div>
-
-                            <!-- Additional Feedback -->
-                            <div class="mb-4">
-                                <label for="feedback" class="form-label"><strong>Additional Feedback:</strong></label>
-                                <textarea class="form-control" id="feedback" name="feedback" rows="2"
-                                          placeholder="Any additional notes or suggestions for improvement..."></textarea>
-                            </div>
-
-                            <!-- Action Buttons -->
-                            <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                                <a href="{{ url_for('human_review_queue') }}" class="btn btn-outline-secondary">
-                                    <i class="bi bi-arrow-left"></i> Back to Queue
-                                </a>
-                                <button type="button" class="btn btn-outline-warning" onclick="skipReview()">
-                                    <i class="bi bi-skip-forward"></i> Skip for Now
-                                </button>
-                                <button type="submit" class="btn btn-success">
-                                    <i class="bi bi-check-circle"></i> Submit Review
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-
-                <!-- Learning Insights Preview -->
-                <div class="card mt-4">
-                    <div class="card-header">
-                        <h6 class="card-title mb-0">
-                            <i class="bi bi-lightbulb"></i> System Learning Preview
-                        </h6>
-                    </div>
-                    <div class="card-body">
-                        <p class="small text-muted mb-2">Based on your review, the system will learn:</p>
-                        <div id="learning-preview">
-                            <div class="learning-insight">
-                                <i class="bi bi-arrow-right"></i> Sender pattern: {{ review_item.sender_email.split('@')[1] if '@' in review_item.sender_email else review_item.sender_email }}
-                            </div>
-                            <div class="learning-insight">
-                                <i class="bi bi-arrow-right"></i> Filename pattern: {{ review_item.attachment_filename.split('.')[-1].upper() }} files
-                            </div>
-                            {% if 'loan' in review_item.attachment_filename.lower() or 'credit' in review_item.attachment_filename.lower() %}
-                            <div class="learning-insight">
-                                <i class="bi bi-arrow-right"></i> Keyword pattern: Contains loan/credit indicators
-                            </div>
-                            {% endif %}
                         </div>
                     </div>
                 </div>
+
+                <!-- Document Classification Review -->
+                <div class="mb-4">
+                    <div class="card border-success">
+                        <div class="card-header bg-success text-white">
+                            <h6 class="mb-0">
+                                <i class="bi bi-file-earmark-text"></i>
+                                Step 2: Document Type Review
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            {% if review_item.document_category and review_item.document_category != 'unknown' %}
+                            <div class="alert alert-info mb-3">
+                                <strong>System classified as:</strong>
+                                <br>
+                                <strong>{{ review_item.document_category.replace('_', ' ').title() }}</strong>
+                            </div>
+                            <button type="button" class="btn btn-success mb-3 w-100" onclick="approveDocumentType()">
+                                <i class="bi bi-check-circle"></i> ✅ Document Type is Correct
+                            </button>
+                            <p class="text-center mb-3"><strong>-- OR --</strong></p>
+                            {% else %}
+                            <div class="alert alert-warning mb-3">
+                                <strong>System could not determine document type</strong>
+                            </div>
+                            {% endif %}
+
+                            <div class="document-correction-section">
+                                <h6>Correct the Document Type:</h6>
+                                <select class="form-select mb-3" id="correct_document_category">
+                                    <option value="">Select the correct document type...</option>
+                                    {% for category in document_categories %}
+                                    <option value="{{ category.value }}">
+                                        {{ category.value.replace('_', ' ').title() }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+
+                                <!-- Document Learning Hints -->
+                                <div class="document-learning-hints p-3 bg-light rounded">
+                                    <h6>Help the system learn about document classification:</h6>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="doc_filename_pattern">
+                                        <label class="form-check-label" for="doc_filename_pattern">
+                                            Look for specific patterns in filename
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="doc_content_pattern">
+                                        <label class="form-check-label" for="doc_content_pattern">
+                                            Analyze file content for classification
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="doc_email_context">
+                                        <label class="form-check-label" for="doc_email_context">
+                                            Use email context for document type hints
+                                        </label>
+                                    </div>
+                                    <textarea class="form-control mt-2" id="document_feedback"
+                                        placeholder="Additional feedback about document classification..."
+                                        rows="2"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Submit Review -->
+                <div class="card border-warning">
+                    <div class="card-header bg-warning text-dark">
+                        <h6 class="mb-0">
+                            <i class="bi bi-send"></i>
+                            Submit Complete Review
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-grid gap-2">
+                            <button type="button" class="btn btn-primary btn-lg" onclick="submitCompleteReview()">
+                                <i class="bi bi-check-circle"></i> Submit Review & Learn
+                            </button>
+                            <div class="d-flex gap-2">
+                                <a href="{{ url_for('human_review_queue') }}"
+                                    class="btn btn-outline-secondary flex-fill">
+                                    <i class="bi bi-arrow-left"></i> Back to Queue
+                                </a>
+                                <button type="button" class="btn btn-outline-warning flex-fill" onclick="skipReview()">
+                                    <i class="bi bi-skip-forward"></i> Skip for Now
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Hidden form for final submission -->
+                <form id="finalReviewForm" style="display: none;">
+                    <input type="hidden" id="final_asset_id" name="asset_id">
+                    <input type="hidden" id="final_document_category" name="document_category">
+                    <input type="hidden" id="final_reasoning" name="reasoning">
+                    <input type="hidden" id="final_feedback" name="feedback">
+                    <input type="hidden" id="final_is_asset_related" name="is_asset_related">
+                </form>
             </div>
         </div>
     </div>
@@ -406,10 +444,22 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
-        let selectedSystemAssetId = null;
+        // Review state management
+        let reviewState = {
+            assetDecision: null,     // 'approve', 'different', 'non_asset'
+            assetId: null,
+            documentDecision: null,  // 'approve', 'correct'
+            documentCategory: null,
+            assetFeedback: '',
+            documentFeedback: '',
+            learningHints: {
+                asset: [],
+                document: []
+            }
+        };
 
         // Convert UTC dates to local time
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             const dateElements = document.querySelectorAll('.email-date');
             dateElements.forEach(element => {
                 const utcDate = element.getAttribute('data-utc');
@@ -418,110 +468,201 @@
                     element.textContent = localDate.toLocaleString();
                 }
             });
+
+            // Set up event listeners
+            setupEventListeners();
         });
 
-        // Handle asset source selection
-        document.querySelectorAll('input[name="asset_source"]').forEach(radio => {
-            radio.addEventListener('change', function() {
-                const manualSelection = document.getElementById('manual-asset-selection');
-                const assetSelect = document.getElementById('asset_id');
-                const documentCategorySelect = document.getElementById('document_category');
+        function setupEventListeners() {
+            // Asset choice radio buttons
+            document.querySelectorAll('input[name="asset_choice"]').forEach(radio => {
+                radio.addEventListener('change', function () {
+                    const assetSelection = document.getElementById('asset-selection');
+                    const learningHints = document.querySelector('.asset-learning-hints');
 
-                if (this.value === 'not_asset_related') {
-                    // Hide asset selection and auto-select "not asset-related" category
-                    manualSelection.style.display = 'none';
-                    assetSelect.required = false;
-                    document.getElementById('selected_asset_id').value = 'NOT_ASSET_RELATED';
-                    documentCategorySelect.value = 'not_asset_related';
-                    documentCategorySelect.disabled = true;
-                    documentCategorySelect.required = false;
-                } else if (this.value === 'system') {
-                    manualSelection.style.display = 'none';
-                    assetSelect.required = false;
-                    documentCategorySelect.disabled = false;
-                    documentCategorySelect.required = true;
-                    // Use system suggestion if one is selected
-                    if (selectedSystemAssetId) {
-                        document.getElementById('selected_asset_id').value = selectedSystemAssetId;
+                    if (this.value === 'different') {
+                        assetSelection.style.display = 'block';
+                        learningHints.style.display = 'block';
+                        reviewState.assetDecision = 'different';
+                    } else if (this.value === 'non_asset') {
+                        assetSelection.style.display = 'none';
+                        learningHints.style.display = 'block';
+                        reviewState.assetDecision = 'non_asset';
+                        reviewState.assetId = null;
+                    }
+                });
+            });
+
+            // Asset selection dropdown
+            document.getElementById('correct_asset_id').addEventListener('change', function () {
+                reviewState.assetId = this.value;
+            });
+
+            // Document category selection
+            document.getElementById('correct_document_category').addEventListener('change', function () {
+                reviewState.documentCategory = this.value;
+                reviewState.documentDecision = 'correct';
+            });
+        }
+
+        // Asset approval functions
+        function approveAssetMatch() {
+            reviewState.assetDecision = 'approve';
+            const topSuggestion = '{{ review_item.system_asset_suggestions[0].asset_id if review_item.system_asset_suggestions else "" }}';
+            reviewState.assetId = topSuggestion;
+
+            // Visual feedback
+            showSuccessMessage('Asset match approved! ✅');
+            highlightSection('asset', true);
+        }
+
+        function approveNonAsset() {
+            reviewState.assetDecision = 'approve';
+            reviewState.assetId = null;
+
+            // Visual feedback
+            showSuccessMessage('Non-asset-related confirmed! ✅');
+            highlightSection('asset', true);
+        }
+
+        // Document approval function
+        function approveDocumentType() {
+            reviewState.documentDecision = 'approve';
+            reviewState.documentCategory = '{{ review_item.document_category or "unknown" }}';
+
+            // Visual feedback
+            showSuccessMessage('Document type approved! ✅');
+            highlightSection('document', true);
+        }
+
+        // Complete review submission
+        function submitCompleteReview() {
+            // Validate that we have decisions
+            if (!reviewState.assetDecision && !reviewState.documentDecision) {
+                alert('Please make at least one decision about the asset assignment or document type.');
+                return;
+            }
+
+            // Gather all feedback
+            const assetFeedback = document.getElementById('asset_feedback')?.value || '';
+            const documentFeedback = document.getElementById('document_feedback')?.value || '';
+
+            // Gather learning hints
+            const assetHints = [];
+            if (document.getElementById('asset_sender_pattern')?.checked) assetHints.push('sender_pattern');
+            if (document.getElementById('asset_filename_pattern')?.checked) assetHints.push('filename_pattern');
+            if (document.getElementById('asset_subject_pattern')?.checked) assetHints.push('subject_pattern');
+
+            const documentHints = [];
+            if (document.getElementById('doc_filename_pattern')?.checked) documentHints.push('filename_pattern');
+            if (document.getElementById('doc_content_pattern')?.checked) documentHints.push('content_pattern');
+            if (document.getElementById('doc_email_context')?.checked) documentHints.push('email_context');
+
+            // Determine final values
+            let finalAssetId = null;
+            let finalDocumentCategory = 'unknown';
+            let finalIsAssetRelated = true;
+
+            // Asset decision logic
+            if (reviewState.assetDecision === 'approve') {
+                if (reviewState.assetId) {
+                    finalAssetId = reviewState.assetId;
+                    finalIsAssetRelated = true;
+                } else {
+                    finalIsAssetRelated = false;
+                    finalDocumentCategory = 'not_asset_related';
+                }
+            } else if (reviewState.assetDecision === 'different') {
+                finalAssetId = reviewState.assetId;
+                finalIsAssetRelated = !!finalAssetId;
+                if (!finalAssetId) {
+                    alert('Please select an asset from the dropdown.');
+                    return;
+                }
+            } else if (reviewState.assetDecision === 'non_asset') {
+                finalIsAssetRelated = false;
+                finalDocumentCategory = 'not_asset_related';
+            }
+
+            // Document decision logic (only for asset-related items)
+            if (finalIsAssetRelated) {
+                if (reviewState.documentDecision === 'approve') {
+                    finalDocumentCategory = '{{ review_item.document_category or "unknown" }}';
+                } else if (reviewState.documentDecision === 'correct') {
+                    finalDocumentCategory = reviewState.documentCategory;
+                    if (!finalDocumentCategory) {
+                        alert('Please select a document category.');
+                        return;
                     }
                 } else {
-                    manualSelection.style.display = 'block';
-                    assetSelect.required = true;
-                    documentCategorySelect.disabled = false;
-                    documentCategorySelect.required = true;
-                    document.getElementById('selected_asset_id').value = '';
+                    // Default to system's category if no document decision made
+                    finalDocumentCategory = '{{ review_item.document_category or "unknown" }}';
                 }
-            });
-        });
+            }
 
-        // Handle manual asset selection
-        document.getElementById('asset_id').addEventListener('change', function() {
-            document.getElementById('selected_asset_id').value = this.value;
-        });
+            // Build comprehensive feedback
+            const reasoning = buildReasoningText();
+            const feedback = buildFeedbackText(assetFeedback, documentFeedback, assetHints, documentHints);
 
-        // Select system suggestion
-        function selectSystemSuggestion(element) {
-            // Remove previous selections
-            document.querySelectorAll('.system-suggestion').forEach(el => {
-                el.classList.remove('selected');
-            });
+            // Submit the review
+            const reviewData = {
+                asset_id: finalAssetId,
+                document_category: finalDocumentCategory,
+                reasoning: reasoning,
+                feedback: feedback,
+                reviewed_by: 'web_user',
+                is_asset_related: finalIsAssetRelated
+            };
 
-            // Select this one
-            element.classList.add('selected');
-            selectedSystemAssetId = element.dataset.assetId;
-
-            // If system suggestion is selected as source, update the value
-            if (document.getElementById('system_suggestion').checked) {
-                document.getElementById('selected_asset_id').value = selectedSystemAssetId;
+            if (confirm('Submit this review? The system will learn from your decisions.')) {
+                submitReview(reviewData);
             }
         }
 
-        // Handle form submission
-        document.getElementById('reviewForm').addEventListener('submit', function(e) {
-            e.preventDefault();
+        function buildReasoningText() {
+            let reasoning = [];
 
-            const formData = new FormData(this);
-            const assetSource = formData.get('asset_source');
-            const assetId = document.getElementById('selected_asset_id').value || formData.get('asset_id');
-            const documentCategory = formData.get('document_category');
-
-            // Skip asset validation if "not asset-related" is selected
-            if (assetSource !== 'not_asset_related' && !assetId) {
-                alert('Please select an asset or mark as "Not Asset-Related"');
-                return;
+            if (reviewState.assetDecision === 'approve') {
+                if (reviewState.assetId) {
+                    reasoning.push('Asset assignment: System correctly identified the asset');
+                } else {
+                    reasoning.push('Asset assignment: System correctly identified as non-asset-related');
+                }
+            } else if (reviewState.assetDecision === 'different') {
+                reasoning.push('Asset assignment: Corrected to different asset');
+            } else if (reviewState.assetDecision === 'non_asset') {
+                reasoning.push('Asset assignment: Corrected to non-asset-related');
             }
 
-            // Document category is only required for asset-related items
-            if (assetSource !== 'not_asset_related' && !documentCategory) {
-                alert('Please select a document category');
-                return;
+            if (reviewState.documentDecision === 'approve') {
+                reasoning.push('Document type: System classification approved');
+            } else if (reviewState.documentDecision === 'correct') {
+                reasoning.push('Document type: Corrected by human reviewer');
             }
 
-            // Gather learning insights
-            const learningInsights = [];
-            if (document.getElementById('filename_pattern').checked) {
-                learningInsights.push('filename_pattern');
+            return reasoning.join('. ');
+        }
+
+        function buildFeedbackText(assetFeedback, documentFeedback, assetHints, documentHints) {
+            let feedback = [];
+
+            if (assetFeedback) {
+                feedback.push(`Asset feedback: ${assetFeedback}`);
             }
-            if (document.getElementById('sender_pattern').checked) {
-                learningInsights.push('sender_pattern');
+            if (documentFeedback) {
+                feedback.push(`Document feedback: ${documentFeedback}`);
             }
-            if (document.getElementById('subject_pattern').checked) {
-                learningInsights.push('subject_pattern');
+            if (assetHints.length > 0) {
+                feedback.push(`Asset learning hints: ${assetHints.join(', ')}`);
             }
-            if (document.getElementById('content_pattern').checked) {
-                learningInsights.push('content_pattern');
+            if (documentHints.length > 0) {
+                feedback.push(`Document learning hints: ${documentHints.join(', ')}`);
             }
 
-            const reviewData = {
-                asset_id: assetSource === 'not_asset_related' ? null : assetId,
-                document_category: assetSource === 'not_asset_related' ? 'not_asset_related' : documentCategory,
-                reasoning: formData.get('reasoning'),
-                feedback: formData.get('feedback') + '\n\nLearning insights: ' + learningInsights.join(', '),
-                reviewed_by: 'web_user',
-                is_asset_related: assetSource !== 'not_asset_related'
-            };
+            return feedback.join(' | ');
+        }
 
-            // Submit the review
+        function submitReview(reviewData) {
             fetch(`/api/human-review/{{ review_item.review_id }}/submit`, {
                 method: 'POST',
                 headers: {
@@ -529,74 +670,10 @@
                 },
                 body: JSON.stringify(reviewData)
             })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    const message = assetSource === 'not_asset_related'
-                        ? 'Review submitted! The system has learned this attachment is not asset-related.'
-                        : 'Review submitted successfully! The system has learned from your correction.';
-                    alert(message);
-                    window.location.href = '{{ url_for("human_review_queue") }}';
-                } else {
-                    alert('Error: ' + data.error);
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('An error occurred while submitting the review.');
-            });
-        });
-
-        // Skip review function
-        function skipReview() {
-            if (confirm('Are you sure you want to skip this review? It will remain in the queue.')) {
-                window.location.href = '{{ url_for("human_review_queue") }}';
-            }
-        }
-
-        // Quick approve function
-        function quickApprove() {
-            if (confirm('Are you sure you want to approve this review? It will be marked as correct and help the system learn.')) {
-                const button = event.target.closest('button');
-                const hasSuggestions = button.getAttribute('data-has-suggestions') === 'true';
-                const systemConfidence = parseFloat(button.getAttribute('data-system-confidence'));
-                const topSuggestion = button.getAttribute('data-top-suggestion');
-                const documentCategory = button.getAttribute('data-document-category');
-
-                let reviewData;
-                if (hasSuggestions && systemConfidence > 0 && topSuggestion) {
-                    // System suggested an asset - approve that suggestion
-                    reviewData = {
-                        asset_id: topSuggestion,
-                        document_category: documentCategory,
-                        reasoning: 'System analysis approved by user - correct asset match',
-                        feedback: 'Quick approval: System correctly identified the asset',
-                        reviewed_by: 'web_user',
-                        is_asset_related: true
-                    };
-                } else {
-                    // System found no asset match - approve as non-asset-related
-                    reviewData = {
-                        asset_id: null,
-                        document_category: 'not_asset_related',
-                        reasoning: 'System analysis approved by user - correctly identified as non-asset-related',
-                        feedback: 'Quick approval: System correctly identified this as not asset-related',
-                        reviewed_by: 'web_user',
-                        is_asset_related: false
-                    };
-                }
-
-                fetch(`/api/human-review/{{ review_item.review_id }}/submit`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(reviewData)
-                })
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        alert('Review approved successfully! The system has learned from your approval.');
+                        alert('Review submitted successfully! The system has learned from your decisions.');
                         window.location.href = '{{ url_for("human_review_queue") }}';
                     } else {
                         alert('Error: ' + data.error);
@@ -604,10 +681,48 @@
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    alert('An error occurred while approving the review.');
+                    alert('An error occurred while submitting the review.');
                 });
+        }
+
+        // Helper functions
+        function showSuccessMessage(message) {
+            // Create a temporary success message
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'alert alert-success alert-dismissible fade show';
+            msgDiv.innerHTML = `${message} <button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
+
+            // Insert at top of page
+            document.querySelector('.container').insertBefore(msgDiv, document.querySelector('.row'));
+
+            // Auto-dismiss after 3 seconds
+            setTimeout(() => {
+                if (msgDiv.parentNode) {
+                    msgDiv.remove();
+                }
+            }, 3000);
+        }
+
+        function highlightSection(section, approved) {
+            const sectionCard = section === 'asset'
+                ? document.querySelector('.card.border-primary')
+                : document.querySelector('.card.border-success');
+
+            if (approved) {
+                sectionCard.classList.remove('border-primary', 'border-success');
+                sectionCard.classList.add('border-success');
+                sectionCard.querySelector('.card-header').classList.remove('bg-primary', 'bg-success');
+                sectionCard.querySelector('.card-header').classList.add('bg-success');
+            }
+        }
+
+        // Skip review function
+        function skipReview() {
+            if (confirm('Are you sure you want to skip this review? It will remain in the queue.')) {
+                window.location.href = '{{ url_for("human_review_queue") }}';
             }
         }
     </script>
 </body>
+
 </html>

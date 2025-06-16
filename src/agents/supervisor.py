@@ -909,10 +909,9 @@ class EmailSupervisor:
         confidence_factors.append(spam_confidence * 0.2)  # 20% weight
 
         # Priority score confidence
-        if priority_score > 0.7 or priority_score < 0.3:
-            priority_confidence = 0.8
-        else:
-            priority_confidence = 0.5
+        priority_confidence = (
+            0.8 if priority_score > 0.7 or priority_score < 0.3 else 0.5
+        )
         confidence_factors.append(priority_confidence * 0.1)  # 10% weight
 
         # Calculate weighted average
@@ -1123,8 +1122,8 @@ async def demo_supervisor() -> None:
     Shows how to use the EmailSupervisor with sample email data
     and displays complete analysis results.
     """
-    print("🎯 Email Management Supervisor Demo")  # noqa: T201
-    print("=" * 50)  # noqa: T201
+    logger.info("🎯 Email Management Supervisor Demo")
+    logger.info("=" * 50)
 
     # Initialize supervisor
     supervisor = EmailSupervisor()
@@ -1178,40 +1177,40 @@ Click here to claim your $10,000 bonus!!!""",
 
     # Process each email
     for email in test_emails:
-        print(f"\n📧 Processing: {email.subject}")  # noqa: T201
-        print(f"   From: {email.sender}")  # noqa: T201
-        print(f"   Attachments: {len(email.attachments)}")  # noqa: T201
+        logger.info(f"\n📧 Processing: {email.subject}")
+        logger.info(f"   From: {email.sender}")
+        logger.info(f"   Attachments: {len(email.attachments)}")
 
         analysis = await supervisor.process_email(email)
 
-        print("\n📊 Analysis Results:")  # noqa: T201
-        print(f"   Trust Level: {analysis.trust_level.value}")  # noqa: T201
-        print(f"   Priority Level: {analysis.priority_level.value}")  # noqa: T201
-        print(f"   Spam Score: {analysis.spam_score:.3f}")  # noqa: T201
-        print(f"   Priority Score: {analysis.priority_score:.3f}")  # noqa: T201
-        print(f"   Confidence: {analysis.confidence:.3f}")  # noqa: T201
-        print(f"   Processing Time: {analysis.processing_time:.3f}s")  # noqa: T201
+        logger.info("\n📊 Analysis Results:")
+        logger.info(f"   Trust Level: {analysis.trust_level.value}")
+        logger.info(f"   Priority Level: {analysis.priority_level.value}")
+        logger.info(f"   Spam Score: {analysis.spam_score:.3f}")
+        logger.info(f"   Priority Score: {analysis.priority_score:.3f}")
+        logger.info(f"   Confidence: {analysis.confidence:.3f}")
+        logger.info(f"   Processing Time: {analysis.processing_time:.3f}s")
 
-        print("\n💡 Recommended Actions:")  # noqa: T201
+        logger.info("\n💡 Recommended Actions:")
         for action in analysis.recommended_actions:
-            print(f"   • {action.value}")  # noqa: T201
+            logger.info(f"   • {action.value}")
 
-        print(f"\n🧠 Reasoning: {analysis.reasoning}")  # noqa: T201
+        logger.info(f"\n🧠 Reasoning: {analysis.reasoning}")
 
     # Show processing statistics
     stats = await supervisor.get_processing_statistics()
-    print("\n📈 Processing Statistics:")  # noqa: T201
-    print(f"   Total Processed: {stats.get('total_processed', 0)}")  # noqa: T201
-    print(
+    logger.info("📈 Processing Statistics:")
+    logger.info(f"   Total Processed: {stats.get('total_processed', 0)}")
+    logger.info(
         f"   Average Processing Time: {stats.get('avg_processing_time', 0):.3f}s"
-    )  # noqa: T201
-    print(f"   Average Confidence: {stats.get('avg_confidence', 0):.3f}")  # noqa: T201
+    )
+    logger.info(f"   Average Confidence: {stats.get('avg_confidence', 0):.3f}")
 
     trust_dist = stats.get("trust_distribution", {})
     if trust_dist:
-        print(f"   Trust Distribution: {trust_dist}")  # noqa: T201
+        logger.info(f"   Trust Distribution: {trust_dist}")
 
-    print("\n✨ Demo completed!")  # noqa: T201
+    logger.info("\n✨ Demo completed!")
 
 
 if __name__ == "__main__":

@@ -7,6 +7,12 @@ sender mappings, and document classification settings.
 """
 
 # # Standard library imports
+# Suppress HuggingFace tokenizers forking warning before any imports
+import os
+
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+# # Standard library imports
 import sys
 from pathlib import Path
 

@@ -758,7 +758,7 @@ class GmailInterface(BaseEmailInterface):
         if "date" in headers:
             try:
                 sent_date = email.utils.parsedate_to_datetime(headers["date"])
-            except:
+            except (ValueError, TypeError, AttributeError):
                 pass
 
         # Parse body

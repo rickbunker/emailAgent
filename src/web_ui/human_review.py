@@ -105,17 +105,40 @@ class HumanReviewQueue:
     def _save_queue(self) -> None:
         """Save review queue to disk"""
         try:
+            # Ensure no binary content in queue items before saving
+            clean_queue = []
+            for item in self.queue:
+                clean_item = item.copy()
+                # Remove any binary content that might have leaked in
+                if "attachment_content" in clean_item:
+                    del clean_item["attachment_content"]
+
+                # Recursively clean any nested binary data
+                for key, value in clean_item.items():
+                    if isinstance(value, bytes):
+                        clean_item[key] = f"<binary_data_{len(value)}_bytes>"
+                    elif isinstance(value, dict):
+                        for sub_key, sub_value in value.items():
+                            if isinstance(sub_value, bytes):
+                                value[sub_key] = f"<binary_data_{len(sub_value)}_bytes>"
+
+                clean_queue.append(clean_item)
+
             with open(self.queue_file, "w") as f:
                 json.dump(
                     {
-                        "items": self.queue,
+                        "items": clean_queue,
                         "last_updated": datetime.now(UTC).isoformat(),
                     },
                     f,
                     indent=2,
+                    default=str,  # Convert any remaining non-serializable objects to strings
                 )
         except Exception as e:
             logger.error(f"Failed to save review queue: {e}")
+            logger.debug(
+                f"Queue content causing error: {[type(item) for item in self.queue]}"
+            )
 
     def add_for_review(
         self,

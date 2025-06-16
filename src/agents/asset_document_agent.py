@@ -56,15 +56,18 @@ Copyright 2025 by Inveniam Capital Partners, LLC and Rick Bunker
 """
 
 # # Standard library imports
+# Suppress HuggingFace tokenizers forking warning before any imports
+import os
+
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+# # Standard library imports
 import asyncio
 import hashlib
 import os
 import re
 import shutil
 import subprocess
-
-# Logging system
-import sys
 import tempfile
 import uuid
 from dataclasses import dataclass
@@ -73,13 +76,32 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+# # Third-party imports
+# Third-party imports
+from qdrant_client import QdrantClient
+from qdrant_client.http.models import (
+    Distance,
+    FieldCondition,
+    Filter,
+    MatchValue,
+    PointIdsList,
+    PointStruct,
+    VectorParams,
+)
 
-# # Local application imports
-from utils.logging_system import get_logger, log_function
+# Local imports
+from ..utils.config import config
+from ..utils.logging_system import get_logger, log_function
 
 # Initialize logger
 logger = get_logger(__name__)
+
+# Memory imports (imported here to avoid circular imports)
+try:
+    from ..memory.episodic import EpisodicMemory, EpisodicMemoryType
+except ImportError:
+    EpisodicMemory = None
+    EpisodicMemoryType = None
 
 # Optional dependencies with graceful degradation
 try:
@@ -88,7 +110,6 @@ try:
 
     logger.info("ClamAV Python library loaded successfully")
 except ImportError:
-    logger.warning("ClamAV Python library not installed. Run: pip install clamd")
     clamd = None
 
 try:
@@ -97,38 +118,20 @@ try:
 
     logger.info("Levenshtein library loaded successfully")
 except ImportError:
-    logger.warning(
-        "Levenshtein library not installed. Run: pip install python-Levenshtein"
-    )
     levenshtein_distance = None
 
 try:
-    # # Third-party imports
-    from qdrant_client import QdrantClient
-    from qdrant_client.models import (
-        CollectionConfig,
-        Distance,
-        FieldCondition,
-        Filter,
-        MatchValue,
-        PointIdsList,
-        PointStruct,
-        VectorParams,
-    )
-
+    # Qdrant already imported above
     logger.info("Qdrant client library loaded successfully")
 except ImportError:
-    logger.error("Qdrant client not installed. Run: pip install qdrant-client")
     QdrantClient = None
 
 # Import email interface
 try:
-    # # Local application imports
-    from email_interface.base import Email, EmailAttachment
+    from ..email_interface.base import Email, EmailAttachment
 
     logger.info("Email interface loaded successfully")
 except ImportError:
-    logger.error("Email interface not found. Ensure email_interface module exists.")
     Email = None
     EmailAttachment = None
 
@@ -406,7 +409,7 @@ class AssetDocumentAgent:
             Currently uses command-line clamscan rather than daemon for better
             compatibility across different deployment environments.
         """
-        self.logger.info("Initializing ClamAV antivirus integration")
+        logger.info("Initializing ClamAV antivirus integration")
 
         # Common ClamAV installation paths
         clamscan_paths = [
@@ -426,31 +429,25 @@ class AssetDocumentAgent:
             )
             if result.returncode == 0 and result.stdout.strip():
                 self.clamscan_path = result.stdout.strip()
-                self.logger.info(
-                    f"Found clamscan via {which_cmd}: {self.clamscan_path}"
-                )
+                logger.info(f"Found clamscan via {which_cmd}: {self.clamscan_path}")
                 return
         except (subprocess.TimeoutExpired, FileNotFoundError) as e:
-            self.logger.debug(f"which/where command failed: {e}")
+            logger.debug(f"which/where command failed: {e}")
 
         # Method 2: Check common installation paths
         for path in clamscan_paths:
             if Path(path).exists():
                 self.clamscan_path = path
-                self.logger.info(
-                    f"Found clamscan at standard path: {self.clamscan_path}"
-                )
+                logger.info(f"Found clamscan at standard path: {self.clamscan_path}")
                 return
 
         # Method 3: Use shutil.which as final fallback
         self.clamscan_path = shutil.which("clamscan")
         if self.clamscan_path:
-            self.logger.info(f"Found clamscan via shutil.which: {self.clamscan_path}")
+            logger.info(f"Found clamscan via shutil.which: {self.clamscan_path}")
         else:
-            self.logger.warning(
-                "ClamAV clamscan not found - antivirus scanning disabled"
-            )
-            self.logger.info(
+            logger.warning("ClamAV clamscan not found - antivirus scanning disabled")
+            logger.info(
                 "Install ClamAV: brew install clamav (macOS) or apt-get install clamav (Ubuntu)"
             )
 
@@ -483,14 +480,14 @@ class AssetDocumentAgent:
 
             if result.returncode == 0:
                 version_info = result.stdout.strip()
-                self.logger.info(f"ClamAV validation successful: {version_info}")
+                logger.info(f"ClamAV validation successful: {version_info}")
                 return True
             else:
-                self.logger.error(f"ClamAV validation failed: {result.stderr}")
+                logger.error(f"ClamAV validation failed: {result.stderr}")
                 return False
 
         except Exception as e:
-            self.logger.error(f"ClamAV validation error: {e}")
+            logger.error(f"ClamAV validation error: {e}")
             return False
 
     @log_function()
@@ -514,7 +511,7 @@ class AssetDocumentAgent:
             raise ValueError("File content cannot be empty or None")
 
         file_hash = hashlib.sha256(file_content).hexdigest()
-        self.logger.debug(f"Calculated SHA256 hash: {file_hash[:16]}...")
+        logger.debug(f"Calculated SHA256 hash: {file_hash[:16]}...")
         return file_hash
 
     @log_function()
@@ -541,16 +538,12 @@ class AssetDocumentAgent:
             raise ValueError("Filename cannot be empty or None")
 
         file_extension = Path(filename).suffix.lower()
-        self.logger.debug(
-            f"Validating file type: {filename} (extension: {file_extension})"
-        )
+        logger.debug(f"Validating file type: {filename} (extension: {file_extension})")
 
         if asset_type:
             config = self.ASSET_CONFIGS[asset_type]
             is_valid = file_extension in config.allowed_extensions
-            self.logger.debug(
-                f"File type validation for {asset_type.value}: {is_valid}"
-            )
+            logger.debug(f"File type validation for {asset_type.value}: {is_valid}")
             return is_valid
         else:
             # Check against all asset types
@@ -558,9 +551,7 @@ class AssetDocumentAgent:
             for config in self.ASSET_CONFIGS.values():
                 all_allowed.update(config.allowed_extensions)
             is_valid = file_extension in all_allowed
-            self.logger.debug(
-                f"File type validation against all asset types: {is_valid}"
-            )
+            logger.debug(f"File type validation against all asset types: {is_valid}")
             return is_valid
 
     def validate_file_size(
@@ -596,7 +587,7 @@ class AssetDocumentAgent:
             (is_clean, threat_name)
         """
         if not self.clamscan_path:
-            self.logger.warning("ClamAV not available – skipping scan for %s", filename)
+            logger.warning("ClamAV not available – skipping scan for %s", filename)
             return True, None
 
         # Save file content to a temporary file
@@ -630,13 +621,13 @@ class AssetDocumentAgent:
                     if temp_path in line and ": " in line:
                         threat_name = line.split(": ")[1].strip()
                         if threat_name.upper() != "OK":
-                            self.logger.warning(
+                            logger.warning(
                                 "Virus detected in %s: %s", filename, threat_name
                             )
                             return False, threat_name
 
                 # If we can't extract the specific threat name
-                self.logger.warning("Virus detected in %s: Unknown threat", filename)
+                logger.warning("Virus detected in %s: Unknown threat", filename)
                 return False, "Unknown virus detected"
 
             elif process.returncode == 0:
@@ -645,16 +636,14 @@ class AssetDocumentAgent:
 
             else:
                 # Some other error occurred
-                self.logger.warning(
-                    "ClamAV scan error for %s: %s", filename, stderr.strip()
-                )
+                logger.warning("ClamAV scan error for %s: %s", filename, stderr.strip())
                 return False, f"Scan error: {stderr.strip()}"
 
         except TimeoutError:
-            self.logger.warning("ClamAV scan timeout for %s", filename)
+            logger.warning("ClamAV scan timeout for %s", filename)
             return False, "Scan timeout"
         except Exception as e:
-            self.logger.error("Antivirus scan failed for %s: %s", filename, e)
+            logger.error("Antivirus scan failed for %s: %s", filename, e)
             return False, f"Scan error: {str(e)}"
         finally:
             # Clean up the temporary file
@@ -679,12 +668,36 @@ class AssetDocumentAgent:
         filename = attachment_data.get("filename", "unknown_attachment")
         content = attachment_data.get("content", b"")
 
-        self.logger.info("Processing attachment %s", filename)
+        logger.info("Processing attachment %s", filename)
 
         try:
-            # Step 1: File type validation
+            # Step 1: Basic content validation
+            if not content:
+                return ProcessingResult(
+                    status=ProcessingStatus.ERROR,
+                    error_message="No file content available",
+                )
+
+            # Step 2: CRITICAL SECURITY - Antivirus scan FIRST
+            # Scan for viruses regardless of file type to catch threats
+            is_clean, threat_name = await self.scan_file_antivirus(content, filename)
+            if not is_clean:
+                logger.warning(
+                    "🦠 VIRUS DETECTED - File quarantined %s: %s", filename, threat_name
+                )
+
+                # Calculate hash for quarantined files for tracking
+                file_hash = self.calculate_file_hash(content)
+
+                return ProcessingResult(
+                    status=ProcessingStatus.QUARANTINED,
+                    file_hash=file_hash,
+                    quarantine_reason=threat_name,
+                )
+
+            # Step 3: File type validation (after virus scan)
             if not self.validate_file_type(filename):
-                self.logger.warning(
+                logger.warning(
                     "Invalid file type for %s: %s", filename, Path(filename).suffix
                 )
                 return ProcessingResult(
@@ -692,10 +705,10 @@ class AssetDocumentAgent:
                     error_message=f"File type {Path(filename).suffix} not allowed",
                 )
 
-            # Step 2: File size validation
+            # Step 4: File size validation
             file_size = len(content)
             if not self.validate_file_size(file_size):
-                self.logger.warning(
+                logger.warning(
                     "File too large for %s: %.1f MB",
                     filename,
                     file_size / (1024 * 1024),
@@ -705,20 +718,14 @@ class AssetDocumentAgent:
                     error_message=f"File size {file_size / (1024*1024):.1f} MB exceeds limit",
                 )
 
-            # Step 3: Calculate SHA256 hash
-            if not content:
-                return ProcessingResult(
-                    status=ProcessingStatus.ERROR,
-                    error_message="No file content available",
-                )
-
+            # Step 5: Calculate SHA256 hash (for clean, valid files)
             file_hash = self.calculate_file_hash(content)
-            self.logger.debug("SHA256(%s) = %s", filename, file_hash[:16])
+            logger.debug("SHA256(%s) = %s", filename, file_hash[:16])
 
-            # Step 4: Check for duplicates (Phase 2)
+            # Step 6: Check for duplicates (Phase 2)
             duplicate_id = await self.check_duplicate(file_hash)
             if duplicate_id:
-                self.logger.info(
+                logger.info(
                     "Duplicate detected for %s (original: %s)", filename, duplicate_id
                 )
                 return ProcessingResult(
@@ -727,18 +734,7 @@ class AssetDocumentAgent:
                     duplicate_of=duplicate_id,
                 )
 
-            # Step 5: Antivirus scan
-            is_clean, threat_name = await self.scan_file_antivirus(content, filename)
-            if not is_clean:
-                self.logger.warning("File quarantined %s: %s", filename, threat_name)
-
-                return ProcessingResult(
-                    status=ProcessingStatus.QUARANTINED,
-                    file_hash=file_hash,
-                    quarantine_reason=threat_name,
-                )
-
-            self.logger.info("File %s passed all Phase 1 validation checks", filename)
+            logger.info("File %s passed all Phase 1 validation checks", filename)
 
             # Prepare metadata for future phases
             metadata = {
@@ -761,7 +757,7 @@ class AssetDocumentAgent:
             )
 
         except Exception as e:
-            self.logger.error("Processing error for %s: %s", filename, e)
+            logger.error("Processing error for %s: %s", filename, e)
             return ProcessingResult(status=ProcessingStatus.ERROR, error_message=str(e))
 
     def get_processing_stats(self) -> dict[str, Any]:
@@ -805,7 +801,7 @@ class AssetDocumentAgent:
     async def initialize_collections(self) -> bool:
         """Initialize Qdrant collections for asset management."""
         if not self.qdrant:
-            self.logger.warning(
+            logger.warning(
                 "Qdrant client not provided - skipping collection initialization"
             )
             return False
@@ -818,9 +814,7 @@ class AssetDocumentAgent:
                     vector_size=384,  # sentence-transformers dimension
                     description="Asset definitions with semantic embeddings",
                 )
-                self.logger.info(
-                    "Created assets collection: %s", self.COLLECTIONS["assets"]
-                )
+                logger.info("Created assets collection: %s", self.COLLECTIONS["assets"])
 
             # Asset-Sender mappings (no vectors needed)
             if not await self._collection_exists(
@@ -831,7 +825,7 @@ class AssetDocumentAgent:
                     vector_size=1,  # Minimal vector for Qdrant requirement
                     description="Many-to-many asset-sender relationships",
                 )
-                self.logger.info("Created asset-sender mappings collection")
+                logger.info("Created asset-sender mappings collection")
 
             # Processed documents (no vectors needed)
             if not await self._collection_exists(
@@ -842,7 +836,7 @@ class AssetDocumentAgent:
                     vector_size=1,  # Minimal vector
                     description="Processed document metadata and file hashes",
                 )
-                self.logger.info("Created processed documents collection")
+                logger.info("Created processed documents collection")
 
             # Unknown senders (no vectors needed)
             if not await self._collection_exists(self.COLLECTIONS["unknown_senders"]):
@@ -851,13 +845,13 @@ class AssetDocumentAgent:
                     vector_size=1,  # Minimal vector
                     description="Unknown sender tracking and timeout management",
                 )
-                self.logger.info("Created unknown senders collection")
+                logger.info("Created unknown senders collection")
 
-            self.logger.info("All Qdrant collections initialized successfully")
+            logger.info("All Qdrant collections initialized successfully")
             return True
 
         except Exception as e:
-            self.logger.error("Failed to initialize Qdrant collections: %s", e)
+            logger.error("Failed to initialize Qdrant collections: %s", e)
             return False
 
     async def _collection_exists(self, collection_name: str) -> bool:
@@ -877,6 +871,7 @@ class AssetDocumentAgent:
             vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE),
         )
 
+    @log_function()
     async def create_asset(
         self,
         deal_name: str,
@@ -934,10 +929,10 @@ class AssetDocumentAgent:
                     collection_name=self.COLLECTIONS["assets"], points=[point]
                 )
 
-                self.logger.info("Created asset: %s (%s)", deal_name, deal_id)
+                logger.info("Created asset: %s (%s)", deal_name, deal_id)
 
             except Exception as e:
-                self.logger.error("Failed to store asset in Qdrant: %s", e)
+                logger.error("Failed to store asset in Qdrant: %s", e)
 
         # Create folder structure
         Path(folder_path).mkdir(parents=True, exist_ok=True)
@@ -969,7 +964,7 @@ class AssetDocumentAgent:
                         return datetime.fromisoformat(date_str)
                     except (ValueError, TypeError):
                         # Fallback to current time if parsing fails
-                        self.logger.warning(
+                        logger.warning(
                             f"Failed to parse datetime '{date_str}', using current time"
                         )
                         return datetime.now(UTC)
@@ -988,7 +983,7 @@ class AssetDocumentAgent:
             return None
 
         except Exception as e:
-            self.logger.error("Failed to retrieve asset: %s", e)
+            logger.error("Failed to retrieve asset: %s", e)
             return None
 
     async def list_assets(self) -> list[Asset]:
@@ -1010,7 +1005,7 @@ class AssetDocumentAgent:
                     return datetime.fromisoformat(date_str)
                 except (ValueError, TypeError):
                     # Fallback to current time if parsing fails
-                    self.logger.warning(
+                    logger.warning(
                         f"Failed to parse datetime '{date_str}', using current time"
                     )
                     return datetime.now(UTC)
@@ -1030,7 +1025,7 @@ class AssetDocumentAgent:
                 assets.append(asset)
 
         except Exception as e:
-            self.logger.error("Failed to list assets: %s", e)
+            logger.error("Failed to list assets: %s", e)
 
         return assets
 
@@ -1056,14 +1051,14 @@ class AssetDocumentAgent:
             True if update successful, False otherwise
         """
         if not self.qdrant:
-            self.logger.error("Qdrant client not available for asset update")
+            logger.error("Qdrant client not available for asset update")
             return False
 
         try:
             # First, get the current asset
             current_asset = await self.get_asset(deal_id)
             if not current_asset:
-                self.logger.error("Asset not found for update: %s", deal_id)
+                logger.error("Asset not found for update: %s", deal_id)
                 return False
 
             # Update only the fields that were provided
@@ -1144,19 +1139,17 @@ class AssetDocumentAgent:
                 if old_path.exists():
                     try:
                         old_path.rename(new_path)
-                        self.logger.info(
-                            "Renamed asset folder: %s → %s", old_path, new_path
-                        )
+                        logger.info("Renamed asset folder: %s → %s", old_path, new_path)
                     except OSError as e:
-                        self.logger.warning("Failed to rename asset folder: %s", e)
+                        logger.warning("Failed to rename asset folder: %s", e)
                         # Create new folder if rename failed
                         new_path.mkdir(parents=True, exist_ok=True)
 
-            self.logger.info("Updated asset: %s (%s)", updated_deal_name, deal_id)
+            logger.info("Updated asset: %s (%s)", updated_deal_name, deal_id)
             return True
 
         except Exception as e:
-            self.logger.error("Failed to update asset %s: %s", deal_id, e)
+            logger.error("Failed to update asset %s: %s", deal_id, e)
             return False
 
     async def create_asset_sender_mapping(
@@ -1215,20 +1208,123 @@ class AssetDocumentAgent:
                     points=[point],
                 )
 
-                self.logger.info(
+                logger.info(
                     "Created asset-sender mapping: %s → %s", sender_email, asset_id
                 )
 
             except Exception as e:
-                self.logger.error("Failed to store mapping in Qdrant: %s", e)
+                logger.error("Failed to store mapping in Qdrant: %s", e)
 
         return mapping_id
 
+    async def update_asset_sender_mapping(
+        self,
+        mapping_id: str,
+        asset_id: str | None = None,
+        sender_email: str | None = None,
+        confidence: float | None = None,
+        document_types: list[str] | None = None,
+    ) -> bool:
+        """
+        Update an existing asset-sender mapping.
+
+        Args:
+            mapping_id: Mapping ID to update
+            asset_id: New asset deal_id (optional)
+            sender_email: New email address (optional)
+            confidence: New confidence level (optional)
+            document_types: New document types (optional)
+
+        Returns:
+            True if update successful, False otherwise
+        """
+        if not self.qdrant:
+            logger.error("Qdrant client not available for mapping update")
+            return False
+
+        try:
+            # First, get the current mapping
+            search_result = self.qdrant.scroll(
+                collection_name=self.COLLECTIONS["asset_sender_mappings"],
+                scroll_filter=Filter(
+                    must=[
+                        FieldCondition(
+                            key="mapping_id", match=MatchValue(value=mapping_id)
+                        )
+                    ]
+                ),
+                limit=1,
+            )
+
+            if not search_result[0]:
+                logger.error("Sender mapping not found for update: %s", mapping_id)
+                return False
+
+            current_mapping = search_result[0][0].payload
+
+            # Update only the fields that were provided
+            updated_asset_id = (
+                asset_id if asset_id is not None else current_mapping["asset_id"]
+            )
+            updated_sender_email = (
+                sender_email.lower()
+                if sender_email is not None
+                else current_mapping["sender_email"]
+            )
+            updated_confidence = (
+                confidence if confidence is not None else current_mapping["confidence"]
+            )
+            updated_document_types = (
+                document_types
+                if document_types is not None
+                else current_mapping.get("document_types", [])
+            )
+
+            # Update in Qdrant
+            dummy_vector = [0.0]  # Minimal vector
+
+            point = PointStruct(
+                id=mapping_id,
+                vector=dummy_vector,
+                payload={
+                    "mapping_id": mapping_id,
+                    "asset_id": updated_asset_id,
+                    "sender_email": updated_sender_email,
+                    "confidence": updated_confidence,
+                    "document_types": updated_document_types,
+                    "created_date": current_mapping["created_date"],
+                    "last_activity": datetime.now(UTC).isoformat(),
+                    "email_count": current_mapping.get("email_count", 0),
+                },
+            )
+
+            self.qdrant.upsert(
+                collection_name=self.COLLECTIONS["asset_sender_mappings"],
+                points=[point],
+            )
+
+            logger.info(
+                "Updated asset-sender mapping: %s (%s -> %s)",
+                mapping_id[:8],
+                updated_sender_email,
+                updated_asset_id,
+            )
+            return True
+
+        except Exception as e:
+            logger.error("Failed to update sender mapping %s: %s", mapping_id, e)
+            return False
+
     async def get_sender_assets(self, sender_email: str) -> list[dict[str, Any]]:
         """Get all assets associated with a sender."""
-        assets = []
+        self.logger.info(f"👤 SENDER KNOWLEDGE CHECK: '{sender_email}'")
+
+        assets: list[dict[str, Any]] = []
 
         if not self.qdrant:
+            self.logger.warning(
+                "❌ Qdrant client not available - cannot check sender mappings"
+            )
             return assets
 
         try:
@@ -1242,23 +1338,45 @@ class AssetDocumentAgent:
                         )
                     ]
                 ),
-                limit=50,
+                limit=100,
             )
 
-            for point in search_result[0]:
-                payload = point.payload
-                assets.append(
-                    {
-                        "mapping_id": payload["mapping_id"],
-                        "asset_id": payload["asset_id"],
-                        "confidence": payload["confidence"],
-                        "document_types": payload["document_types"],
-                        "email_count": payload.get("email_count", 0),
+            if search_result[0]:  # Points found
+                points_found: int = len(search_result[0])
+                self.logger.info(f"🔍 Found {points_found} sender mapping(s) in Qdrant")
+
+                for point in search_result[0]:
+                    mapping_data: dict[str, Any] = {
+                        "asset_id": point.payload.get("asset_id"),
+                        "confidence": point.payload.get("confidence", 0.0),
+                        "created_at": point.payload.get("created_at"),
+                        "point_id": point.id,
                     }
-                )
+                    assets.append(mapping_data)
+                    self.logger.debug(
+                        f"   📋 Mapping: {mapping_data['asset_id']} (confidence: {mapping_data['confidence']:.3f})"
+                    )
+            else:
+                self.logger.info("❌ No sender mappings found for this email address")
 
         except Exception as e:
-            self.logger.error("Failed to get sender assets: %s", e)
+            self.logger.error(f"❌ Error checking sender mappings: {e}")
+            # Don't re-raise - gracefully degrade
+
+        total_assets: int = len(assets)
+        if total_assets > 0:
+            self.logger.info(
+                f"✅ SENDER KNOWLEDGE RESULT: {total_assets} associated asset(s)"
+            )
+            # Show top 3 for logging
+            for i, asset_data in enumerate(assets[:3]):
+                self.logger.info(
+                    f"   {i+1}. Asset: {asset_data['asset_id']} -> confidence: {asset_data['confidence']:.3f}"
+                )
+        else:
+            self.logger.info(
+                "❓ SENDER KNOWLEDGE RESULT: Unknown sender - no associated assets"
+            )
 
         return assets
 
@@ -1290,17 +1408,17 @@ class AssetDocumentAgent:
                 )
 
         except Exception as e:
-            self.logger.error("Failed to list sender mappings: %s", e)
+            logger.error("Failed to list sender mappings: %s", e)
 
         return mappings
 
     async def delete_asset_sender_mapping(self, mapping_id: str) -> bool:
         """Delete an asset-sender mapping by mapping_id."""
         if not self.qdrant:
-            self.logger.error("Qdrant client not available for deletion")
+            logger.error("Qdrant client not available for deletion")
             return False
 
-        self.logger.info("Attempting to delete sender mapping: %s", mapping_id)
+        logger.info("Attempting to delete sender mapping: %s", mapping_id)
 
         try:
             # First verify the mapping exists
@@ -1317,12 +1435,10 @@ class AssetDocumentAgent:
             )
 
             if not search_result[0]:
-                self.logger.error(
-                    "Sender mapping not found in database: %s", mapping_id
-                )
+                logger.error("Sender mapping not found in database: %s", mapping_id)
                 return False
 
-            self.logger.debug("Found mapping to delete: %s", mapping_id)
+            logger.debug("Found mapping to delete: %s", mapping_id)
 
             # Delete by point ID (which should be the mapping_id)
             delete_result = self.qdrant.delete(
@@ -1330,8 +1446,8 @@ class AssetDocumentAgent:
                 points_selector=PointIdsList(points=[mapping_id]),
             )
 
-            self.logger.info("Delete operation completed for mapping: %s", mapping_id)
-            self.logger.debug("Delete result: %s", delete_result)
+            logger.info("Delete operation completed for mapping: %s", mapping_id)
+            logger.debug("Delete result: %s", delete_result)
 
             # Verify deletion
             verify_result = self.qdrant.scroll(
@@ -1347,23 +1463,23 @@ class AssetDocumentAgent:
             )
 
             if not verify_result[0]:
-                self.logger.info(
+                logger.info(
                     "Confirmed: Sender mapping successfully deleted: %s", mapping_id
                 )
                 return True
             else:
-                self.logger.error(
+                logger.error(
                     "Deletion verification failed - mapping still exists: %s",
                     mapping_id,
                 )
                 return False
 
         except Exception as e:
-            self.logger.error("Failed to delete sender mapping %s: %s", mapping_id, e)
+            logger.error("Failed to delete sender mapping %s: %s", mapping_id, e)
             # # Standard library imports
             import traceback
 
-            self.logger.error("Full error traceback: %s", traceback.format_exc())
+            logger.error("Full error traceback: %s", traceback.format_exc())
             return False
 
     async def check_duplicate(self, file_hash: str) -> str | None:
@@ -1395,7 +1511,7 @@ class AssetDocumentAgent:
             return None
 
         except Exception as e:
-            self.logger.warning("Error checking for duplicates: %s", e)
+            logger.warning("Error checking for duplicates: %s", e)
             return None
 
     async def store_processed_document(
@@ -1431,12 +1547,12 @@ class AssetDocumentAgent:
                 collection_name=self.COLLECTIONS["processed_documents"], points=[point]
             )
 
-            self.logger.info("📊 Document metadata stored: %s...", document_id[:8])
+            logger.info("📊 Document metadata stored: %s...", document_id[:8])
 
             return document_id
 
         except Exception as e:
-            self.logger.error("Failed to store processed document: %s", e)
+            logger.error("Failed to store processed document: %s", e)
             return None
 
     async def get_processed_document(self, document_id: str) -> dict[str, Any] | None:
@@ -1471,9 +1587,7 @@ class AssetDocumentAgent:
             return None
 
         except Exception as e:
-            self.logger.error(
-                "Failed to retrieve processed document %s: %s", document_id, e
-            )
+            logger.error("Failed to retrieve processed document %s: %s", document_id, e)
             return None
 
     # ================================
@@ -1536,6 +1650,14 @@ class AssetDocumentAgent:
                 r"facility.*agreement",
                 r"promissory.*note",
                 r"security.*agreement",
+                r"loan.*documents?",  # NEW: "loan document" or "loan documents"
+                r"loan.*docs?",  # NEW: "loan doc" or "loan docs"
+                r"loan.*papers?",  # NEW: "loan paper" or "loan papers"
+                r"loan.*file",  # NEW: "loan file"
+                r"credit.*document",  # NEW: "credit document"
+                r".*loan.*td.*",  # NEW: Trust Deed/Term Document patterns
+                r"trust.*deed",  # NEW: "trust deed"
+                r"term.*document",  # NEW: "term document"
             ],
             DocumentCategory.BORROWER_FINANCIALS: [
                 r"borrower.*financial",
@@ -1693,226 +1815,386 @@ class AssetDocumentAgent:
         ],
     }
 
-    def classify_document(
+    @log_function()
+    async def classify_document(
         self,
         filename: str,
         email_subject: str,
         email_body: str = "",
-        asset_type: AssetType = None,
+        asset_type: AssetType | None = None,
+        sender_email: str = "",
     ) -> tuple[DocumentCategory, float]:
         """
-        Classify document based on filename, email subject, and content.
+        Classify document using pattern matching and episodic memory.
 
         Args:
-            filename: Name of the attachment
-            email_subject: Email subject line
-            email_body: Email body content
-            asset_type: Known asset type (if available)
+            filename: Name of the document file
+            email_subject: Subject line of the email
+            email_body: Body content of the email
+            asset_type: Known asset type for targeted classification
+            sender_email: Email address of sender for episodic memory lookup
 
         Returns:
-            (DocumentCategory, confidence_score)
+            Tuple of (DocumentCategory, confidence_score)
         """
-        # Combine all text for analysis
-        combined_text = f"{filename} {email_subject} {email_body}".lower()
+        self.logger.info("📋 DOCUMENT CLASSIFICATION ANALYSIS START")
+        self.logger.info(f"📄 Filename: '{filename}'")
+        self.logger.info(f"📧 Email Subject: '{email_subject}'")
+        self.logger.info(
+            f"📝 Email Body: '{email_body[:100]}{'...' if len(email_body) > 100 else ''}'"
+        )
+        self.logger.info(
+            f"🏢 Asset Type Context: {asset_type.value if asset_type else 'None'}"
+        )
+        self.logger.info(f"👤 Sender: '{sender_email}'")
 
-        # First, try to use learned patterns from episodic memory
-        episodic_category, episodic_confidence = self._classify_from_episodic_memory(
-            filename, email_subject, email_body
+        combined_text: str = f"{filename} {email_subject} {email_body}".lower()
+        self.logger.info(f"🔤 Combined classification text: '{combined_text}'")
+
+        # Step 1: Try episodic memory classification first
+        self.logger.info("🧠 Step 1: Checking episodic memory for patterns...")
+        (
+            episodic_category,
+            episodic_confidence,
+        ) = await self._classify_from_episodic_memory(
+            filename, email_subject, email_body, sender_email
         )
 
-        if episodic_category != DocumentCategory.UNKNOWN and episodic_confidence > 0.7:
+        if episodic_confidence > 0.5:
             self.logger.info(
-                f"Classification from episodic memory: {episodic_category.value} (confidence: {episodic_confidence:.2f})"
+                f"✅ EPISODIC MEMORY CLASSIFICATION: {episodic_category.value} (confidence: {episodic_confidence:.3f})"
             )
+            self.logger.info("🏁 DOCUMENT CLASSIFICATION COMPLETE (episodic memory)")
             return episodic_category, episodic_confidence
-
-        # Fall back to hardcoded patterns if episodic memory doesn't have strong matches
-        # If asset type is known, only check patterns for that type
-        if asset_type and asset_type in self.CLASSIFICATION_PATTERNS:
-            patterns_to_check = {asset_type: self.CLASSIFICATION_PATTERNS[asset_type]}
         else:
+            self.logger.info(
+                f"❌ Episodic memory classification insufficient: {episodic_category.value} (confidence: {episodic_confidence:.3f})"
+            )
+
+        # Step 2: Pattern-based classification
+        self.logger.info("🔍 Step 2: Performing pattern-based classification...")
+
+        best_category: DocumentCategory = DocumentCategory.UNKNOWN
+        best_confidence: float = 0.0
+
+        # If we have asset type context, focus on those patterns first
+        if asset_type and asset_type in self.CLASSIFICATION_PATTERNS:
+            self.logger.info(f"🎯 Focusing on {asset_type.value} document patterns")
+            patterns_to_check: dict[AssetType, dict[DocumentCategory, list[str]]] = {
+                asset_type: self.CLASSIFICATION_PATTERNS[asset_type]
+            }
+        else:
+            self.logger.info("🌐 Checking all asset type patterns")
             patterns_to_check = self.CLASSIFICATION_PATTERNS
 
-        best_category = DocumentCategory.UNKNOWN
-        best_score = 0.0
+        for checking_asset_type, categories in patterns_to_check.items():
+            self.logger.debug(f"📊 Checking {checking_asset_type.value} patterns...")
 
-        for asset_type_key, categories in patterns_to_check.items():
             for category, patterns in categories.items():
-                score = 0.0
-                matches = 0
+                category_confidence: float = 0.0
+                matches_found: list[str] = []
+
+                self.logger.debug(f"   🔍 Testing category: {category.value}")
+                self.logger.debug(f"   📝 Patterns: {patterns}")
 
                 for pattern in patterns:
-                    if re.search(pattern, combined_text):
-                        matches += 1
-                        # Weight filename matches higher than subject/body
-                        if re.search(pattern, filename.lower()):
-                            score += 0.6
-                        elif re.search(pattern, email_subject.lower()):
-                            score += 0.3
-                        else:
-                            score += 0.1
+                    try:
+                        if re.search(pattern, combined_text, re.IGNORECASE):
+                            # Weight longer, more specific patterns higher
+                            pattern_weight: float = min(len(pattern) / 20.0, 1.0)
+                            category_confidence += pattern_weight
+                            matches_found.append(pattern)
+                            self.logger.debug(
+                                f"     ✅ Pattern match: '{pattern}' -> weight: {pattern_weight:.3f}"
+                            )
+                    except re.error as e:
+                        self.logger.warning(f"Invalid regex pattern '{pattern}': {e}")
 
-                # Normalize score by number of patterns
-                if patterns:
-                    normalized_score = min(score / len(patterns), 1.0)
+                # Normalize confidence (cap at 1.0)
+                category_confidence = min(category_confidence, 1.0)
 
-                    # Boost score if multiple patterns match
-                    if matches > 1:
-                        normalized_score = min(normalized_score * 1.2, 1.0)
+                if matches_found:
+                    self.logger.info(
+                        f"   🎯 Category {category.value}: {len(matches_found)} pattern(s) matched -> confidence: {category_confidence:.3f}"
+                    )
+                    for match in matches_found:
+                        self.logger.debug(f"     - '{match}'")
+                else:
+                    self.logger.debug(
+                        f"   ❌ Category {category.value}: no patterns matched"
+                    )
 
-                    if normalized_score > best_score:
-                        best_score = normalized_score
-                        best_category = category
+                if category_confidence > best_confidence:
+                    old_best: str = f"{best_category.value} ({best_confidence:.3f})"
+                    best_category = category
+                    best_confidence = category_confidence
+                    self.logger.info(
+                        f"   🏆 NEW BEST: {category.value} ({category_confidence:.3f}) - was {old_best}"
+                    )
 
-        # If episodic memory had a weaker match, but hardcoded patterns found nothing good,
-        # prefer the episodic memory result
-        if best_score < 0.5 and episodic_confidence > 0.0:
+        # Step 3: Apply confidence adjustments
+        self.logger.info("⚖️ Step 3: Applying confidence adjustments...")
+
+        # Filename-specific boosts
+        filename_lower: str = filename.lower()
+        original_confidence: float = best_confidence
+
+        if any(
+            keyword in filename_lower for keyword in ["report", "statement", "summary"]
+        ):
+            boost: float = 0.1
+            best_confidence = min(best_confidence + boost, 1.0)
             self.logger.info(
-                f"Using episodic memory classification over weak pattern match: {episodic_category.value} (confidence: {episodic_confidence:.2f})"
+                f"   📄 Filename keyword boost: +{boost} -> {best_confidence:.3f}"
             )
-            return episodic_category, episodic_confidence
 
-        return best_category, best_score
+        if filename_lower.endswith((".pdf", ".doc", ".docx")):
+            boost = 0.05
+            best_confidence = min(best_confidence + boost, 1.0)
+            self.logger.info(
+                f"   📎 Document format boost: +{boost} -> {best_confidence:.3f}"
+            )
 
-    def _classify_from_episodic_memory(
-        self, filename: str, email_subject: str, email_body: str
+        # Email subject relevance
+        if (
+            email_subject
+            and len(email_subject) > 10
+            and any(
+                keyword in email_subject.lower()
+                for keyword in ["urgent", "important", "quarterly", "monthly"]
+            )
+        ):
+            boost = 0.05
+            best_confidence = min(best_confidence + boost, 1.0)
+            self.logger.info(
+                f"   📧 Subject relevance boost: +{boost} -> {best_confidence:.3f}"
+            )
+
+        if best_confidence != original_confidence:
+            self.logger.info(
+                f"   📈 Total confidence adjustment: {original_confidence:.3f} -> {best_confidence:.3f}"
+            )
+
+        # Final result
+        self.logger.info("🏁 DOCUMENT CLASSIFICATION COMPLETE (pattern-based)")
+        self.logger.info(f"📋 Final Classification: {best_category.value}")
+        self.logger.info(f"📊 Final Confidence: {best_confidence:.3f}")
+
+        if best_confidence < 0.3:
+            self.logger.warning(
+                "⚠️ Low classification confidence - document may need human review"
+            )
+        elif best_confidence > 0.8:
+            self.logger.info("✨ High classification confidence - reliable result")
+
+        return best_category, best_confidence
+
+    async def _classify_from_episodic_memory(
+        self, filename: str, email_subject: str, email_body: str, sender_email: str
     ) -> tuple[DocumentCategory, float]:
         """
-        Classify document using learned patterns from episodic memory.
+        Attempt document classification using episodic memory.
 
         Args:
-            filename: Name of the attachment
+            filename: Document filename
             email_subject: Email subject line
             email_body: Email body content
+            sender_email: Sender's email address
 
         Returns:
-            (DocumentCategory, confidence_score)
+            Tuple of (DocumentCategory, confidence_score)
         """
+        self.logger.info("🧠 EPISODIC MEMORY CLASSIFICATION START")
+        self.logger.info(f"📄 Filename: '{filename}'")
+        self.logger.info(f"📧 Subject: '{email_subject}'")
+        self.logger.info(f"👤 Sender: '{sender_email}'")
+
         try:
-            # Import here to avoid circular imports
-            # # Local application imports
-            from memory.episodic import EpisodicMemory
-            from utils.config import config
+            from ..memory.episodic import EpisodicMemory
 
-            # Initialize episodic memory
-            episodic_memory = EpisodicMemory(
-                qdrant_url=f"http://{config.qdrant_host}:{config.qdrant_port}"
+            # Check if episodic memory is available
+            episodic_memory: EpisodicMemory = EpisodicMemory()
+
+            # Get collection info to see what's available
+            try:
+                collection_info: dict[
+                    str, Any
+                ] = await episodic_memory.get_collection_info()
+                self.logger.info(
+                    f"📊 Episodic memory collection: {collection_info.get('points_count', 0)} memories available"
+                )
+            except Exception as e:
+                self.logger.warning(
+                    f"Cannot access episodic memory collection info: {e}"
+                )
+                self.logger.info("🔍 Proceeding with memory search anyway...")
+
+            search_text: str = (
+                f"filename:{filename} subject:{email_subject} sender:{sender_email}"
+            )
+            self.logger.info(f"🔍 Episodic memory search query: '{search_text}'")
+
+            # Search for similar classification patterns
+            memories: list[Any] = await episodic_memory.search(
+                query=search_text, limit=5
             )
 
-            # Create search query from content
-            search_query = f"{filename} {email_subject} {email_body}"
+            self.logger.info(f"📋 Found {len(memories)} relevant memories")
 
-            # Search for similar classification experiences
-            # # Standard library imports
-            import asyncio
-
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-            # Search for human corrections related to document classification
-            results = loop.run_until_complete(
-                episodic_memory.search(query=search_query, limit=5)
-            )
-            loop.close()
-
-            if not results:
+            if not memories:
+                self.logger.info("❌ No relevant episodic memories found")
                 return DocumentCategory.UNKNOWN, 0.0
 
-            # Analyze the results for classification patterns
-            category_votes = {}
-            total_confidence = 0.0
+            # Analyze memories for classification patterns
+            category_votes: dict[DocumentCategory, float] = {}
+            total_relevance: float = 0.0
 
-            for memory_item in results:
-                context = memory_item.metadata.get("context", {})
+            for i, memory in enumerate(memories):
+                self.logger.debug(f"🔍 Memory {i+1}: ID {memory.memory_id}")
+                self.logger.debug(f"   📊 Similarity: {memory.similarity:.3f}")
 
-                # Look for human corrections with category information
-                if memory_item.metadata.get(
-                    "feedback_type"
-                ) == "correction" and context.get("human_category"):
-                    human_category = context["human_category"]
+                metadata: Any = memory.metadata
 
-                    # Skip non-asset-related items
-                    if human_category == "not_asset_related":
-                        continue
+                # Extract classification from memory
+                doc_category: DocumentCategory | None = None
+                memory_relevance: float = 0.0
 
-                    try:
-                        # Convert to DocumentCategory enum
-                        doc_category = DocumentCategory(human_category)
-
-                        # Calculate relevance based on text similarity
-                        memory_filename = context.get("attachment_filename", "")
-                        memory_subject = context.get("email_subject", "")
-
-                        relevance = 0.0
-
-                        # Filename similarity (highest weight)
-                        if memory_filename and filename:
-                            if (
-                                memory_filename.lower() in filename.lower()
-                                or filename.lower() in memory_filename.lower()
-                            ):
-                                relevance += 0.6
-                            elif any(
-                                word in filename.lower()
-                                for word in memory_filename.lower().split("_")
-                                if len(word) > 2
-                            ):
-                                relevance += 0.4
-
-                        # Subject similarity
-                        if memory_subject and email_subject:
-                            if any(
-                                word in email_subject.lower()
-                                for word in memory_subject.lower().split()
-                                if len(word) > 3
-                            ):
-                                relevance += 0.3
-
-                        # Human reasoning patterns
-                        human_reasoning = context.get("human_reasoning", "").lower()
-                        if human_reasoning:
-                            # Look for specific patterns from human feedback
-                            if "rlv" in human_reasoning and "rlv" in filename.lower():
-                                relevance += 0.5
-                            if (
-                                "private credit" in human_reasoning
-                                and "private credit" in email_body.lower()
-                            ):
-                                relevance += 0.5
-                            if (
-                                "loan docs" in human_reasoning
-                                and "loan" in email_subject.lower()
-                            ):
-                                relevance += 0.4
-
-                        if relevance > 0.2:  # Only count meaningful matches
-                            category_votes[doc_category] = (
-                                category_votes.get(doc_category, 0) + relevance
+                # Check for document type in metadata
+                if isinstance(metadata, dict):
+                    if "document_category" in metadata:
+                        try:
+                            doc_category = DocumentCategory(
+                                metadata["document_category"]
                             )
-                            total_confidence += relevance
+                            memory_relevance += 0.5
+                            self.logger.debug(
+                                f"   📋 Found document_category in metadata: {doc_category.value}"
+                            )
+                        except ValueError:
+                            self.logger.debug(
+                                f"   ⚠️ Invalid document_category in metadata: {metadata['document_category']}"
+                            )
 
-                    except ValueError:
-                        # Skip invalid categories
-                        continue
+                    # Check for correction type
+                    if metadata.get("feedback_type") == "correction":
+                        memory_relevance += 0.3
+                        self.logger.debug(
+                            "   ✅ Memory is from human correction -> +0.3 relevance"
+                        )
 
+                # Filename similarity boost
+                memory_filename: str = (
+                    metadata.get("filename", "") if isinstance(metadata, dict) else ""
+                )
+                if memory_filename and filename:
+                    if memory_filename.lower() == filename.lower():
+                        memory_relevance += 0.4
+                        self.logger.debug("   📄 Exact filename match -> +0.4 relevance")
+                    elif any(
+                        word in filename.lower()
+                        for word in memory_filename.lower().split()
+                        if len(word) > 3
+                    ):
+                        memory_relevance += 0.2
+                        self.logger.debug(
+                            "   📄 Partial filename match -> +0.2 relevance"
+                        )
+
+                # Sender domain similarity
+                memory_domain: str = (
+                    metadata.get("sender_domain", "")
+                    if isinstance(metadata, dict)
+                    else ""
+                )
+                sender_domain: str = (
+                    sender_email.split("@")[1] if "@" in sender_email else ""
+                )
+
+                if memory_domain and sender_domain:
+                    if memory_domain.lower() == sender_domain.lower():
+                        memory_relevance += 0.4  # Strong domain match
+                        self.logger.debug(
+                            f"   🌐 Exact domain match ({sender_domain}) -> +0.4 relevance"
+                        )
+                    elif any(
+                        part in sender_domain.lower()
+                        for part in memory_domain.lower().split(".")
+                        if len(part) > 3
+                    ):
+                        memory_relevance += 0.2  # Partial domain match
+                        self.logger.debug("   🌐 Partial domain match -> +0.2 relevance")
+
+                # Apply similarity weighting
+                weighted_relevance: float = memory_relevance * memory.similarity
+                self.logger.info(
+                    f"   📊 Memory relevance: {memory_relevance:.3f} × similarity({memory.similarity:.3f}) = {weighted_relevance:.3f}"
+                )
+
+                if doc_category and weighted_relevance > 0.1:
+                    if doc_category not in category_votes:
+                        category_votes[doc_category] = 0.0
+                    category_votes[doc_category] += weighted_relevance
+                    total_relevance += weighted_relevance
+                    self.logger.info(
+                        f"   ✅ Vote for {doc_category.value}: +{weighted_relevance:.3f}"
+                    )
+                else:
+                    self.logger.debug(
+                        f"   ❌ Memory not useful: category={doc_category}, relevance={weighted_relevance:.3f}"
+                    )
+
+            # Determine best category
             if not category_votes:
+                self.logger.info(
+                    "❌ No useful classification votes from episodic memory"
+                )
                 return DocumentCategory.UNKNOWN, 0.0
 
-            # Find the best category
-            best_category = max(category_votes, key=category_votes.get)
-            best_score = category_votes[best_category]
+            self.logger.info("🗳️ Episodic memory voting results:")
+            for category, votes in sorted(
+                category_votes.items(), key=lambda x: x[1], reverse=True
+            ):
+                percentage: float = (
+                    (votes / total_relevance) * 100 if total_relevance > 0 else 0
+                )
+                self.logger.info(
+                    f"   {category.value}: {votes:.3f} ({percentage:.1f}%)"
+                )
 
-            # Normalize confidence (cap at 0.9 to leave room for uncertainty)
-            normalized_confidence = min(best_score, 0.9)
+            # Get the category with the most votes
+            best_category: DocumentCategory = max(
+                category_votes.keys(), key=lambda x: category_votes[x]
+            )
+            best_confidence: float = category_votes[best_category]
 
-            self.logger.debug(
-                f"Episodic memory classification: {best_category.value} (confidence: {normalized_confidence:.2f}, votes: {category_votes})"
+            # Normalize confidence based on total relevance and number of memories
+            num_matches: int = len([m for m in memories if m.similarity > 0.5])
+            normalized_confidence: float = min(
+                best_confidence / max(total_relevance, 1.0), 1.0
+            )
+
+            # Boost confidence if multiple high-quality memories agree
+            if num_matches > 1:
+                normalized_confidence = min(normalized_confidence * 1.2, 1.0)
+                self.logger.info(
+                    f"   🚀 Multiple memory boost: {num_matches} memories -> +20% confidence"
+                )
+
+            self.logger.info(f"🏆 EPISODIC MEMORY RESULT: {best_category.value}")
+            self.logger.info(
+                f"📊 Raw confidence: {best_confidence:.3f}, Normalized: {normalized_confidence:.3f}"
+            )
+
+            self.logger.info(
+                f"Episodic memory classification: {best_category.value} "
+                f"(confidence: {normalized_confidence:.2f}, {num_matches} patterns matched)"
             )
 
             return best_category, normalized_confidence
 
         except Exception as e:
             self.logger.warning(f"Failed to classify from episodic memory: {e}")
+            self.logger.debug(f"Episodic memory error details: {e}", exc_info=True)
             return DocumentCategory.UNKNOWN, 0.0
 
     def identify_asset_from_content(
@@ -1920,7 +2202,7 @@ class AssetDocumentAgent:
         email_subject: str,
         email_body: str = "",
         filename: str = "",
-        known_assets: list[Asset] = None,
+        known_assets: list[Asset] | None = None,
     ) -> list[tuple[str, float]]:
         """
         Identify potential assets mentioned in email content using fuzzy matching.
@@ -1934,47 +2216,70 @@ class AssetDocumentAgent:
         Returns:
             List of (asset_id, confidence_score) tuples, sorted by confidence
         """
+        self.logger.info("🔍 ASSET MATCHING ANALYSIS START")
+        self.logger.info(f"📧 Email Subject: '{email_subject}'")
+        self.logger.info(f"📄 Filename: '{filename}'")
+        self.logger.info(
+            f"📝 Email Body: '{email_body[:100]}{'...' if len(email_body) > 100 else ''}'"
+        )
+
         if not known_assets or not levenshtein_distance:
+            self.logger.info(
+                "❌ No assets available or Levenshtein not loaded - returning empty matches"
+            )
             return []
 
         # Combine text for analysis
-        combined_text = f"{email_subject} {email_body} {filename}".lower()
+        combined_text: str = f"{email_subject} {email_body} {filename}".lower()
+        self.logger.info(f"🔤 Combined search text: '{combined_text}'")
+        self.logger.info(f"📊 Analyzing against {len(known_assets)} known assets")
 
-        asset_matches = []
+        asset_matches: list[tuple[str, float]] = []
 
         for asset in known_assets:
-            max_confidence = 0.0
+            self.logger.debug(
+                f"🏢 Checking asset: {asset.deal_name} (ID: {asset.deal_id})"
+            )
+            max_confidence: float = 0.0
 
             # Check all asset identifiers
-            all_identifiers = [asset.deal_name, asset.asset_name] + asset.identifiers
+            all_identifiers: list[str] = [
+                asset.deal_name,
+                asset.asset_name,
+            ] + asset.identifiers
+            self.logger.debug(f"   🏷️ Identifiers to check: {all_identifiers}")
 
             for identifier in all_identifiers:
                 if not identifier:
                     continue
 
-                identifier_lower = identifier.lower()
+                identifier_lower: str = identifier.lower()
+                self.logger.debug(f"   🔍 Testing identifier: '{identifier_lower}'")
 
                 # Exact match (highest confidence)
                 if identifier_lower in combined_text:
-                    confidence = 0.95
+                    confidence: float = 0.95
                     max_confidence = max(max_confidence, confidence)
+                    self.logger.info(
+                        f"   ✅ EXACT MATCH: '{identifier_lower}' found in text -> confidence: {confidence}"
+                    )
                     continue
 
                 # Fuzzy matching with Levenshtein distance
-                words = combined_text.split()
+                words: list[str] = combined_text.split()
                 for word_group_size in [3, 2, 1]:  # Check phrases of different lengths
                     for i in range(len(words) - word_group_size + 1):
-                        phrase = " ".join(words[i : i + word_group_size])
+                        phrase: str = " ".join(words[i : i + word_group_size])
 
                         if len(phrase) < 3:  # Skip very short phrases
                             continue
 
                         # Calculate similarity
-                        distance = levenshtein_distance(identifier_lower, phrase)
-                        max_len = max(len(identifier_lower), len(phrase))
+                        distance: int = levenshtein_distance(identifier_lower, phrase)
+                        max_len: int = max(len(identifier_lower), len(phrase))
 
                         if max_len > 0:
-                            similarity = 1 - (distance / max_len)
+                            similarity: float = 1 - (distance / max_len)
 
                             # Threshold for fuzzy matches
                             if similarity >= 0.8:
@@ -1982,22 +2287,54 @@ class AssetDocumentAgent:
                                     similarity * 0.9
                                 )  # Slightly lower than exact match
                                 max_confidence = max(max_confidence, confidence)
+                                self.logger.info(
+                                    f"   🎯 FUZZY MATCH: '{identifier_lower}' ~= '{phrase}' (similarity: {similarity:.3f}) -> confidence: {confidence:.3f}"
+                                )
 
             # Add partial word matching for specific keywords
-            asset_type_keywords = self.ASSET_KEYWORDS.get(asset.asset_type.value, [])
-            keyword_matches = sum(
-                1 for keyword in asset_type_keywords if keyword in combined_text
+            asset_type_keywords: list[str] = self.ASSET_KEYWORDS.get(
+                asset.asset_type.value, []
             )
+            if asset_type_keywords:
+                self.logger.debug(
+                    f"   🔑 Checking asset type keywords: {asset_type_keywords}"
+                )
+                keyword_matches: int = sum(
+                    1 for keyword in asset_type_keywords if keyword in combined_text
+                )
 
-            if keyword_matches > 0:
-                keyword_boost = min(keyword_matches * 0.1, 0.3)
-                max_confidence = min(max_confidence + keyword_boost, 1.0)
+                if keyword_matches > 0:
+                    keyword_boost: float = min(keyword_matches * 0.1, 0.3)
+                    old_confidence: float = max_confidence
+                    max_confidence = min(max_confidence + keyword_boost, 1.0)
+                    self.logger.info(
+                        f"   🚀 KEYWORD BOOST: {keyword_matches} keywords matched -> boost: +{keyword_boost:.3f} (confidence: {old_confidence:.3f} -> {max_confidence:.3f})"
+                    )
 
             if max_confidence > 0.5:  # Only include reasonable matches
                 asset_matches.append((asset.deal_id, max_confidence))
+                self.logger.info(
+                    f"   ⭐ ASSET QUALIFIED: {asset.deal_name} -> final confidence: {max_confidence:.3f}"
+                )
+            else:
+                self.logger.debug(
+                    f"   ❌ Asset rejected: {asset.deal_name} -> confidence too low: {max_confidence:.3f}"
+                )
 
         # Sort by confidence (highest first)
         asset_matches.sort(key=lambda x: x[1], reverse=True)
+
+        self.logger.info("🏁 ASSET MATCHING ANALYSIS COMPLETE")
+        if asset_matches:
+            self.logger.info(f"📈 Found {len(asset_matches)} qualifying asset matches:")
+            for i, (asset_id, confidence) in enumerate(asset_matches[:3]):  # Show top 3
+                asset: Asset | None = next(
+                    (a for a in known_assets if a.deal_id == asset_id), None
+                )
+                asset_name: str = asset.deal_name if asset else "Unknown"
+                self.logger.info(f"   {i+1}. {asset_name} -> {confidence:.3f}")
+        else:
+            self.logger.info("❌ No qualifying asset matches found")
 
         return asset_matches
 
@@ -2015,35 +2352,67 @@ class AssetDocumentAgent:
         Returns:
             ConfidenceLevel for routing decision
         """
-        # Calculate weighted confidence
-        weights = {
-            "document": 0.5,  # Increased weight for document classification
-            "asset": 0.3,  # Reduced weight for asset matching
-            "sender": 0.2,  # Sender knowledge weight
-        }
-
-        sender_score = 1.0 if sender_known else 0.0
-
-        overall_confidence = (
-            document_confidence * weights["document"]
-            + asset_confidence * weights["asset"]
-            + sender_score * weights["sender"]
+        self.logger.info("⚖️ OVERALL CONFIDENCE CALCULATION START")
+        self.logger.info(
+            f"📋 Document Classification Confidence: {document_confidence:.3f}"
         )
+        self.logger.info(f"🏢 Asset Identification Confidence: {asset_confidence:.3f}")
+        self.logger.info(f"👤 Known Sender Boost: {sender_known}")
 
-        self.logger.debug(
-            f"Confidence calculation: doc={document_confidence:.2f}*{weights['document']} + asset={asset_confidence:.2f}*{weights['asset']} + sender={sender_score}*{weights['sender']} = {overall_confidence:.2f}"
-        )
+        # Calculate composite confidence
+        base_confidence: float = (document_confidence + asset_confidence) / 2
+        self.logger.info(f"📊 Base Confidence (average): {base_confidence:.3f}")
 
-        # Map to confidence levels with adjusted thresholds
-        if overall_confidence >= 0.85:
-            return ConfidenceLevel.HIGH  # Auto-process (85%+)
-        elif overall_confidence >= 0.65:
-            return ConfidenceLevel.MEDIUM  # Process with confirmation (65%+)
-        elif overall_confidence >= 0.40:
-            return ConfidenceLevel.LOW  # Save uncategorized (40%+)
+        # Apply sender knowledge boost
+        if sender_known:
+            boost_amount: float = 0.1
+            composite_confidence: float = min(base_confidence + boost_amount, 1.0)
+            self.logger.info(
+                f"🚀 Sender knowledge boost: +{boost_amount:.3f} -> {composite_confidence:.3f}"
+            )
         else:
-            return ConfidenceLevel.VERY_LOW  # Human review required (<40%)
+            composite_confidence = base_confidence
+            self.logger.info("❌ No sender knowledge boost available")
 
+        # Determine routing level
+        # Use a derived high confidence threshold (e.g., 0.85)
+        high_confidence_threshold = 0.85
+        medium_confidence_threshold = config.low_confidence_threshold
+
+        if composite_confidence >= high_confidence_threshold:
+            result_level: ConfidenceLevel = ConfidenceLevel.HIGH
+            self.logger.info(
+                f"✅ HIGH CONFIDENCE: {composite_confidence:.3f} >= {high_confidence_threshold}"
+            )
+        elif composite_confidence >= medium_confidence_threshold:
+            result_level = ConfidenceLevel.MEDIUM
+            self.logger.info(
+                f"⚠️ MEDIUM CONFIDENCE: {composite_confidence:.3f} >= {medium_confidence_threshold}"
+            )
+        else:
+            result_level = ConfidenceLevel.LOW
+            self.logger.info(
+                f"❌ LOW CONFIDENCE: {composite_confidence:.3f} < {medium_confidence_threshold}"
+            )
+
+        # Routing implications
+        if result_level == ConfidenceLevel.HIGH:
+            self.logger.info("🎯 ROUTING: Direct to asset folder (automatic processing)")
+        elif result_level == ConfidenceLevel.MEDIUM:
+            self.logger.info("👀 ROUTING: Send for human review (medium confidence)")
+        else:
+            self.logger.info(
+                "🔍 ROUTING: Send for human review (low confidence - requires attention)"
+            )
+
+        self.logger.info("🏁 OVERALL CONFIDENCE CALCULATION COMPLETE")
+        self.logger.info(
+            f"📊 Final Routing Decision: {result_level.value} ({composite_confidence:.3f})"
+        )
+
+        return result_level
+
+    @log_function()
     async def enhanced_process_attachment(
         self, attachment_data: dict[str, Any], email_data: dict[str, Any]
     ) -> ProcessingResult:
@@ -2060,53 +2429,11 @@ class AssetDocumentAgent:
         # Start with Phase 1 & 2 processing
         result = await self.process_single_attachment(attachment_data, email_data)
 
-        # Handle duplicates specially - look up original document's asset information
-        if result.status == ProcessingStatus.DUPLICATE and result.duplicate_of:
+        # Handle duplicates - return immediately without any processing
+        if result.status == ProcessingStatus.DUPLICATE:
             self.logger.info(
-                "🔍 Looking up original document's asset information for duplicate"
+                f"🔄 Duplicate detected: {attachment_data.get('filename', 'unknown')} - completely discarding"
             )
-
-            original_doc = await self.get_processed_document(result.duplicate_of)
-            if original_doc and original_doc.get("asset_id"):
-                # Copy asset information from original document
-                result.matched_asset_id = original_doc["asset_id"]
-                result.asset_confidence = original_doc.get(
-                    "confidence", 0.8
-                )  # Use stored confidence or default
-
-                # Set HIGH confidence level for duplicates with matched assets
-                # since we know exactly which asset they belong to
-                result.confidence_level = ConfidenceLevel.HIGH
-
-                # Try to get asset details for better metadata
-                asset = await self.get_asset(result.matched_asset_id)
-                if asset:
-                    self.logger.info(
-                        "📋 Duplicate matched to asset: %s (from original document)",
-                        asset.deal_name,
-                    )
-
-                    # Set reasonable classification metadata for duplicate
-                    result.classification_metadata = {
-                        "duplicate_source": "original_document",
-                        "original_document_id": result.duplicate_of,
-                        "asset_confidence": result.asset_confidence,
-                        "asset_matches": [
-                            (result.matched_asset_id, result.asset_confidence)
-                        ],
-                        "sender_known": False,  # Default since we don't have this info for duplicates
-                        "document_confidence": 0.0,  # No document classification for duplicates
-                    }
-                else:
-                    self.logger.warning(
-                        "Asset not found for original document: %s",
-                        result.matched_asset_id,
-                    )
-            else:
-                self.logger.info(
-                    "Original document has no asset information - treating as unmatched duplicate"
-                )
-
             return result
 
         # For non-SUCCESS status (except duplicates), return as-is
@@ -2121,18 +2448,7 @@ class AssetDocumentAgent:
 
         self.logger.info("🧠 Phase 3: Analyzing content and identifying assets...")
 
-        # Step 1: Document Classification
-        document_category, doc_confidence = self.classify_document(
-            filename, email_subject, email_body
-        )
-
-        self.logger.info(
-            "📋 Document classified as: %s (confidence: %.2f)",
-            document_category.value,
-            doc_confidence,
-        )
-
-        # Step 2: Asset Identification
+        # Step 1: Asset Identification (do this first to get context for classification)
         known_assets = await self.list_assets()
         asset_matches = self.identify_asset_from_content(
             email_subject, email_body, filename, known_assets
@@ -2140,18 +2456,37 @@ class AssetDocumentAgent:
 
         matched_asset_id = None
         asset_confidence = 0.0
+        potential_asset_type = None
 
         if asset_matches:
             matched_asset_id, asset_confidence = asset_matches[0]  # Best match
             asset = await self.get_asset(matched_asset_id)
-            asset_name = asset.deal_name if asset else matched_asset_id[:8]
-            self.logger.info(
-                "🎯 Best asset match: %s (confidence: %.2f)",
-                asset_name,
-                asset_confidence,
-            )
+            if asset:
+                potential_asset_type = asset.asset_type
+                asset_name = asset.deal_name
+                self.logger.info(
+                    "🎯 Best asset match: %s (confidence: %.2f)",
+                    asset_name,
+                    asset_confidence,
+                )
+                self.logger.debug(
+                    f"Using asset type {potential_asset_type.value} for classification context"
+                )
+            else:
+                self.logger.warning(f"Asset not found for ID: {matched_asset_id}")
         else:
             self.logger.info("❓ No asset matches found")
+
+        # Step 2: Document Classification (using asset type context if available)
+        document_category, doc_confidence = await self.classify_document(
+            filename, email_subject, email_body, potential_asset_type, sender_email
+        )
+
+        self.logger.info(
+            "📋 Document classified as: %s (confidence: %.2f)",
+            document_category.value,
+            doc_confidence,
+        )
 
         # Step 3: Check if sender is known
         sender_assets = await self.get_sender_assets(sender_email)
@@ -2171,6 +2506,28 @@ class AssetDocumentAgent:
                 self.logger.info(
                     "🔗 Using sender's primary asset: %s...", matched_asset_id[:8]
                 )
+
+                # Update asset type context if we got it from sender
+                if not potential_asset_type:
+                    sender_asset = await self.get_asset(matched_asset_id)
+                    if sender_asset:
+                        potential_asset_type = sender_asset.asset_type
+                        # Re-classify with sender asset context
+                        (
+                            document_category,
+                            doc_confidence,
+                        ) = await self.classify_document(
+                            filename,
+                            email_subject,
+                            email_body,
+                            potential_asset_type,
+                            sender_email,
+                        )
+                        self.logger.info(
+                            "📋 Re-classified with sender asset context: %s (confidence: %.2f)",
+                            document_category.value,
+                            doc_confidence,
+                        )
         else:
             self.logger.info("❓ Unknown sender: %s", sender_email)
 
@@ -2202,8 +2559,58 @@ class AssetDocumentAgent:
             "sender_asset_count": len(sender_assets),
         }
 
+        # DECISION SUMMARY LOG
+        self.logger.info("=" * 80)
+        self.logger.info("📊 PROCESSING DECISION SUMMARY")
+        self.logger.info("=" * 80)
+        self.logger.info(f"📄 File: {filename}")
+        self.logger.info(f"📧 From: {sender_email}")
+        self.logger.info(f"📝 Subject: {email_subject}")
+        self.logger.info("-" * 40)
+        self.logger.info("🏢 ASSET MATCHING:")
+        if matched_asset_id:
+            asset = await self.get_asset(matched_asset_id)
+            asset_name = asset.deal_name if asset else "Unknown"
+            self.logger.info(f"   ✅ Matched Asset: {asset_name}")
+            self.logger.info(f"   📊 Asset Confidence: {asset_confidence:.3f}")
+        else:
+            self.logger.info("   ❌ No Asset Match")
+        self.logger.info("-" * 40)
+        self.logger.info("📋 DOCUMENT CLASSIFICATION:")
+        self.logger.info(f"   📂 Category: {document_category.value}")
+        self.logger.info(f"   📊 Classification Confidence: {doc_confidence:.3f}")
+        self.logger.info("-" * 40)
+        self.logger.info("👤 SENDER KNOWLEDGE:")
+        self.logger.info(f"   🔍 Sender Known: {sender_known}")
+        if sender_known:
+            self.logger.info(f"   📊 Associated Assets: {len(sender_assets)}")
+        self.logger.info("-" * 40)
+        self.logger.info(f"{icon} FINAL DECISION:")
+        self.logger.info(f"   📏 Confidence Level: {confidence_level.value.upper()}")
+        if matched_asset_id:
+            self.logger.info(
+                f"   📂 Will save to: {asset_name if 'asset_name' in locals() else 'Asset folder'}"
+            )
+        else:
+            self.logger.info("   📂 Will save to: General review folder")
+
+        # Show routing decision
+        if confidence_level == ConfidenceLevel.HIGH:
+            self.logger.info("   🎬 Action: AUTO-PROCESS (confidence ≥ 85%)")
+        elif confidence_level == ConfidenceLevel.MEDIUM:
+            self.logger.info(
+                "   🎬 Action: PROCESS WITH CONFIRMATION (confidence ≥ 65%)"
+            )
+        elif confidence_level == ConfidenceLevel.LOW:
+            self.logger.info("   🎬 Action: SAVE UNCATEGORIZED (confidence ≥ 40%)")
+        else:
+            self.logger.info("   🎬 Action: HUMAN REVIEW REQUIRED (confidence < 40%)")
+
+        self.logger.info("=" * 80)
+
         return result
 
+    @log_function()
     async def save_attachment_to_asset_folder(
         self,
         attachment_content: bytes,
@@ -2213,6 +2620,10 @@ class AssetDocumentAgent:
     ) -> Path | None:
         """
         Save processed attachment to the appropriate asset folder.
+
+        Uses the asset's defined folder_path from the asset setup to ensure
+        consistent file organization. Creates document category subfolders
+        within the asset's designated path.
 
         Args:
             attachment_content: Binary content of the attachment
@@ -2224,59 +2635,91 @@ class AssetDocumentAgent:
             Path where file was saved, or None if saving failed
         """
         try:
-            # Determine target folder based on confidence level and asset match
+            target_folder = None
+
+            # Determine target folder based on asset match and confidence
             if asset_id and processing_result.confidence_level in [
                 ConfidenceLevel.HIGH,
                 ConfidenceLevel.MEDIUM,
             ]:
-                # Save to specific asset folder
+                # High/Medium confidence: Save to specific asset folder using asset's folder_path
                 asset = await self.get_asset(asset_id)
                 if asset:
-                    base_folder = Path(asset.folder_path)
+                    # Use the asset's predefined folder path
+                    asset_base_folder = Path(asset.folder_path)
 
-                    # Create document category subfolder
+                    # Create document category subfolder within asset folder
                     if (
                         processing_result.document_category
                         and processing_result.document_category
                         != DocumentCategory.UNKNOWN
                     ):
-                        category_folder = (
-                            base_folder / processing_result.document_category.value
+                        target_folder = (
+                            asset_base_folder
+                            / processing_result.document_category.value
+                        )
+                        self.logger.info(
+                            f"Saving to asset folder with category: {asset.deal_name}/{processing_result.document_category.value}"
                         )
                     else:
-                        category_folder = base_folder / "to_be_categorized"
+                        target_folder = asset_base_folder / "uncategorized"
+                        self.logger.info(
+                            f"Saving to asset folder (uncategorized): {asset.deal_name}/uncategorized"
+                        )
                 else:
-                    # Asset not found, use uncategorized
-                    base_folder = self.base_assets_path / "uncategorized"
-                    category_folder = base_folder / "unknown_asset"
-            else:
-                # Low confidence or no asset match - save to review folder
-                base_folder = self.base_assets_path / "to_be_reviewed"
+                    self.logger.warning(f"Asset not found for ID: {asset_id}")
+                    # Fallback to generic uncategorized folder
+                    target_folder = (
+                        self.base_assets_path / "uncategorized" / "unknown_asset"
+                    )
 
-                if processing_result.confidence_level == ConfidenceLevel.LOW:
-                    category_folder = base_folder / "low_confidence"
+            elif asset_id and processing_result.confidence_level == ConfidenceLevel.LOW:
+                # Low confidence with asset match: Save to asset's review subfolder
+                asset = await self.get_asset(asset_id)
+                if asset:
+                    asset_base_folder = Path(asset.folder_path)
+                    target_folder = asset_base_folder / "needs_review"
+                    self.logger.info(
+                        f"Saving to asset review folder: {asset.deal_name}/needs_review"
+                    )
                 else:
-                    category_folder = base_folder / "very_low_confidence"
+                    target_folder = (
+                        self.base_assets_path / "to_be_reviewed" / "low_confidence"
+                    )
+            else:
+                # Very low confidence or no asset match: Use review folders
+                if processing_result.confidence_level == ConfidenceLevel.VERY_LOW:
+                    target_folder = (
+                        self.base_assets_path / "to_be_reviewed" / "very_low_confidence"
+                    )
+                    self.logger.info(
+                        "Saving to general review folder: very low confidence"
+                    )
+                else:
+                    target_folder = (
+                        self.base_assets_path / "to_be_reviewed" / "no_asset_match"
+                    )
+                    self.logger.info("Saving to general review folder: no asset match")
 
             # Create folder structure
-            category_folder.mkdir(parents=True, exist_ok=True)
+            target_folder.mkdir(parents=True, exist_ok=True)
 
             # Generate unique filename to avoid conflicts
-            file_path = category_folder / filename
+            file_path = target_folder / filename
             counter = 1
             while file_path.exists():
                 # Add counter to filename if it already exists
                 stem = Path(filename).stem
                 suffix = Path(filename).suffix
                 new_filename = f"{stem}_{counter:03d}{suffix}"
-                file_path = category_folder / new_filename
+                file_path = target_folder / new_filename
                 counter += 1
 
             # Save the file
             with open(file_path, "wb") as f:
                 f.write(attachment_content)
 
-            self.logger.info(f"💾 Saved to: {file_path}")
+            self.logger.info(f"💾 File saved to: {file_path}")
 
             # Update processing result with file path
             processing_result.file_path = file_path
@@ -2310,7 +2753,14 @@ class AssetDocumentAgent:
         # Step 1: Enhanced processing (validation + classification)
         result = await self.enhanced_process_attachment(attachment_data, email_data)
 
-        # Step 2: Save to disk if successful and requested
+        # Step 2: Handle duplicates - DO NOT SAVE TO DISK
+        if result.status == ProcessingStatus.DUPLICATE:
+            self.logger.info(
+                f"🔄 Duplicate detected: {attachment_data.get('filename', 'unknown')} - skipping file save"
+            )
+            return result
+
+        # Step 3: Save to disk if successful and requested
         if save_to_disk and result.status == ProcessingStatus.SUCCESS:
             content = attachment_data.get("content", b"")
             filename = attachment_data.get("filename", "unknown_attachment")
@@ -2335,225 +2785,3 @@ class AssetDocumentAgent:
                     self.logger.warning("❌ Failed to save file to disk")
 
         return result
-
-    async def process_attachments_parallel(
-        self, email_attachments: list[dict[str, Any]], email_data: dict[str, Any]
-    ) -> list[ProcessingResult]:
-        """
-        Process multiple email attachments in parallel for maximum performance.
-
-        This method provides significant performance improvements by:
-        1. Running virus scans concurrently instead of sequentially
-        2. Processing multiple attachments simultaneously
-        3. Using asyncio task groups for optimal resource utilization
-
-        Args:
-            email_attachments: List of attachment dictionaries with 'filename' and 'content' keys
-            email_data: Email metadata dictionary
-
-        Returns:
-            List of ProcessingResult objects in the same order as input attachments
-        """
-        if not email_attachments:
-            return []
-
-        start_time = asyncio.get_event_loop().time()
-        self.logger.info(
-            f"🔄 Starting parallel processing of {len(email_attachments)} attachments"
-        )
-
-        # Create tasks for parallel processing
-        tasks = []
-        for i, attachment_data in enumerate(email_attachments):
-            filename = attachment_data.get("filename", f"attachment_{i}")
-            self.logger.debug(f"Creating task for {filename}")
-
-            # Create coroutine for processing this attachment
-            task = self.process_and_save_attachment(
-                attachment_data=attachment_data,
-                email_data=email_data,
-                save_to_disk=True,
-            )
-            tasks.append(task)
-
-        try:
-            # Execute all tasks concurrently with proper error handling
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-
-            # Convert exceptions to error ProcessingResults
-            final_results = []
-            for i, result in enumerate(results):
-                if isinstance(result, Exception):
-                    filename = email_attachments[i].get("filename", f"attachment_{i}")
-                    self.logger.error(f"Error processing {filename}: {result}")
-
-                    error_result = ProcessingResult(
-                        status=ProcessingStatus.ERROR, error_message=str(result)
-                    )
-                    final_results.append(error_result)
-                else:
-                    final_results.append(result)
-
-            end_time = asyncio.get_event_loop().time()
-            total_time = end_time - start_time
-
-            # Log performance improvement
-            sequential_estimate = (
-                len(email_attachments) * 10
-            )  # Assume 10s per attachment sequentially
-            improvement = (
-                (sequential_estimate - total_time) / sequential_estimate
-            ) * 100
-
-            self.logger.info(f"✅ Parallel processing completed in {total_time:.1f}s")
-            self.logger.info(
-                f"🚀 Estimated performance improvement: {improvement:.1f}% faster than sequential"
-            )
-            self.logger.info(
-                f"   Sequential estimate: {sequential_estimate:.1f}s vs Parallel actual: {total_time:.1f}s"
-            )
-
-            # Update statistics
-            self.processing_times.append(total_time)
-
-            return final_results
-
-        except Exception as e:
-            self.logger.error(f"Critical error in parallel processing: {e}")
-
-            # Fallback: return error results for all attachments
-            return [
-                ProcessingResult(
-                    status=ProcessingStatus.ERROR,
-                    error_message=f"Parallel processing failed: {str(e)}",
-                )
-                for _ in email_attachments
-            ]
-
-    async def scan_files_antivirus_parallel(
-        self, file_data_list: list[tuple[bytes, str]]
-    ) -> list[tuple[bool, str | None]]:
-        """
-        Scan multiple files with ClamAV in parallel for maximum performance.
-
-        This method dramatically improves virus scanning performance by running
-        multiple ClamAV processes concurrently instead of sequentially.
-
-        Args:
-            file_data_list: List of (file_content, filename) tuples
-
-        Returns:
-            List of (is_clean, threat_name) tuples in the same order as input
-        """
-        if not file_data_list:
-            return []
-
-        start_time = asyncio.get_event_loop().time()
-        self.logger.info(
-            f"🦠 Starting parallel virus scanning of {len(file_data_list)} files"
-        )
-
-        # Create tasks for parallel scanning
-        tasks = []
-        for file_content, filename in file_data_list:
-            task = self.scan_file_antivirus(file_content, filename)
-            tasks.append(task)
-
-        try:
-            # Execute all scans concurrently
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-
-            # Convert exceptions to failed scan results
-            final_results = []
-            for i, result in enumerate(results):
-                if isinstance(result, Exception):
-                    filename = file_data_list[i][1]
-                    self.logger.error(f"Virus scan error for {filename}: {result}")
-                    final_results.append((False, f"Scan error: {str(result)}"))
-                else:
-                    final_results.append(result)
-
-            end_time = asyncio.get_event_loop().time()
-            total_time = end_time - start_time
-
-            # Log performance improvement
-            sequential_estimate = (
-                len(file_data_list) * 10
-            )  # Assume 10s per scan sequentially
-            improvement = (
-                (sequential_estimate - total_time) / sequential_estimate
-            ) * 100
-
-            self.logger.info(
-                f"✅ Parallel virus scanning completed in {total_time:.1f}s"
-            )
-            self.logger.info(
-                f"🚀 Estimated performance improvement: {improvement:.1f}% faster than sequential"
-            )
-
-            return final_results
-
-        except Exception as e:
-            self.logger.error(f"Critical error in parallel virus scanning: {e}")
-
-            # Fallback: return scan error for all files
-            return [(False, f"Parallel scan failed: {str(e)}") for _ in file_data_list]
-
-
-# Example usage and testing
-async def test_asset_document_agent() -> None:
-    """Test function for the Asset Document Agent Phase 1 implementation."""
-    print("🧪 Testing Asset Document Agent - Phase 1")  # noqa: T201
-    print("=" * 60)  # noqa: T201
-
-    # Initialize agent without Qdrant for basic testing
-    agent = AssetDocumentAgent()
-
-    # Test health check
-    health = await agent.health_check()
-    print(f"🏥 Agent health check: {health}")  # noqa: T201
-
-    # Test file validation
-    print("\n📋 Testing file validation:")  # noqa: T201
-    print(f"   PDF file: {agent.validate_file_type('document.pdf')}")  # noqa: T201
-    print(
-        f"   Excel file: {agent.validate_file_type('spreadsheet.xlsx')}"
-    )  # noqa: T201
-    print(f"   Executable: {agent.validate_file_type('malware.exe')}")  # noqa: T201
-
-    # Test file hash calculation
-    test_content = b"This is test file content"
-    file_hash = agent.calculate_file_hash(test_content)
-    print(f"\n🔢 Test file hash: {file_hash[:16]}...")  # noqa: T201
-
-    # Test attachment processing
-    print("\n📎 Testing attachment processing:")  # noqa: T201
-    test_attachment = {"filename": "test_document.pdf", "content": test_content}
-    test_email = {
-        "sender_email": "test@example.com",
-        "sender_name": "Test Sender",
-        "subject": "Test Email",
-        "date": datetime.now().isoformat(),
-    }
-
-    result = await agent.process_single_attachment(test_attachment, test_email)
-    print(f"   Result: {result.status.value}")  # noqa: T201
-    print(
-        f"   Hash: {result.file_hash[:16] if result.file_hash else 'None'}..."
-    )  # noqa: T201
-    print(f"   Confidence: {result.confidence}")  # noqa: T201
-
-    # Get statistics
-    stats = agent.get_processing_stats()
-    print(f"\n📊 Processing statistics: {stats}")  # noqa: T201
-
-    print("\n📋 Phase 1 implementation complete!")  # noqa: T201
-    print("   ✅ File type and size validation")  # noqa: T201
-    print("   ✅ SHA256 hashing")  # noqa: T201
-    print("   ✅ ClamAV antivirus integration")  # noqa: T201
-    print("   ✅ Processing pipeline foundation")  # noqa: T201
-    print("   ✅ Health monitoring")  # noqa: T201
-
-
-if __name__ == "__main__":
-    asyncio.run(test_asset_document_agent())

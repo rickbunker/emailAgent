@@ -7,7 +7,12 @@ sender mappings, and document classification rules.
 """
 
 # # Standard library imports
-# Standard library imports
+# Suppress HuggingFace tokenizers forking warning before any imports
+import os
+
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+# # Standard library imports
 import asyncio
 import json
 import os
@@ -18,7 +23,6 @@ from pathlib import Path
 from typing import Any
 
 # # Third-party imports
-# Third-party imports
 from flask import (
     Flask,
     flash,
@@ -30,26 +34,71 @@ from flask import (
     url_for,
 )
 
-# Add parent directory to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+try:
+    # Try relative imports first (when run as module)
+    # # Local application imports
+    from src.agents.asset_document_agent import (
+        AssetDocumentAgent,
+        AssetType,
+        ConfidenceLevel,
+        DocumentCategory,
+        ProcessingResult,
+        ProcessingStatus,
+    )
+    from src.email_interface import (
+        BaseEmailInterface,
+        EmailSearchCriteria,
+        create_email_interface,
+    )
+    from src.utils.config import config
+    from src.utils.logging_system import (
+        LogConfig,
+        configure_logging,
+        get_logger,
+        log_function,
+    )
+except ImportError:
+    # Fallback to direct imports (when run from src directory)
+    # # Local application imports
+    from agents.asset_document_agent import (
+        AssetDocumentAgent,
+        AssetType,
+        ConfidenceLevel,
+        DocumentCategory,
+        ProcessingResult,
+        ProcessingStatus,
+    )
+    from email_interface import (
+        BaseEmailInterface,
+        EmailSearchCriteria,
+        create_email_interface,
+    )
+    from utils.config import config
+    from utils.logging_system import (
+        LogConfig,
+        configure_logging,
+        get_logger,
+        log_function,
+    )
 
-# # Local application imports
-# Local imports
-from agents.asset_document_agent import (
-    AssetDocumentAgent,
-    AssetType,
-    DocumentCategory,
-    ProcessingStatus,
-)
-from email_interface import (
-    BaseEmailInterface,
-    EmailSearchCriteria,
-    create_email_interface,
-)
-from utils.config import config
-from utils.logging_system import LogConfig, configure_logging, get_logger, log_function
+# Import human_review with error handling for different path contexts
+try:
+    # # Local application imports
+    from src.web_ui.human_review import review_queue
+except ImportError:
+    try:
+        # # Local application imports
+        from web_ui.human_review import review_queue
+    except ImportError:
+        # Direct import from current directory
+        # # Standard library imports
+        import os
+        import sys
 
-from .human_review import review_queue
+        current_dir = os.path.dirname(__file__)
+        sys.path.insert(0, current_dir)
+        # # Third-party imports
+        from human_review import review_queue
 
 # Try to import Qdrant client
 try:
@@ -350,6 +399,109 @@ email_history = EmailProcessingHistory()
 run_history = ProcessingRunHistory()
 
 
+async def move_file_after_review(
+    review_id: str, asset_id: str, document_category: str
+) -> None:
+    """
+    Move file from review folder to proper asset folder after human review completion.
+
+    Args:
+        review_id: ID of the review item
+        asset_id: Asset ID to move file to
+        document_category: Document category for subfolder organization
+    """
+    try:
+        # Get the review item to find the attachment file
+        review_item = review_queue.get_item(review_id)
+        if not review_item:
+            logger.warning(f"Review item not found: {review_id}")
+            return
+
+        # Find the attachment content file
+        content_file = Path(config.review_attachments_path) / review_id
+        if not content_file.exists():
+            logger.warning(f"Review attachment content not found: {review_id}")
+            return
+
+        # Get asset information
+        asset = await asset_agent.get_asset(asset_id)
+        if not asset:
+            logger.warning(f"Asset not found: {asset_id}")
+            return
+
+        # Read the attachment content
+        with open(content_file, "rb") as f:
+            attachment_content = f.read()
+
+        # Create a processing result mock for the save function
+        # Convert document_category string to enum if needed
+        doc_category = None
+        if document_category:
+            try:
+                doc_category = DocumentCategory(document_category)
+            except ValueError:
+                # Fallback to string if enum conversion fails
+                doc_category = document_category
+
+        processing_result = ProcessingResult(
+            status=ProcessingStatus.SUCCESS,
+            file_path=None,  # Will be set by save function
+            confidence=1.0,  # Human reviewed = 100% confidence
+            metadata={"human_reviewed": True, "review_id": review_id},
+            document_category=doc_category,
+            matched_asset_id=asset_id,
+            confidence_level=ConfidenceLevel.HIGH,
+        )
+
+        # Save to proper asset folder
+        saved_path = await asset_agent.save_attachment_to_asset_folder(
+            attachment_content=attachment_content,
+            filename=review_item["attachment_filename"],
+            processing_result=processing_result,
+            asset_id=asset_id,
+        )
+
+        if saved_path:
+            logger.info(f"Successfully moved file to: {saved_path}")
+
+            # Also remove the original file from needs_review folder if it exists
+            try:
+                # Construct the original file path in needs_review
+                original_file_path = (
+                    Path(asset.folder_path)
+                    / "needs_review"
+                    / review_item["attachment_filename"]
+                )
+                if original_file_path.exists():
+                    original_file_path.unlink()
+                    logger.info(
+                        f"Removed original file from needs_review: {original_file_path}"
+                    )
+                else:
+                    logger.debug(
+                        f"Original file not found in needs_review: {original_file_path}"
+                    )
+            except Exception as cleanup_error:
+                logger.warning(
+                    f"Failed to remove original file from needs_review: {cleanup_error}"
+                )
+
+            # Clean up the review attachment file
+            try:
+                content_file.unlink()
+                logger.debug(f"Cleaned up review attachment file: {review_id}")
+            except Exception as cleanup_error:
+                logger.warning(
+                    f"Failed to cleanup review file {review_id}: {cleanup_error}"
+                )
+        else:
+            logger.warning(f"Failed to save file for review {review_id}")
+
+    except Exception as e:
+        logger.error(f"Error moving file after review {review_id}: {e}")
+        raise
+
+
 @log_function()
 def get_configured_mailboxes() -> list[dict[str, str]]:
     """Get list of configured mailboxes from existing credential files"""
@@ -418,7 +570,12 @@ async def process_mailbox_emails(
         if mailbox_type == "microsoft_graph":
             # Microsoft Graph uses credentials_path in constructor
             # # Local application imports
-            from email_interface.msgraph import MicrosoftGraphInterface
+            try:
+                # # Local application imports
+                from src.email_interface.msgraph import MicrosoftGraphInterface
+            except ImportError:
+                # # Local application imports
+                from email_interface.msgraph import MicrosoftGraphInterface
 
             email_interface = MicrosoftGraphInterface(
                 credentials_path=mailbox_config["config"]["credentials_path"]
@@ -608,10 +765,8 @@ async def process_single_email(
                 attachment_data=attachment_data, email_data=email_data
             )
 
-            # Save file to disk if processing was successful OR if it's a duplicate with matched asset
-            should_save = result.status == ProcessingStatus.SUCCESS or (
-                result.status == ProcessingStatus.DUPLICATE and result.matched_asset_id
-            )
+            # Skip saving duplicates entirely - duplicates should be discarded
+            should_save = result.status == ProcessingStatus.SUCCESS
 
             if should_save:
                 content = attachment_data.get("content", b"")
@@ -640,6 +795,10 @@ async def process_single_email(
                                 )
                     else:
                         logger.warning("Failed to save file to disk")
+            elif result.status == ProcessingStatus.DUPLICATE:
+                logger.info(
+                    f"🔄 Duplicate discarded: {attachment_data.get('filename', 'unknown')} (original: {result.duplicate_of})"
+                )
 
             processing_info["attachments_processed"] += 1
 
@@ -1603,6 +1762,102 @@ def api_clear_history() -> tuple[dict, int] | dict:
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/senders/<mapping_id>/edit", methods=["GET", "POST"])
+@log_function()
+def edit_sender_mapping(mapping_id: str) -> str:
+    """Edit an existing sender-asset mapping"""
+    if not asset_agent:
+        logger.error("Asset management system not initialized")
+        return render_template(
+            "error.html", error="Asset management system not initialized"
+        )
+
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+    try:
+        # Get current mapping
+        mappings = loop.run_until_complete(asset_agent.list_asset_sender_mappings())
+        current_mapping = next(
+            (m for m in mappings if m["mapping_id"] == mapping_id), None
+        )
+
+        if not current_mapping:
+            logger.warning(f"Sender mapping not found: {mapping_id}")
+            flash("Sender mapping not found", "error")
+            return redirect(url_for("list_senders"))
+
+        if request.method == "POST":
+            try:
+                # Get form data
+                asset_id = request.form.get("asset_id", "").strip()
+                sender_email = request.form.get("sender_email", "").strip().lower()
+                confidence = float(request.form.get("confidence", 0.8))
+                document_types_str = request.form.get("document_types", "").strip()
+
+                logger.info(
+                    f"Updating sender mapping {mapping_id}: {sender_email} -> {asset_id}"
+                )
+
+                # Validate
+                if not asset_id or not sender_email:
+                    logger.warning(
+                        "Sender mapping update failed: missing required fields"
+                    )
+                    flash("Asset and sender email are required", "error")
+                    return redirect(
+                        url_for("edit_sender_mapping", mapping_id=mapping_id)
+                    )
+
+                # Parse document types
+                document_types = []
+                if document_types_str:
+                    document_types = [
+                        dt.strip() for dt in document_types_str.split(",") if dt.strip()
+                    ]
+
+                # Update mapping
+                success = loop.run_until_complete(
+                    asset_agent.update_asset_sender_mapping(
+                        mapping_id=mapping_id,
+                        asset_id=asset_id,
+                        sender_email=sender_email,
+                        confidence=confidence,
+                        document_types=document_types,
+                    )
+                )
+
+                if success:
+                    logger.info(f"Sender mapping updated successfully: {mapping_id}")
+                    flash("Sender mapping updated successfully", "success")
+                    return redirect(url_for("list_senders"))
+                else:
+                    logger.error(f"Failed to update sender mapping: {mapping_id}")
+                    flash("Failed to update sender mapping", "error")
+
+            except Exception as e:
+                logger.error(f"Failed to update sender mapping: {e}")
+                flash(f"Failed to update sender mapping: {e}", "error")
+
+        # Get available assets for dropdown
+        assets = loop.run_until_complete(asset_agent.list_assets())
+
+        return render_template(
+            "edit_sender_mapping.html",
+            mapping=current_mapping,
+            assets=assets,
+            document_categories=DocumentCategory,
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to load sender mapping {mapping_id}: {e}")
+        return render_template(
+            "error.html", error=f"Failed to load sender mapping: {e}"
+        )
+    finally:
+        loop.close()
+
+
 @app.route("/senders/<mapping_id>/delete", methods=["POST"])
 @log_function()
 def delete_sender_mapping(mapping_id: str) -> str:
@@ -1783,6 +2038,22 @@ def api_submit_review(review_id: str) -> tuple[dict, int] | dict:
             )
 
             if success:
+                # Move file from review folder to proper asset folder if asset-related
+                if is_asset_related and human_asset_id:
+                    try:
+                        loop.run_until_complete(
+                            move_file_after_review(
+                                review_id, human_asset_id, human_document_category
+                            )
+                        )
+                        logger.info(
+                            f"Moved file for review {review_id} to proper asset folder"
+                        )
+                    except Exception as move_error:
+                        logger.warning(
+                            f"Failed to move file after review {review_id}: {move_error}"
+                        )
+
                 result_msg = (
                     "non-asset-related document"
                     if not is_asset_related
@@ -2001,6 +2272,345 @@ def view_file(file_path: str) -> str | tuple[str, int]:
         return f"Error viewing file: {e}", 500
 
 
+@app.route("/files/reclassify/<path:file_path>", methods=["GET", "POST"])
+@log_function()
+def reclassify_file(file_path: str) -> str:
+    """Re-classify a file attachment with user correction and memory storage"""
+    if not asset_agent:
+        logger.error("Asset management system not initialized")
+        return render_template(
+            "error.html", error="Asset management system not initialized"
+        )
+
+    try:
+        # Validate the file path is within assets directory
+        assets_path = Path(config.assets_base_path)
+        full_path = assets_path / file_path
+
+        # Security check - ensure path is within assets directory
+        if not str(full_path.resolve()).startswith(str(assets_path.resolve())):
+            logger.warning(f"Attempted access outside assets directory: {file_path}")
+            return "Access denied", 403
+
+        if not full_path.exists() or not full_path.is_file():
+            logger.warning(f"File not found: {file_path}")
+            return "File not found", 404
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        try:
+            if request.method == "POST":
+                # Handle form submission
+                new_asset_id = request.form.get("asset_id")
+                new_document_category = request.form.get("document_category")
+                correction_reason = request.form.get("correction_reason", "")
+
+                if new_asset_id == "none":
+                    new_asset_id = None  # File is not asset-related
+                elif new_asset_id == "discard":
+                    new_asset_id = "DISCARD"  # File should be deleted
+
+                # Get current file details
+                filename = full_path.name
+                current_category = _extract_category_from_path(file_path)
+                current_asset_id = _extract_asset_id_from_path(file_path)
+
+                # Process the reclassification
+                success = loop.run_until_complete(
+                    _process_reclassification(
+                        full_path,
+                        file_path,
+                        filename,
+                        current_asset_id,
+                        current_category,
+                        new_asset_id,
+                        new_document_category,
+                        correction_reason,
+                    )
+                )
+
+                if success:
+                    action_type = (
+                        "discard" if new_asset_id == "DISCARD" else "reclassify"
+                    )
+                    logger.info(f"Successfully {action_type}ed file: {filename}")
+                    return render_template(
+                        "reclassify_success.html",
+                        filename=filename,
+                        old_asset_id=current_asset_id,
+                        new_asset_id=(
+                            new_asset_id if new_asset_id != "DISCARD" else None
+                        ),
+                        old_category=current_category,
+                        new_category=new_document_category,
+                        correction_reason=correction_reason,
+                        action_type=action_type,
+                    )
+                else:
+                    return render_template(
+                        "error.html", error="Failed to reclassify file"
+                    )
+
+            else:
+                # GET request - show the reclassification form
+                # Get all assets for dropdown
+                assets = loop.run_until_complete(asset_agent.list_assets())
+
+                # Get file details
+                filename = full_path.name
+                file_size = full_path.stat().st_size
+                current_category = _extract_category_from_path(file_path)
+                current_asset_id = _extract_asset_id_from_path(file_path)
+
+                # Get current asset name
+                current_asset_name = "Unknown"
+                if current_asset_id:
+                    current_asset = next(
+                        (a for a in assets if a.deal_id == current_asset_id), None
+                    )
+                    if current_asset:
+                        current_asset_name = current_asset.deal_name
+
+                return render_template(
+                    "reclassify_file.html",
+                    file_path=file_path,
+                    filename=filename,
+                    file_size=file_size,
+                    current_asset_id=current_asset_id,
+                    current_asset_name=current_asset_name,
+                    current_category=current_category,
+                    assets=assets,
+                    document_categories=DocumentCategory,
+                    asset_types=AssetType,
+                )
+
+        finally:
+            loop.close()
+
+    except Exception as e:
+        logger.error(f"Failed to handle reclassification for {file_path}: {e}")
+        return render_template("error.html", error=f"Reclassification failed: {e}")
+
+
+@log_function()
+def _extract_asset_id_from_path(file_path: str) -> str | None:
+    """Extract asset ID from file path"""
+    try:
+        # Path format: assets/{asset_id}_{asset_name}/category/filename
+        # or: assets/special_folder/filename
+        parts = Path(file_path).parts
+        if len(parts) >= 2:
+            folder_name = parts[1]  # First folder after 'assets'
+
+            # Skip special folders
+            if folder_name in ["to_be_reviewed", "uncategorized", "needs_review"]:
+                return None
+
+            # Extract UUID from folder name (before first underscore)
+            if "_" in folder_name:
+                potential_uuid = folder_name.split("_")[0]
+                # Basic UUID format check
+                if len(potential_uuid) == 36 and potential_uuid.count("-") == 4:
+                    return potential_uuid
+        return None
+    except Exception as e:
+        logger.warning(f"Failed to extract asset ID from path {file_path}: {e}")
+        return None
+
+
+@log_function()
+def _extract_category_from_path(file_path: str) -> str | None:
+    """Extract document category from file path"""
+    try:
+        # Path format: assets/{asset_id}_{asset_name}/category/filename
+        parts = Path(file_path).parts
+        if len(parts) >= 3:
+            category_folder = parts[2]  # Category folder
+            return category_folder.lower()
+        return None
+    except Exception as e:
+        logger.warning(f"Failed to extract category from path {file_path}: {e}")
+        return None
+
+
+@log_function()
+async def _process_reclassification(
+    full_path: Path,
+    original_file_path: str,
+    filename: str,
+    current_asset_id: str | None,
+    current_category: str | None,
+    new_asset_id: str | None,
+    new_document_category: str | None,
+    correction_reason: str,
+) -> bool:
+    """Process file reclassification including file movement and memory storage"""
+    try:
+        # # Local application imports
+        from src.memory.episodic import EpisodicMemory
+
+        logger.info(f"🔄 RECLASSIFICATION START: {filename}")
+        logger.info(
+            f"   📂 Current: Asset {current_asset_id} / Category {current_category}"
+        )
+        logger.info(
+            f"   🎯 New: Asset {new_asset_id} / Category {new_document_category}"
+        )
+        logger.info(f"   💭 Reason: {correction_reason}")
+
+        # Step 1: Determine action - move or delete
+        assets_path = Path(config.assets_base_path)
+        new_file_path = None
+        action_type = "move"
+
+        if new_asset_id == "DISCARD":
+            # Delete the file permanently
+            action_type = "delete"
+            logger.info("   🗑️ File will be permanently deleted")
+        elif new_asset_id is None:
+            # Move to uncategorized (not asset-related)
+            new_file_path = assets_path / "uncategorized" / filename
+            logger.info(f"   📍 Moving to uncategorized: {new_file_path}")
+        else:
+            # Move to asset folder
+            assets = await asset_agent.list_assets()
+            target_asset = next((a for a in assets if a.deal_id == new_asset_id), None)
+
+            if not target_asset:
+                logger.error(f"Target asset not found: {new_asset_id}")
+                return False
+
+            # Create category folder structure
+            asset_folder = (
+                assets_path
+                / f"{target_asset.deal_id}_{target_asset.deal_name.replace(' ', '_')}"
+            )
+            category_folder = (
+                new_document_category.lower()
+                if new_document_category
+                else "uncategorized"
+            )
+            new_file_path = asset_folder / category_folder / filename
+
+            logger.info(f"   📍 Moving to asset folder: {new_file_path}")
+
+        # Step 2: Execute the action
+        if action_type == "delete":
+            # Delete the file permanently
+            full_path.unlink()
+            logger.info("   ✅ File deleted permanently")
+        else:
+            # Move the file
+            # Create target directory
+            new_file_path.parent.mkdir(parents=True, exist_ok=True)
+
+            # Handle file collision
+            if new_file_path.exists():
+                base_name = new_file_path.stem
+                extension = new_file_path.suffix
+                counter = 1
+                while new_file_path.exists():
+                    new_file_path = (
+                        new_file_path.parent / f"{base_name}_{counter}{extension}"
+                    )
+                    counter += 1
+                logger.info(f"   📋 File collision resolved: {new_file_path.name}")
+
+            # Move the file
+            full_path.rename(new_file_path)
+            logger.info("   ✅ File moved successfully")
+
+            # Step 3: Store correction in episodic memory
+        try:
+            episodic_memory = EpisodicMemory()
+
+            # Create memory content with correction details
+            if action_type == "delete":
+                action_description = "DISCARDED (permanently deleted)"
+                new_asset_display = "N/A (file discarded)"
+                new_category_display = "N/A (file discarded)"
+            elif new_asset_id is None:
+                action_description = "MOVED to uncategorized"
+                new_asset_display = "None (not asset-related)"
+                new_category_display = new_document_category or "None"
+            else:
+                action_description = f"MOVED to asset {new_asset_id}"
+                new_asset_display = new_asset_id
+                new_category_display = new_document_category or "None"
+
+            memory_content = f"""
+            USER CORRECTION: File {action_description.lower()}
+
+            Filename: {filename}
+            Original Classification:
+            - Asset: {current_asset_id or 'None'}
+            - Category: {current_category or 'None'}
+
+            User Action: {action_description}
+            - Asset: {new_asset_display}
+            - Category: {new_category_display}
+
+            User Reason: {correction_reason}
+
+            This correction indicates the system's classification was wrong and should learn from this feedback.
+            """.strip()
+
+            # Store in episodic memory
+            metadata = {
+                "feedback_type": "correction",
+                "filename": filename,
+                "original_asset_id": current_asset_id,
+                "original_category": current_category,
+                "action_type": action_type,
+                "correction_reason": correction_reason,
+                "corrected_by": "human",
+                "correction_timestamp": datetime.now(UTC).isoformat(),
+            }
+
+            if action_type == "delete":
+                metadata["file_discarded"] = True
+            else:
+                metadata["corrected_asset_id"] = new_asset_id
+                metadata["corrected_category"] = new_document_category
+
+            await episodic_memory.add(
+                content=memory_content,
+                metadata=metadata,
+            )
+
+            logger.info("   🧠 Correction stored in episodic memory")
+
+        except Exception as e:
+            logger.warning(f"Failed to store correction in episodic memory: {e}")
+            # Don't fail the whole operation for memory storage issues
+
+        # Step 4: Clean up empty directories (for both move and delete)
+        try:
+            old_category_folder = (
+                full_path.parent if action_type == "move" else full_path.parent
+            )
+            if old_category_folder.exists() and not any(old_category_folder.iterdir()):
+                old_category_folder.rmdir()
+                logger.info("   🗑️ Cleaned up empty category folder")
+
+            old_asset_folder = old_category_folder.parent
+            if old_asset_folder.exists() and not any(old_asset_folder.iterdir()):
+                old_asset_folder.rmdir()
+                logger.info("   🗑️ Cleaned up empty asset folder")
+
+        except Exception as e:
+            logger.warning(f"Failed to clean up empty directories: {e}")
+
+        action_summary = "DISCARDED" if action_type == "delete" else "RECLASSIFIED"
+        logger.info(f"🏁 {action_summary} COMPLETED SUCCESSFULLY")
+        return True
+
+    except Exception as e:
+        logger.error(f"Failed to process reclassification: {e}")
+        return False
+
+
 # Testing Cleanup Routes
 
 
@@ -2174,24 +2784,32 @@ def _cleanup_processed_documents() -> dict[str, Any]:
             before_count = 0
 
         # Delete all points in collection using the proper Qdrant API format
-        # # Third-party imports
-        from qdrant_client.models import FieldCondition, Filter, Range
+        try:
+            # Use scroll to get all point IDs, then delete them
+            scroll_result = asset_agent.qdrant.scroll(
+                collection_name=collection_name,
+                limit=10000,  # Get all points (adjust if you have more than 10k)
+            )
 
-        # Delete all points that have a document_id field (which should be all of them)
-        # Use a range filter that matches all possible UUIDs (starts with any character)
-        asset_agent.qdrant.delete(
-            collection_name=collection_name,
-            points_selector=Filter(
-                must=[
-                    FieldCondition(
-                        key="document_id",
-                        range=Range(
-                            gte=""
-                        ),  # Greater than or equal to empty string (matches all)
+            if scroll_result[0]:  # If there are points to delete
+                point_ids = [point.id for point in scroll_result[0]]
+                if point_ids:
+                    asset_agent.qdrant.delete(
+                        collection_name=collection_name, points_selector=point_ids
                     )
-                ]
-            ),
-        )
+                    logger.info(
+                        f"Deleted {len(point_ids)} points from {collection_name}"
+                    )
+
+        except Exception as delete_error:
+            logger.warning(f"Failed to delete points: {delete_error}")
+            # Fallback: try to recreate the collection
+            try:
+                asset_agent.qdrant.delete_collection(collection_name)
+                # The collection will be recreated automatically when needed
+                logger.info(f"Recreated collection {collection_name}")
+            except Exception as recreate_error:
+                logger.warning(f"Failed to recreate collection: {recreate_error}")
 
         logger.info(f"Cleared {before_count} processed documents from Qdrant")
         return {
@@ -2450,22 +3068,32 @@ def _cleanup_sender_mappings() -> dict[str, Any]:
             before_count = 0
 
         # Delete all points in collection
-        # # Third-party imports
-        from qdrant_client.models import FieldCondition, Filter, Range
+        try:
+            # Use scroll to get all point IDs, then delete them
+            scroll_result = asset_agent.qdrant.scroll(
+                collection_name=collection_name,
+                limit=10000,  # Get all points (adjust if you have more than 10k)
+            )
 
-        asset_agent.qdrant.delete(
-            collection_name=collection_name,
-            points_selector=Filter(
-                must=[
-                    FieldCondition(
-                        key="mapping_id",
-                        range=Range(
-                            gte=""
-                        ),  # Greater than or equal to empty string (matches all)
+            if scroll_result[0]:  # If there are points to delete
+                point_ids = [point.id for point in scroll_result[0]]
+                if point_ids:
+                    asset_agent.qdrant.delete(
+                        collection_name=collection_name, points_selector=point_ids
                     )
-                ]
-            ),
-        )
+                    logger.info(f"Deleted {len(point_ids)} sender mapping points")
+
+        except Exception as delete_error:
+            logger.warning(f"Failed to delete sender mapping points: {delete_error}")
+            # Fallback: try to recreate the collection
+            try:
+                asset_agent.qdrant.delete_collection(collection_name)
+                # The collection will be recreated automatically when needed
+                logger.info(f"Recreated sender mappings collection {collection_name}")
+            except Exception as recreate_error:
+                logger.warning(
+                    f"Failed to recreate sender mappings collection: {recreate_error}"
+                )
 
         logger.info(f"Cleared {before_count} sender mappings")
         return {
@@ -2513,22 +3141,32 @@ def _cleanup_assets() -> dict[str, Any]:
             before_count = 0
 
         # Delete all points in collection
-        # # Third-party imports
-        from qdrant_client.models import FieldCondition, Filter, Range
+        try:
+            # Use scroll to get all point IDs, then delete them
+            scroll_result = asset_agent.qdrant.scroll(
+                collection_name=collection_name,
+                limit=10000,  # Get all points (adjust if you have more than 10k)
+            )
 
-        asset_agent.qdrant.delete(
-            collection_name=collection_name,
-            points_selector=Filter(
-                must=[
-                    FieldCondition(
-                        key="deal_id",
-                        range=Range(
-                            gte=""
-                        ),  # Greater than or equal to empty string (matches all)
+            if scroll_result[0]:  # If there are points to delete
+                point_ids = [point.id for point in scroll_result[0]]
+                if point_ids:
+                    asset_agent.qdrant.delete(
+                        collection_name=collection_name, points_selector=point_ids
                     )
-                ]
-            ),
-        )
+                    logger.info(f"Deleted {len(point_ids)} asset points")
+
+        except Exception as delete_error:
+            logger.warning(f"Failed to delete asset points: {delete_error}")
+            # Fallback: try to recreate the collection
+            try:
+                asset_agent.qdrant.delete_collection(collection_name)
+                # The collection will be recreated automatically when needed
+                logger.info(f"Recreated assets collection {collection_name}")
+            except Exception as recreate_error:
+                logger.warning(
+                    f"Failed to recreate assets collection: {recreate_error}"
+                )
 
         # Also remove asset folders from disk
         assets_path = Path(config.assets_base_path)

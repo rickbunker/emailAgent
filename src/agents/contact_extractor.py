@@ -946,7 +946,7 @@ class ContactExtractor:
             )
 
             contacts = []
-            for memory_item, score in search_results:
+            for memory_item, _score in search_results:
                 if "email" in memory_item.metadata:
                     contacts.append(memory_item.metadata)
 
@@ -1040,7 +1040,7 @@ class ContactExtractor:
                         days_ago = (datetime.now(UTC) - extraction_dt).days
                         if days_ago <= 7:
                             stats["recent_extractions"] += 1
-                    except:
+                    except (ValueError, TypeError):
                         pass
 
             self.logger.info(

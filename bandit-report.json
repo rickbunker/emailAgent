@@ -1,17 +1,17 @@
 {
   "errors": [],
-  "generated_at": "2025-06-14T03:35:00Z",
+  "generated_at": "2025-06-16T20:58:23Z",
   "metrics": {
     "_totals": {
-      "CONFIDENCE.HIGH": 19,
+      "CONFIDENCE.HIGH": 15,
       "CONFIDENCE.LOW": 0,
       "CONFIDENCE.MEDIUM": 2,
       "CONFIDENCE.UNDEFINED": 0,
       "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 20,
+      "SEVERITY.LOW": 16,
       "SEVERITY.MEDIUM": 1,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 15391,
+      "loc": 16151,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -37,17 +37,17 @@
       "SEVERITY.LOW": 5,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 1997,
+      "loc": 2238,
       "nosec": 0,
       "skipped_tests": 0
     },
     "src/agents/contact_extractor.py": {
-      "CONFIDENCE.HIGH": 1,
+      "CONFIDENCE.HIGH": 0,
       "CONFIDENCE.LOW": 0,
       "CONFIDENCE.MEDIUM": 0,
       "CONFIDENCE.UNDEFINED": 0,
       "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 1,
+      "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
       "loc": 851,
@@ -68,15 +68,15 @@
       "skipped_tests": 0
     },
     "src/agents/spam_detector.py": {
-      "CONFIDENCE.HIGH": 1,
+      "CONFIDENCE.HIGH": 0,
       "CONFIDENCE.LOW": 0,
       "CONFIDENCE.MEDIUM": 0,
       "CONFIDENCE.UNDEFINED": 0,
       "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 1,
+      "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 934,
+      "loc": 946,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -89,7 +89,7 @@
       "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 925,
+      "loc": 924,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -133,12 +133,12 @@
       "skipped_tests": 0
     },
     "src/email_interface/gmail.py": {
-      "CONFIDENCE.HIGH": 1,
+      "CONFIDENCE.HIGH": 0,
       "CONFIDENCE.LOW": 0,
       "CONFIDENCE.MEDIUM": 0,
       "CONFIDENCE.UNDEFINED": 0,
       "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 1,
+      "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
       "loc": 681,
@@ -146,15 +146,15 @@
       "skipped_tests": 0
     },
     "src/email_interface/msgraph.py": {
-      "CONFIDENCE.HIGH": 1,
+      "CONFIDENCE.HIGH": 0,
       "CONFIDENCE.LOW": 0,
       "CONFIDENCE.MEDIUM": 0,
       "CONFIDENCE.UNDEFINED": 0,
       "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 1,
+      "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 970,
+      "loc": 971,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -323,7 +323,7 @@
       "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 2022,
+      "loc": 2512,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -336,14 +336,14 @@
       "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 384,
+      "loc": 401,
       "nosec": 0,
       "skipped_tests": 0
     }
   },
   "results": [
     {
-      "code": "63 import shutil\n64 import subprocess\n65 \n",
+      "code": "69 import shutil\n70 import subprocess\n71 import tempfile\n",
       "col_offset": 0,
       "end_col_offset": 17,
       "filename": "src/agents/asset_document_agent.py",
@@ -354,16 +354,16 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Consider possible security implications associated with the subprocess module.",
-      "line_number": 64,
+      "line_number": 70,
       "line_range": [
-        64
+        70
       ],
       "more_info": "https://bandit.readthedocs.io/en/0.0.0/blacklists/blacklist_imports.html#b404-import-subprocess",
       "test_id": "B404",
       "test_name": "blacklist"
     },
     {
-      "code": "423             which_cmd = \"where\" if os.name == \"nt\" else \"which\"\n424             result = subprocess.run(\n425                 [which_cmd, \"clamscan\"], capture_output=True, text=True, timeout=5\n426             )\n427             if result.returncode == 0 and result.stdout.strip():\n",
+      "code": "426             which_cmd = \"where\" if os.name == \"nt\" else \"which\"\n427             result = subprocess.run(\n428                 [which_cmd, \"clamscan\"], capture_output=True, text=True, timeout=5\n429             )\n430             if result.returncode == 0 and result.stdout.strip():\n",
       "col_offset": 21,
       "end_col_offset": 13,
       "filename": "src/agents/asset_document_agent.py",
@@ -374,18 +374,18 @@
       },
       "issue_severity": "LOW",
       "issue_text": "subprocess call - check for execution of untrusted input.",
-      "line_number": 424,
+      "line_number": 427,
       "line_range": [
-        424,
-        425,
-        426
+        427,
+        428,
+        429
       ],
       "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b603_subprocess_without_shell_equals_true.html",
       "test_id": "B603",
       "test_name": "subprocess_without_shell_equals_true"
     },
     {
-      "code": "476             # Test clamscan with version check\n477             result = subprocess.run(\n478                 [self.clamscan_path, \"--version\"],\n479                 capture_output=True,\n480                 text=True,\n481                 timeout=10,\n482             )\n483 \n",
+      "code": "473             # Test clamscan with version check\n474             result = subprocess.run(\n475                 [self.clamscan_path, \"--version\"],\n476                 capture_output=True,\n477                 text=True,\n478                 timeout=10,\n479             )\n480 \n",
       "col_offset": 21,
       "end_col_offset": 13,
       "filename": "src/agents/asset_document_agent.py",
@@ -396,21 +396,21 @@
       },
       "issue_severity": "LOW",
       "issue_text": "subprocess call - check for execution of untrusted input.",
-      "line_number": 477,
+      "line_number": 474,
       "line_range": [
+        474,
+        475,
+        476,
         477,
         478,
-        479,
-        480,
-        481,
-        482
+        479
       ],
       "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b603_subprocess_without_shell_equals_true.html",
       "test_id": "B603",
       "test_name": "subprocess_without_shell_equals_true"
     },
     {
-      "code": "662                 Path(temp_path).unlink()\n663             except Exception:\n664                 pass\n665 \n",
+      "code": "651                 Path(temp_path).unlink()\n652             except Exception:\n653                 pass\n654 \n",
       "col_offset": 12,
       "end_col_offset": 20,
       "filename": "src/agents/asset_document_agent.py",
@@ -421,17 +421,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 663,
+      "line_number": 652,
       "line_range": [
-        663,
-        664
+        652,
+        653
       ],
       "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "795             health[\"base_path_writable\"] = True\n796         except Exception:\n797             pass\n798 \n",
+      "code": "791             health[\"base_path_writable\"] = True\n792         except Exception:\n793             pass\n794 \n",
       "col_offset": 8,
       "end_col_offset": 16,
       "filename": "src/agents/asset_document_agent.py",
@@ -442,94 +442,10 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 796,
+      "line_number": 792,
       "line_range": [
-        796,
-        797
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b110_try_except_pass.html",
-      "test_id": "B110",
-      "test_name": "try_except_pass"
-    },
-    {
-      "code": "1042                             stats[\"recent_extractions\"] += 1\n1043                     except:\n1044                         pass\n1045 \n",
-      "col_offset": 20,
-      "end_col_offset": 28,
-      "filename": "src/agents/contact_extractor.py",
-      "issue_confidence": "HIGH",
-      "issue_cwe": {
-        "id": 703,
-        "link": "https://cwe.mitre.org/data/definitions/703.html"
-      },
-      "issue_severity": "LOW",
-      "issue_text": "Try, Except, Pass detected.",
-      "line_number": 1043,
-      "line_range": [
-        1043,
-        1044
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b110_try_except_pass.html",
-      "test_id": "B110",
-      "test_name": "try_except_pass"
-    },
-    {
-      "code": "547                                     recent_spam = True\n548                             except:\n549                                 pass\n550 \n",
-      "col_offset": 28,
-      "end_col_offset": 36,
-      "filename": "src/agents/spam_detector.py",
-      "issue_confidence": "HIGH",
-      "issue_cwe": {
-        "id": 703,
-        "link": "https://cwe.mitre.org/data/definitions/703.html"
-      },
-      "issue_severity": "LOW",
-      "issue_text": "Try, Except, Pass detected.",
-      "line_number": 548,
-      "line_range": [
-        548,
-        549
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b110_try_except_pass.html",
-      "test_id": "B110",
-      "test_name": "try_except_pass"
-    },
-    {
-      "code": "760                 sent_date = email.utils.parsedate_to_datetime(headers[\"date\"])\n761             except:\n762                 pass\n763 \n",
-      "col_offset": 12,
-      "end_col_offset": 20,
-      "filename": "src/email_interface/gmail.py",
-      "issue_confidence": "HIGH",
-      "issue_cwe": {
-        "id": 703,
-        "link": "https://cwe.mitre.org/data/definitions/703.html"
-      },
-      "issue_severity": "LOW",
-      "issue_text": "Try, Except, Pass detected.",
-      "line_number": 761,
-      "line_range": [
-        761,
-        762
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b110_try_except_pass.html",
-      "test_id": "B110",
-      "test_name": "try_except_pass"
-    },
-    {
-      "code": "1210                         attachment.content = base64.b64decode(att[\"contentBytes\"])\n1211                     except:\n1212                         pass\n1213 \n",
-      "col_offset": 20,
-      "end_col_offset": 28,
-      "filename": "src/email_interface/msgraph.py",
-      "issue_confidence": "HIGH",
-      "issue_cwe": {
-        "id": 703,
-        "link": "https://cwe.mitre.org/data/definitions/703.html"
-      },
-      "issue_severity": "LOW",
-      "issue_text": "Try, Except, Pass detected.",
-      "line_number": 1211,
-      "line_range": [
-        1211,
-        1212
+        792,
+        793
       ],
       "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b110_try_except_pass.html",
       "test_id": "B110",
