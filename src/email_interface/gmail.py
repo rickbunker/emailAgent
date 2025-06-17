@@ -41,6 +41,7 @@ Copyright 2025 by Inveniam Capital Partners, LLC and Rick Bunker
 # # Standard library imports
 import asyncio
 import base64
+import contextlib
 import email
 import os
 
@@ -257,7 +258,7 @@ class GmailInterface(BaseEmailInterface):
             raise
         except Exception as e:
             self.logger.error(f"Gmail connection failed: {e}")
-            raise ConnectionError(f"Failed to connect to Gmail: {e}")
+            raise ConnectionError(f"Failed to connect to Gmail: {e}") from e
 
     @log_function()
     async def _perform_oauth_flow(self, credentials_file: str) -> Credentials:
@@ -301,7 +302,7 @@ class GmailInterface(BaseEmailInterface):
 
         except Exception as e:
             self.logger.error(f"Gmail OAuth flow failed: {e}")
-            raise AuthenticationError(f"Gmail OAuth authentication failed: {e}")
+            raise AuthenticationError(f"Gmail OAuth authentication failed: {e}") from e
 
     @log_function()
     async def disconnect(self) -> None:
@@ -368,10 +369,10 @@ class GmailInterface(BaseEmailInterface):
 
         except HttpError as e:
             self.logger.error(f"Gmail profile retrieval failed: {e}")
-            raise EmailSystemError(f"Failed to get Gmail profile: {e}")
+            raise EmailSystemError(f"Failed to get Gmail profile: {e}") from e
         except Exception as e:
             self.logger.error(f"Gmail profile error: {e}")
-            raise EmailSystemError(f"Profile retrieval error: {e}")
+            raise EmailSystemError(f"Profile retrieval error: {e}") from e
 
     @log_function()
     async def _run_in_executor(self, func: Callable, *args: Any, **kwargs: Any) -> Any:
@@ -472,7 +473,7 @@ class GmailInterface(BaseEmailInterface):
             return emails
 
         except HttpError as e:
-            raise EmailSystemError(f"Failed to list Gmail messages: {e}")
+            raise EmailSystemError(f"Failed to list Gmail messages: {e}") from e
 
     async def get_email(
         self, email_id: str, include_attachments: bool = False
@@ -494,8 +495,8 @@ class GmailInterface(BaseEmailInterface):
 
         except HttpError as e:
             if e.resp.status == 404:
-                raise EmailNotFoundError(f"Email {email_id} not found")
-            raise EmailSystemError(f"Failed to get Gmail message: {e}")
+                raise EmailNotFoundError(f"Email {email_id} not found") from e
+            raise EmailSystemError(f"Failed to get Gmail message: {e}") from e
 
     async def send_email(self, request: EmailSendRequest) -> str:
         """Send an email via Gmail."""
@@ -566,7 +567,7 @@ class GmailInterface(BaseEmailInterface):
             return result["id"]
 
         except HttpError as e:
-            raise EmailSystemError(f"Failed to send Gmail message: {e}")
+            raise EmailSystemError(f"Failed to send Gmail message: {e}") from e
 
     async def mark_as_read(self, email_id: str) -> bool:
         """Mark email as read."""
@@ -588,8 +589,8 @@ class GmailInterface(BaseEmailInterface):
             return True
         except HttpError as e:
             if e.resp.status == 404:
-                raise EmailNotFoundError(f"Email {email_id} not found")
-            raise EmailSystemError(f"Failed to delete Gmail message: {e}")
+                raise EmailNotFoundError(f"Email {email_id} not found") from e
+            raise EmailSystemError(f"Failed to delete Gmail message: {e}") from e
 
     async def get_labels(self) -> list[str]:
         """Get all Gmail labels."""
@@ -605,7 +606,7 @@ class GmailInterface(BaseEmailInterface):
             return [label["name"] for label in labels]
 
         except HttpError as e:
-            raise EmailSystemError(f"Failed to get Gmail labels: {e}")
+            raise EmailSystemError(f"Failed to get Gmail labels: {e}") from e
 
     async def add_label(self, email_id: str, label: str) -> bool:
         """Add a label to an email."""
@@ -724,8 +725,8 @@ class GmailInterface(BaseEmailInterface):
 
         except HttpError as e:
             if e.resp.status == 404:
-                raise EmailNotFoundError(f"Email {email_id} not found")
-            raise EmailSystemError(f"Failed to modify Gmail message labels: {e}")
+                raise EmailNotFoundError(f"Email {email_id} not found") from e
+            raise EmailSystemError(f"Failed to modify Gmail message labels: {e}") from e
 
     async def _parse_gmail_message(
         self, message: dict[str, Any], include_attachments: bool = False
@@ -756,10 +757,8 @@ class GmailInterface(BaseEmailInterface):
         # Parse dates
         sent_date = None
         if "date" in headers:
-            try:
+            with contextlib.suppress(ValueError, TypeError, AttributeError):
                 sent_date = email.utils.parsedate_to_datetime(headers["date"])
-            except (ValueError, TypeError, AttributeError):
-                pass
 
         # Parse body
         body_text, body_html = await self._extract_body(message["payload"])

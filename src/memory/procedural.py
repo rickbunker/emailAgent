@@ -23,15 +23,11 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 # # Third-party imports
 from qdrant_client import QdrantClient
-from qdrant_client.http.models import (
-    Distance,
-    PointStruct,
-    VectorParams,
-)
+from qdrant_client.http.models import Distance, PointStruct, VectorParams
 
 from ..utils.logging_system import get_logger, log_function
 from .episodic import EpisodicMemory
@@ -216,7 +212,7 @@ class ProceduralMemory:
         filename: str,
         email_subject: str,
         email_body: str,
-        asset_type: Optional[str] = None,
+        asset_type: str | None = None,
     ) -> tuple[str, float]:
         """
         Classify document using memory-driven patterns (no hardcoded rules).
@@ -624,10 +620,9 @@ class ProceduralMemory:
         collection_name = self.collections["classification_patterns"]  # Default
 
         # Handle both enum objects and string values
-        if hasattr(pattern_type, "value"):
-            pattern_type_str = pattern_type.value
-        else:
-            pattern_type_str = pattern_type
+        pattern_type_str = (
+            pattern_type.value if hasattr(pattern_type, "value") else pattern_type
+        )
 
         if pattern_type_str == PatternType.ASSET_MATCHING.value:
             collection_name = self.collections["asset_patterns"]
@@ -849,7 +844,7 @@ class ProceduralMemory:
                 }
 
                 # Store directly without trying to extract patterns from fake emails
-                pattern_id = await self._store_procedural_pattern(pattern_data)
+                await self._store_procedural_pattern(pattern_data)
                 patterns_loaded += 1
 
                 self.logger.debug(
@@ -871,7 +866,7 @@ class ProceduralMemory:
 
         for asset_type, keywords in asset_keywords.items():
             # Store asset keywords as a procedural pattern
-            pattern_id = await self._store_procedural_pattern(
+            await self._store_procedural_pattern(
                 {
                     "pattern_type": PatternType.ASSET_MATCHING,
                     "asset_type": asset_type,
@@ -899,7 +894,7 @@ class ProceduralMemory:
         # Store confidence adjustment rules
         confidence_adjustments = data.get("confidence_adjustments", {})
         for rule_name, rule_config in confidence_adjustments.items():
-            pattern_id = await self._store_procedural_pattern(
+            await self._store_procedural_pattern(
                 {
                     "pattern_type": PatternType.CONFIDENCE,
                     "rule_name": rule_name,
@@ -917,7 +912,7 @@ class ProceduralMemory:
         # Store routing decisions
         routing_decisions = data.get("routing_decisions", {})
         for confidence_level, routing_config in routing_decisions.items():
-            pattern_id = await self._store_procedural_pattern(
+            await self._store_procedural_pattern(
                 {
                     "pattern_type": PatternType.ROUTING,
                     "confidence_level": confidence_level,
@@ -943,7 +938,7 @@ class ProceduralMemory:
         asset_configs = data.get("asset_configs", {})
 
         for asset_type, config in asset_configs.items():
-            pattern_id = await self._store_procedural_pattern(
+            await self._store_procedural_pattern(
                 {
                     "pattern_type": PatternType.VALIDATION,
                     "asset_type": asset_type,
@@ -1050,9 +1045,6 @@ class ProceduralMemory:
 
             # Organize patterns by type
             classification_patterns = {}
-            asset_keywords = {}
-            business_rules = {}
-            asset_configs = {}
 
             for point in search_result[0]:
                 payload = point.payload

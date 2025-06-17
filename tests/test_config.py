@@ -153,6 +153,7 @@ class TestLoadConfig:
             "MSGRAPH_CREDENTIALS_PATH": "/nonexistent/msgraph.json",
         }
 
-        with patch.dict(os.environ, test_env, clear=True):
-            with pytest.raises(RuntimeError, match="Configuration validation failed"):
-                load_config()
+        with patch.dict(os.environ, test_env, clear=True), pytest.raises(
+            RuntimeError, match="Configuration validation failed"
+        ):
+            load_config()

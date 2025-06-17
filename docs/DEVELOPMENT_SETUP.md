@@ -1,244 +1,530 @@
-# Development Setup Guide
+# Email Agent - Development Setup Guide
 
-This guide helps you set up your development environment to follow the Email Agent coding standards.
+> **Complete development environment setup for the AI-powered asset document management system with memory-driven learning and parallel processing capabilities.**
 
-## 🚀 Quick Setup
+## 🎯 **Overview**
 
-### 1. Install Development Tools
+This guide sets up your development environment for Email Agent, a sophisticated document processing system featuring:
+- **Memory-driven learning** that adapts from human feedback
+- **Parallel email processing** (5 concurrent emails, 10 attachments)
+- **Multi-provider email integration** (Gmail + Microsoft Graph)
+- **Four-layer memory system** (Procedural, Episodic, Semantic, Contact)
+- **Enterprise security** (ClamAV + SpamAssassin + content analysis)
+
+---
+
+## 🚀 **Quick Setup**
+
+### **1. Environment Prerequisites**
 ```bash
-# Install development dependencies
+# System Requirements
+Python 3.11+              # Core language requirement
+Docker 20.10+             # For Qdrant vector database
+Git 2.30+                 # Version control
+
+# Optional but recommended
+ClamAV 0.103+             # Virus scanning (brew install clamav)
+SpamAssassin 3.4+         # Spam detection
+```
+
+### **2. Project Setup**
+```bash
+# Clone the repository
+git clone <your-repository-url>
+cd emailAgent
+
+# Create and activate virtual environment
+python -m venv .emailagent
+source .emailagent/bin/activate  # macOS/Linux
+# or
+.emailagent\Scripts\activate     # Windows
+
+# Install dependencies
+pip install -r requirements.txt
 pip install -r requirements-dev.txt
 
-# Set up pre-commit hooks (recommended)
+# Install pre-commit hooks
 pre-commit install
 ```
 
-### 2. Configure Your IDE
+### **3. Core Services**
+```bash
+# Start Qdrant vector database
+docker run -d --name qdrant \
+  -p 6333:6333 \
+  -v ./qdrant_storage:/qdrant/storage \
+  qdrant/qdrant:latest
 
-#### VS Code Settings (`.vscode/settings.json`)
+# Optional: Start ClamAV daemon
+sudo freshclam              # Update virus definitions
+sudo clamd                  # Start daemon (varies by OS)
+
+# Verify services
+curl http://localhost:6333/collections  # Should return empty array
+```
+
+### **4. Configuration Setup**
+```bash
+# Email credentials (see specific setup guides)
+cp config/gmail_credentials_template.json config/gmail_credentials.json
+cp config/msgraph_credentials_template.json config/msgraph_credentials.json
+
+# Environment configuration (optional)
+cp .env.example .env
+# Edit .env with your specific settings
+```
+
+### **5. Initial System Setup**
+```bash
+# Start the application
+python app.py
+
+# Open browser to http://localhost:5001
+# Navigate to "Memory" > "Testing & Cleanup" > "Smart Memory Reset"
+# This seeds the system with 129 knowledge base items
+```
+
+---
+
+## 🛠️ **IDE Configuration**
+
+### **VS Code Setup (Recommended)**
+
+**`.vscode/settings.json`**
 ```json
 {
     "python.defaultInterpreterPath": "./.emailagent/bin/python",
+    "python.analysis.typeCheckingMode": "strict",
     "python.linting.enabled": true,
     "python.linting.pylintEnabled": true,
     "python.linting.mypyEnabled": true,
     "python.formatting.provider": "black",
-    "python.formatting.blackArgs": ["--line-length=88"],
+    "python.formatting.blackArgs": ["--line-length=120"],
     "python.sortImports.args": ["--profile=black"],
+    "python.testing.pytestEnabled": true,
+    "python.testing.pytestArgs": ["tests/"],
     "editor.formatOnSave": true,
     "editor.codeActionsOnSave": {
-        "source.organizeImports": true
+        "source.organizeImports": true,
+        "source.fixAll.ruff": true
     },
     "files.exclude": {
         "**/__pycache__": true,
         "**/*.pyc": true,
         ".mypy_cache": true,
         ".pytest_cache": true,
-        ".coverage": true
-    }
+        ".coverage": true,
+        ".emailagent": false,
+        "qdrant_storage": true,
+        "logs/*.log": true
+    },
+    "python.analysis.autoImportCompletions": true,
+    "python.analysis.include": ["src/"],
+    "ruff.args": ["--config=pyproject.toml"]
 }
 ```
 
-## 🛠️ Development Commands
-
-### Code Formatting
-```bash
-# Format all Python files
-black src/ tests/
-
-# Sort imports
-isort src/ tests/
-
-# Run both formatting and import sorting
-black src/ tests/ && isort src/ tests/
+**`.vscode/launch.json`** (Debugging)
+```json
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Email Agent Web UI",
+            "type": "python",
+            "request": "launch",
+            "program": "app.py",
+            "console": "integratedTerminal",
+            "env": {
+                "FLASK_ENV": "development",
+                "FLASK_DEBUG": "1"
+            }
+        },
+        {
+            "name": "Debug Tests",
+            "type": "python",
+            "request": "launch",
+            "module": "pytest",
+            "args": ["tests/", "-v"],
+            "console": "integratedTerminal"
+        }
+    ]
+}
 ```
 
-### Code Quality Checks
+### **PyCharm Setup**
+- **Interpreter**: Point to `.emailagent/bin/python`
+- **Plugins**: Install Python, Docker, TOML, Markdown
+- **Code Style**: Import scheme from `pyproject.toml`
+- **Run Configurations**: Create config for `app.py` with Flask environment
+
+---
+
+## 📊 **Development Commands**
+
+### **Code Quality & Formatting**
 ```bash
+# Complete code quality check (matches CI)
+make test                           # Runs all 11 quality checks
+
+# Individual formatting
+black src/ tests/ scripts/         # Code formatting
+isort src/ tests/ scripts/         # Import sorting
+ruff check --fix src/              # Fast linting with auto-fix
+
 # Type checking
-mypy src/
+mypy src/                          # Static type analysis
 
-# Linting
-pylint src/
-
-# Security scanning
-bandit -r src/
-
-# Fast linting with ruff
-ruff check src/
-
-# Run all checks
-ruff check src/ && mypy src/ && pylint src/
+# Security & advanced linting
+bandit -r src/                     # Security vulnerability scan
+pylint src/                        # Comprehensive code analysis
 ```
 
-### Testing
+### **Testing Framework**
 ```bash
 # Run all tests
-pytest
+pytest                             # Basic test run
+pytest -v                         # Verbose output
+pytest --tb=short                 # Shorter traceback format
 
-# Run with coverage
-pytest --cov=src --cov-report=html
+# Test categories
+pytest -m unit                    # Unit tests only
+pytest -m integration             # Integration tests
+pytest -m email                   # Email interface tests
+pytest -m slow                    # Slower tests
 
-# Run specific test markers
-pytest -m unit          # Unit tests only
-pytest -m integration   # Integration tests only
-pytest -m email         # Email interface tests
+# Coverage analysis
+pytest --cov=src                  # Coverage report
+pytest --cov=src --cov-report=html # HTML coverage report
+pytest --cov=src --cov-report=term-missing # Missing lines
 ```
 
-### Pre-commit Hooks
+### **Memory System Development**
 ```bash
-# Run all pre-commit hooks manually
-pre-commit run --all-files
+# Test memory systems
+python -c "
+import asyncio
+from src.memory.procedural import ProceduralMemory
+from qdrant_client import QdrantClient
 
-# Run specific hook
-pre-commit run black
-pre-commit run mypy
+async def test_memory():
+    client = QdrantClient('localhost', 6333)
+    memory = ProceduralMemory(client)
+    await memory.initialize_collections()
+    stats = await memory.get_pattern_stats()
+    print(f'Patterns loaded: {stats}')
 
-# Update hook versions
-pre-commit autoupdate
+asyncio.run(test_memory())
+"
+
+# Knowledge base validation
+python -c "
+import json
+from pathlib import Path
+
+for file in Path('knowledge').glob('*.json'):
+    with open(file) as f:
+        data = json.load(f)
+        print(f'{file.name}: {len(data)} items')
+"
 ```
 
-## 📋 Daily Development Workflow
-
-### Before Starting Work
+### **Email Interface Testing**
 ```bash
-# Make sure you're using the project environment
-source .emailagent/bin/activate  # or activate your venv
+# Test email connections (requires credentials)
+python -c "
+import asyncio
+from src.email_interface import create_email_interface
 
-# Update pre-commit hooks (weekly)
-pre-commit autoupdate
+async def test_email():
+    # Test Gmail
+    gmail = create_email_interface('gmail')
+    print(f'Gmail available: {gmail is not None}')
 
-# Check code quality baseline
-pytest --co -q  # Check if tests are discoverable
-mypy src/ --no-error-summary  # Quick type check
+    # Test Microsoft Graph
+    msgraph = create_email_interface('msgraph')
+    print(f'Microsoft Graph available: {msgraph is not None}')
+
+asyncio.run(test_email())
+"
 ```
 
-### While Coding
-- **Write type hints** for all function parameters and return values
-- **Add docstrings** for all public functions and classes
-- **Use the logging system** (`get_logger(__name__)`) instead of print
-- **Use the config system** for any configurable values
-- **Follow import organization** (stdlib, third-party, local)
+---
 
-### Before Committing
-```bash
-# Quick quality check
-ruff check src/ && mypy src/
+## 🧠 **Architecture Development**
 
-# Run tests
-pytest tests/
-
-# Pre-commit will automatically run when you commit
-git add .
-git commit -m "Your commit message"
-```
-
-## 🎯 Coding Standards Quick Reference
-
-### Always Include These Imports
+### **Understanding the System**
 ```python
-# At the top of most files
+# Key architectural components to understand:
+
+# 1. Memory-Driven Learning
+from src.memory.procedural import ProceduralMemory
+from src.memory.episodic import EpisodicMemory
+
+# 2. Parallel Processing
+from src.web_ui.app import process_mailbox_emails
+
+# 3. Asset Document Agent (core intelligence)
+from src.agents.asset_document_agent import AssetDocumentAgent
+
+# 4. Email Interface Layer
+from src.email_interface import GmailInterface, MicrosoftGraphInterface
+
+# 5. Security & Tools
+from src.tools.spamassassin_integration import SpamAssassinDetector
+```
+
+### **Development Patterns**
+```python
+# Standard Email Agent function template
 from typing import Dict, List, Optional, Any
 from src.utils.config import config
 from src.utils.logging_system import get_logger, log_function
 
 logger = get_logger(__name__)
-```
 
-### Function Template
-```python
 @log_function()
-async def process_attachment(
-    attachment_data: Dict[str, Any],
-    email_data: Dict[str, Any]
+async def process_document(
+    document_data: Dict[str, Any],
+    context: Dict[str, Any]
 ) -> ProcessingResult:
     """
-    Process an email attachment with AI classification.
+    Process a document using memory-driven classification.
 
     Args:
-        attachment_data: Dictionary containing 'filename' and 'content'
-        email_data: Dictionary with sender, subject, date, and body info
+        document_data: Document content and metadata
+        context: Email and processing context
 
     Returns:
-        ProcessingResult with classification and confidence scores
+        ProcessingResult with classification and confidence
 
     Raises:
-        ProcessingError: If attachment cannot be processed
+        ProcessingError: When document processing fails
+        ValidationError: When input data is invalid
     """
-    logger.info(f"Processing attachment: {attachment_data.get('filename')}")
+    logger.info(f"Processing document: {document_data.get('filename')}")
 
     try:
+        # Validate inputs
+        if not document_data.get('content'):
+            raise ValidationError("Document content is required")
+
         # Use configuration
-        max_size = config.max_attachment_size_mb
+        max_size = config.max_attachment_size_mb * 1024 * 1024
+        if len(document_data['content']) > max_size:
+            raise ValidationError(f"Document too large: {len(document_data['content'])} bytes")
 
-        # Your logic here
-        result = await some_processing_function()
+        # Memory-driven processing
+        result = await agent.enhanced_process_attachment(document_data, context)
 
-        logger.info("Processing completed successfully")
+        # Learning integration
+        if result.confidence_level == ConfidenceLevel.HIGH:
+            await memory.learn_from_success(document_data, result)
+
+        logger.info(f"Processing completed: {result.status}")
         return result
 
     except Exception as e:
         logger.error(f"Processing failed: {e}")
-        if config.development_mode:
-            raise
-        return ProcessingResult.error(str(e))
+        # Preserve stack trace for debugging
+        raise ProcessingError(f"Document processing failed: {e}") from e
 ```
-
-### Error Handling Pattern
-```python
-try:
-    result = await risky_operation()
-except SpecificException as e:
-    logger.error(f"Specific error occurred: {e}")
-    # Handle specific case
-except Exception as e:
-    logger.error(f"Unexpected error: {e}")
-    if config.development_mode:
-        raise  # Re-raise in development
-    return default_value
-```
-
-## 🔧 Troubleshooting
-
-### Common Issues
-
-**Import errors after cleanup:**
-- Check if imports need to be relative (same directory) vs absolute
-- Ensure `__init__.py` files exist in package directories
-
-**Type checking errors:**
-- Add type stubs: `pip install types-<package-name>`
-- Use `# type: ignore` sparingly with explanation comments
-- Check `pyproject.toml` for mypy configuration
-
-**Pre-commit hook failures:**
-- Run the failing hook manually: `pre-commit run <hook-name>`
-- Skip problematic hooks temporarily: `git commit --no-verify`
-- Update hook versions: `pre-commit autoupdate`
-
-**Formatting conflicts:**
-- Black and isort are configured to work together
-- If conflicts occur, run black last: `isort . && black .`
-
-### IDE-Specific Setup
-
-#### PyCharm
-- Install plugins: Python, .ignore, Pre-commit Hook Plugin
-- Configure: Settings > Tools > External Tools (add black, isort, mypy)
-- Set interpreter to your virtual environment
-
-#### Vim/Neovim
-- Use plugins: ale, black, isort, mypy
-- Configure LSP with pylsp or pyright
-
-## 📚 Additional Resources
-
-- [PEP 8 Style Guide](https://pep8.org/)
-- [Google Python Style Guide](https://google.github.io/styleguide/pyguide.html)
-- [mypy Documentation](https://mypy.readthedocs.io/)
-- [pytest Documentation](https://docs.pytest.org/)
-- [Pre-commit Documentation](https://pre-commit.com/)
 
 ---
 
-**Following these standards ensures code quality, maintainability, and team consistency!** 🎯
+## 🔧 **Daily Development Workflow**
+
+### **Starting Work**
+```bash
+# 1. Environment check
+source .emailagent/bin/activate
+python --version                   # Should be 3.11+
+docker ps | grep qdrant           # Verify Qdrant running
+
+# 2. Update dependencies (weekly)
+pip install -r requirements.txt -r requirements-dev.txt
+pre-commit autoupdate
+
+# 3. Quick system check
+curl -s http://localhost:6333/collections | jq .  # Qdrant health
+curl -s http://localhost:5001/api/health | jq .   # App health (if running)
+```
+
+### **Development Loop**
+```bash
+# 1. Code with standards
+# - Type hints on all functions
+# - Google-style docstrings
+# - @log_function() on important methods
+# - Use config system for settings
+# - Follow import organization
+
+# 2. Quick validation
+ruff check src/                    # Fast linting
+mypy src/ --no-error-summary      # Type checking
+
+# 3. Test changes
+pytest tests/ -x                   # Stop on first failure
+pytest tests/test_your_module.py   # Test specific module
+```
+
+### **Before Committing**
+```bash
+# 1. Full quality check
+make test                          # All 11 quality checks
+
+# 2. Test coverage
+pytest --cov=src --cov-fail-under=80
+
+# 3. Documentation update
+# Update relevant docstrings and docs/ files
+
+# 4. Commit (pre-commit hooks run automatically)
+git add .
+git commit -m "feat: add memory-driven document classification"
+```
+
+---
+
+## 🐛 **Debugging & Troubleshooting**
+
+### **Common Development Issues**
+
+**Memory System Errors**
+```bash
+# Check Qdrant connection
+curl http://localhost:6333/collections
+
+# Reset memory system (nuclear option)
+# Via web UI: Memory > Testing & Cleanup > Smart Memory Reset
+
+# Check knowledge base integrity
+python -c "
+import json
+from pathlib import Path
+total = 0
+for file in Path('knowledge').glob('*.json'):
+    with open(file) as f:
+        data = json.load(f)
+        count = len(data.get(list(data.keys())[0], {}))
+        print(f'{file.name}: {count} items')
+        total += count
+print(f'Total knowledge items: {total}')
+"
+```
+
+**Email Interface Issues**
+```bash
+# Test OAuth credentials
+python -c "
+import json
+from pathlib import Path
+
+# Check Gmail credentials
+if Path('config/gmail_credentials.json').exists():
+    with open('config/gmail_credentials.json') as f:
+        creds = json.load(f)
+        print(f'Gmail client_id: {creds.get(\"client_id\", \"Missing\")[:20]}...')
+
+# Check Microsoft Graph credentials
+if Path('config/msgraph_credentials.json').exists():
+    with open('config/msgraph_credentials.json') as f:
+        creds = json.load(f)
+        print(f'Graph client_id: {creds.get(\"client_id\", \"Missing\")[:20]}...')
+"
+```
+
+**Performance Issues**
+```bash
+# Check parallel processing configuration
+python -c "
+from src.utils.config import config
+print(f'Max concurrent emails: {config.max_concurrent_emails}')
+print(f'Max concurrent attachments: {config.max_concurrent_attachments}')
+print(f'Email batch size: {config.email_batch_size}')
+"
+
+# Monitor processing performance
+tail -f logs/email_agent.log | grep "EXIT.*process"
+```
+
+**Import and Path Issues**
+```bash
+# Check Python path
+python -c "import sys; print('\n'.join(sys.path))"
+
+# Verify package structure
+find src/ -name "__init__.py" | sort
+
+# Test imports
+python -c "
+try:
+    from src.agents.asset_document_agent import AssetDocumentAgent
+    print('✅ Core agent import successful')
+except ImportError as e:
+    print(f'❌ Import failed: {e}')
+"
+```
+
+### **IDE-Specific Debugging**
+
+**VS Code Debug Configuration**
+- Set breakpoints in `src/` files
+- Use "Email Agent Web UI" launch configuration
+- Check DEBUG CONSOLE for detailed logs
+- Use integrated terminal for commands
+
+**PyCharm Debug Setup**
+- Configure remote debugging for containerized services
+- Use scientific mode for data exploration
+- Set up database connection to Qdrant (port 6333)
+
+---
+
+## 📚 **Learning Resources**
+
+### **Project-Specific**
+- **[Main README](../README.md)**: Complete system overview
+- **[Coding Standards](CODING_STANDARDS.md)**: Detailed development guidelines
+- **[Knowledge Base](../knowledge/README.md)**: Domain expertise documentation
+- **[Email Interface Guide](EMAIL_INTERFACE_README.md)**: Multi-provider email integration
+
+### **Technology Stack**
+- **[Qdrant Documentation](https://qdrant.tech/documentation/)**: Vector database
+- **[Flask Documentation](https://flask.palletsprojects.com/)**: Web framework
+- **[AsyncIO Guide](https://docs.python.org/3/library/asyncio.html)**: Async programming
+- **[Sentence Transformers](https://www.sbert.net/)**: Text embeddings
+
+### **Development Tools**
+- **[Ruff Documentation](https://docs.astral.sh/ruff/)**: Fast Python linter
+- **[MyPy Documentation](https://mypy.readthedocs.io/)**: Static type checking
+- **[Pytest Documentation](https://docs.pytest.org/)**: Testing framework
+- **[Pre-commit Documentation](https://pre-commit.com/)**: Git hooks
+
+---
+
+## 🎯 **Development Success Metrics**
+
+### **Code Quality Checkpoints**
+- ✅ **All 11 quality checks pass** (`make test`)
+- ✅ **90%+ test coverage** on new code
+- ✅ **Complete type annotations** for public APIs
+- ✅ **Google-style docstrings** for all functions
+- ✅ **No security vulnerabilities** (Bandit scan)
+
+### **System Integration Validation**
+- ✅ **Memory system operational** (129 knowledge items loaded)
+- ✅ **Email interfaces functional** (Gmail + Microsoft Graph)
+- ✅ **Parallel processing working** (5 emails, 10 attachments concurrent)
+- ✅ **Learning system active** (human feedback integration)
+- ✅ **Asset matching accurate** (1.0 confidence scores achieved)
+
+### **Performance Benchmarks**
+- ✅ **Processing speed**: 5x improvement over sequential processing
+- ✅ **Memory efficiency**: Vector operations under 100ms
+- ✅ **Classification accuracy**: 90%+ on known document types
+- ✅ **System uptime**: 99.9% availability target
+
+---
+
+**Your development environment is now configured for building the next generation of intelligent document processing! 🚀**

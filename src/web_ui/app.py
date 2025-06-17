@@ -60,7 +60,7 @@ try:
 except ImportError:
     # Fallback to direct imports (when run from src directory)
     # # Local application imports
-    from agents.asset_document_agent import (
+    from src.agents.asset_document_agent import (
         AssetDocumentAgent,
         AssetType,
         ConfidenceLevel,
@@ -68,13 +68,13 @@ except ImportError:
         ProcessingResult,
         ProcessingStatus,
     )
-    from email_interface import (
+    from src.email_interface import (
         BaseEmailInterface,
         EmailSearchCriteria,
         create_email_interface,
     )
-    from utils.config import config
-    from utils.logging_system import (
+    from src.utils.config import config
+    from src.utils.logging_system import (
         LogConfig,
         configure_logging,
         get_logger,
@@ -581,7 +581,7 @@ async def process_mailbox_emails(
                 from src.email_interface.msgraph import MicrosoftGraphInterface
             except ImportError:
                 # # Local application imports
-                from email_interface.msgraph import MicrosoftGraphInterface
+                from src.email_interface.msgraph import MicrosoftGraphInterface
 
             email_interface = MicrosoftGraphInterface(
                 credentials_path=mailbox_config["config"]["credentials_path"]
@@ -888,7 +888,7 @@ async def process_single_email_parallel(
             f"({processing_info['attachments_classified']} classified, {processing_info['errors']} errors)"
         )
 
-    except asyncio.TimeoutError:
+    except TimeoutError:
         processing_info["errors"] += len(email.attachments)
         logger.error(
             f"⏰ Email processing timed out after {config.processing_timeout_seconds} seconds"
@@ -1524,11 +1524,8 @@ def create_sender_mapping() -> str:
                 return render_template("create_sender_mapping.html")
 
             # Parse document types
-            document_types = []
             if document_types_str:
-                document_types = [
-                    dt.strip() for dt in document_types_str.split(",") if dt.strip()
-                ]
+                [dt.strip() for dt in document_types_str.split(",") if dt.strip()]
 
             # Create mapping
             loop = asyncio.new_event_loop()
@@ -1961,11 +1958,8 @@ def edit_sender_mapping(mapping_id: str) -> str:
                     )
 
                 # Parse document types
-                document_types = []
                 if document_types_str:
-                    document_types = [
-                        dt.strip() for dt in document_types_str.split(",") if dt.strip()
-                    ]
+                    [dt.strip() for dt in document_types_str.split(",") if dt.strip()]
 
                 # Update mapping
                 success = loop.run_until_complete(
@@ -2793,18 +2787,16 @@ def memory_dashboard() -> str:
 
         # Categorize collections by memory type
         memory_types = {
-            "episodic": [name for name in stats.keys() if "episodic" in name.lower()],
-            "procedural": [
-                name for name in stats.keys() if "procedural" in name.lower()
-            ],
-            "contact": [name for name in stats.keys() if "contact" in name.lower()],
-            "semantic": [name for name in stats.keys() if "semantic" in name.lower()],
+            "episodic": [name for name in stats if "episodic" in name.lower()],
+            "procedural": [name for name in stats if "procedural" in name.lower()],
+            "contact": [name for name in stats if "contact" in name.lower()],
+            "semantic": [name for name in stats if "semantic" in name.lower()],
             "asset_management": [
-                name for name in stats.keys() if "asset_management" in name.lower()
+                name for name in stats if "asset_management" in name.lower()
             ],
             "other": [
                 name
-                for name in stats.keys()
+                for name in stats
                 if not any(
                     mem_type in name.lower()
                     for mem_type in [
@@ -4064,22 +4056,22 @@ def _cleanup_assets() -> dict[str, Any]:
         assets_path = Path(config.assets_base_path)
         if assets_path.exists():
             for asset_folder in assets_path.iterdir():
-                if asset_folder.is_dir() and not asset_folder.name.startswith("."):
-                    # Only remove folders that look like asset folders (uuid_name format)
-                    if (
-                        "_" in asset_folder.name
-                        and len(asset_folder.name.split("_")[0]) > 20
-                    ):
-                        try:
-                            # # Standard library imports
-                            import shutil
+                if (
+                    asset_folder.is_dir()
+                    and not asset_folder.name.startswith(".")
+                    and "_" in asset_folder.name
+                    and len(asset_folder.name.split("_")[0]) > 20
+                ):
+                    try:
+                        # # Standard library imports
+                        import shutil
 
-                            shutil.rmtree(asset_folder)
-                            logger.info(f"Removed asset folder: {asset_folder.name}")
-                        except Exception as e:
-                            logger.warning(
-                                f"Failed to remove asset folder {asset_folder}: {e}"
-                            )
+                        shutil.rmtree(asset_folder)
+                        logger.info(f"Removed asset folder: {asset_folder.name}")
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to remove asset folder {asset_folder}: {e}"
+                        )
 
         logger.warning(
             f"DELETED {before_count} assets - this removes asset definitions!"

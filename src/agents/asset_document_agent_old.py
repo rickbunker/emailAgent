@@ -63,6 +63,7 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 # # Standard library imports
 import asyncio
+import contextlib
 import hashlib
 import os
 import re
@@ -647,10 +648,8 @@ class AssetDocumentAgent:
             return False, f"Scan error: {str(e)}"
         finally:
             # Clean up the temporary file
-            try:
+            with contextlib.suppress(Exception):
                 Path(temp_path).unlink()
-            except Exception:
-                pass
 
     async def process_single_attachment(
         self, attachment_data: dict[str, Any], email_data: dict[str, Any]

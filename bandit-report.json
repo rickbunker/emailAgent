@@ -1,17 +1,17 @@
 {
   "errors": [],
-  "generated_at": "2025-06-17T17:33:51Z",
+  "generated_at": "2025-06-17T22:32:51Z",
   "metrics": {
     "_totals": {
-      "CONFIDENCE.HIGH": 19,
+      "CONFIDENCE.HIGH": 18,
       "CONFIDENCE.LOW": 0,
       "CONFIDENCE.MEDIUM": 2,
       "CONFIDENCE.UNDEFINED": 0,
       "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 20,
+      "SEVERITY.LOW": 19,
       "SEVERITY.MEDIUM": 1,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 18352,
+      "loc": 18476,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -42,15 +42,15 @@
       "skipped_tests": 0
     },
     "src/agents/asset_document_agent_old.py": {
-      "CONFIDENCE.HIGH": 5,
+      "CONFIDENCE.HIGH": 4,
       "CONFIDENCE.LOW": 0,
       "CONFIDENCE.MEDIUM": 0,
       "CONFIDENCE.UNDEFINED": 0,
       "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 5,
+      "SEVERITY.LOW": 4,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 2238,
+      "loc": 2237,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -141,7 +141,7 @@
       "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 453,
+      "loc": 455,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -154,7 +154,7 @@
       "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 681,
+      "loc": 680,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -167,7 +167,7 @@
       "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 971,
+      "loc": 980,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -206,7 +206,7 @@
       "SEVERITY.LOW": 1,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 857,
+      "loc": 863,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -232,7 +232,7 @@
       "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 859,
+      "loc": 851,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -297,7 +297,7 @@
       "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 1,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 201,
+      "loc": 221,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -336,7 +336,7 @@
       "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 3232,
+      "loc": 3329,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -356,7 +356,7 @@
   },
   "results": [
     {
-      "code": "25 import hashlib\n26 import subprocess\n27 import tempfile\n",
+      "code": "26 import hashlib\n27 import subprocess\n28 import tempfile\n",
       "col_offset": 0,
       "end_col_offset": 17,
       "filename": "src/agents/asset_document_agent.py",
@@ -367,16 +367,16 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Consider possible security implications associated with the subprocess module.",
-      "line_number": 26,
+      "line_number": 27,
       "line_range": [
-        26
+        27
       ],
       "more_info": "https://bandit.readthedocs.io/en/0.0.0/blacklists/blacklist_imports.html#b404-import-subprocess",
       "test_id": "B404",
       "test_name": "blacklist"
     },
     {
-      "code": "219         try:\n220             result = subprocess.run(\n221                 [\"which\", \"clamscan\"],\n222                 capture_output=True,\n223                 text=True,\n224                 timeout=5,  # 5 second timeout for finding clamscan\n225             )\n226             if result.returncode == 0:\n",
+      "code": "220         try:\n221             result = subprocess.run(\n222                 [\"which\", \"clamscan\"],\n223                 capture_output=True,\n224                 text=True,\n225                 timeout=5,  # 5 second timeout for finding clamscan\n226             )\n227             if result.returncode == 0:\n",
       "col_offset": 21,
       "end_col_offset": 13,
       "filename": "src/agents/asset_document_agent.py",
@@ -387,21 +387,21 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Starting a process with a partial executable path",
-      "line_number": 220,
+      "line_number": 221,
       "line_range": [
-        220,
         221,
         222,
         223,
         224,
-        225
+        225,
+        226
       ],
       "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b607_start_process_with_partial_path.html",
       "test_id": "B607",
       "test_name": "start_process_with_partial_path"
     },
     {
-      "code": "219         try:\n220             result = subprocess.run(\n221                 [\"which\", \"clamscan\"],\n222                 capture_output=True,\n223                 text=True,\n224                 timeout=5,  # 5 second timeout for finding clamscan\n225             )\n226             if result.returncode == 0:\n",
+      "code": "220         try:\n221             result = subprocess.run(\n222                 [\"which\", \"clamscan\"],\n223                 capture_output=True,\n224                 text=True,\n225                 timeout=5,  # 5 second timeout for finding clamscan\n226             )\n227             if result.returncode == 0:\n",
       "col_offset": 21,
       "end_col_offset": 13,
       "filename": "src/agents/asset_document_agent.py",
@@ -412,14 +412,14 @@
       },
       "issue_severity": "LOW",
       "issue_text": "subprocess call - check for execution of untrusted input.",
-      "line_number": 220,
+      "line_number": 221,
       "line_range": [
-        220,
         221,
         222,
         223,
         224,
-        225
+        225,
+        226
       ],
       "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b603_subprocess_without_shell_equals_true.html",
       "test_id": "B603",
@@ -447,7 +447,7 @@
       "test_name": "try_except_pass"
     },
     {
-      "code": "69 import shutil\n70 import subprocess\n71 import tempfile\n",
+      "code": "70 import shutil\n71 import subprocess\n72 import tempfile\n",
       "col_offset": 0,
       "end_col_offset": 17,
       "filename": "src/agents/asset_document_agent_old.py",
@@ -458,16 +458,16 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Consider possible security implications associated with the subprocess module.",
-      "line_number": 70,
+      "line_number": 71,
       "line_range": [
-        70
+        71
       ],
       "more_info": "https://bandit.readthedocs.io/en/0.0.0/blacklists/blacklist_imports.html#b404-import-subprocess",
       "test_id": "B404",
       "test_name": "blacklist"
     },
     {
-      "code": "426             which_cmd = \"where\" if os.name == \"nt\" else \"which\"\n427             result = subprocess.run(\n428                 [which_cmd, \"clamscan\"], capture_output=True, text=True, timeout=5\n429             )\n430             if result.returncode == 0 and result.stdout.strip():\n",
+      "code": "427             which_cmd = \"where\" if os.name == \"nt\" else \"which\"\n428             result = subprocess.run(\n429                 [which_cmd, \"clamscan\"], capture_output=True, text=True, timeout=5\n430             )\n431             if result.returncode == 0 and result.stdout.strip():\n",
       "col_offset": 21,
       "end_col_offset": 13,
       "filename": "src/agents/asset_document_agent_old.py",
@@ -478,18 +478,18 @@
       },
       "issue_severity": "LOW",
       "issue_text": "subprocess call - check for execution of untrusted input.",
-      "line_number": 427,
+      "line_number": 428,
       "line_range": [
-        427,
         428,
-        429
+        429,
+        430
       ],
       "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b603_subprocess_without_shell_equals_true.html",
       "test_id": "B603",
       "test_name": "subprocess_without_shell_equals_true"
     },
     {
-      "code": "473             # Test clamscan with version check\n474             result = subprocess.run(\n475                 [self.clamscan_path, \"--version\"],\n476                 capture_output=True,\n477                 text=True,\n478                 timeout=10,\n479             )\n480 \n",
+      "code": "474             # Test clamscan with version check\n475             result = subprocess.run(\n476                 [self.clamscan_path, \"--version\"],\n477                 capture_output=True,\n478                 text=True,\n479                 timeout=10,\n480             )\n481 \n",
       "col_offset": 21,
       "end_col_offset": 13,
       "filename": "src/agents/asset_document_agent_old.py",
@@ -500,42 +500,21 @@
       },
       "issue_severity": "LOW",
       "issue_text": "subprocess call - check for execution of untrusted input.",
-      "line_number": 474,
+      "line_number": 475,
       "line_range": [
-        474,
         475,
         476,
         477,
         478,
-        479
+        479,
+        480
       ],
       "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b603_subprocess_without_shell_equals_true.html",
       "test_id": "B603",
       "test_name": "subprocess_without_shell_equals_true"
     },
     {
-      "code": "651                 Path(temp_path).unlink()\n652             except Exception:\n653                 pass\n654 \n",
-      "col_offset": 12,
-      "end_col_offset": 20,
-      "filename": "src/agents/asset_document_agent_old.py",
-      "issue_confidence": "HIGH",
-      "issue_cwe": {
-        "id": 703,
-        "link": "https://cwe.mitre.org/data/definitions/703.html"
-      },
-      "issue_severity": "LOW",
-      "issue_text": "Try, Except, Pass detected.",
-      "line_number": 652,
-      "line_range": [
-        652,
-        653
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b110_try_except_pass.html",
-      "test_id": "B110",
-      "test_name": "try_except_pass"
-    },
-    {
-      "code": "791             health[\"base_path_writable\"] = True\n792         except Exception:\n793             pass\n794 \n",
+      "code": "790             health[\"base_path_writable\"] = True\n791         except Exception:\n792             pass\n793 \n",
       "col_offset": 8,
       "end_col_offset": 16,
       "filename": "src/agents/asset_document_agent_old.py",
@@ -546,17 +525,17 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 792,
+      "line_number": 791,
       "line_range": [
-        792,
-        793
+        791,
+        792
       ],
       "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b110_try_except_pass.html",
       "test_id": "B110",
       "test_name": "try_except_pass"
     },
     {
-      "code": "1045 \n1046         assert contact1_id == duplicate_id, \"Deduplication failed\"\n1047         logger.info(\"\u2713 Contact deduplication working correctly\")\n",
+      "code": "1051 \n1052         assert contact1_id == duplicate_id, \"Deduplication failed\"\n1053         logger.info(\"\u2713 Contact deduplication working correctly\")\n",
       "col_offset": 8,
       "end_col_offset": 66,
       "filename": "src/memory/contact.py",
@@ -567,9 +546,9 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.",
-      "line_number": 1046,
+      "line_number": 1052,
       "line_range": [
-        1046
+        1052
       ],
       "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b101_assert_used.html",
       "test_id": "B101",
@@ -794,7 +773,7 @@
       "test_name": "subprocess_without_shell_equals_true"
     },
     {
-      "code": "140             ),\n141             flask_host=os.getenv(\"FLASK_HOST\", \"0.0.0.0\"),\n142             flask_port=int(os.getenv(\"FLASK_PORT\", \"5001\")),\n",
+      "code": "146             ),\n147             flask_host=os.getenv(\"FLASK_HOST\", \"0.0.0.0\"),\n148             flask_port=int(os.getenv(\"FLASK_PORT\", \"5001\")),\n",
       "col_offset": 47,
       "end_col_offset": 56,
       "filename": "src/utils/config.py",
@@ -805,9 +784,9 @@
       },
       "issue_severity": "MEDIUM",
       "issue_text": "Possible binding to all interfaces.",
-      "line_number": 141,
+      "line_number": 147,
       "line_range": [
-        141
+        147
       ],
       "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b104_hardcoded_bind_all_interfaces.html",
       "test_id": "B104",

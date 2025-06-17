@@ -22,6 +22,7 @@ Copyright 2025 by Inveniam Capital Partners, LLC and Rick Bunker
 # # Standard library imports
 # Standard library imports
 import asyncio
+import contextlib
 import hashlib
 import subprocess
 import tempfile
@@ -31,7 +32,7 @@ from datetime import UTC, datetime
 from difflib import SequenceMatcher
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 # # Third-party imports
 # Third-party imports
@@ -140,27 +141,27 @@ class ProcessingResult:
     """
 
     status: ProcessingStatus
-    file_hash: Optional[str] = None
-    file_path: Optional[Path] = None
+    file_hash: str | None = None
+    file_path: Path | None = None
     confidence: float = 0.0
-    error_message: Optional[str] = None
-    quarantine_reason: Optional[str] = None
-    duplicate_of: Optional[str] = None
-    metadata: Optional[dict[str, Any]] = None
+    error_message: str | None = None
+    quarantine_reason: str | None = None
+    duplicate_of: str | None = None
+    metadata: dict[str, Any] | None = None
 
     # Phase 3: Document Classification
-    document_category: Optional[DocumentCategory] = None
-    confidence_level: Optional[ConfidenceLevel] = None
-    matched_asset_id: Optional[str] = None
+    document_category: DocumentCategory | None = None
+    confidence_level: ConfidenceLevel | None = None
+    matched_asset_id: str | None = None
     asset_confidence: float = 0.0
-    classification_metadata: Optional[dict[str, Any]] = None
+    classification_metadata: dict[str, Any] | None = None
 
     @classmethod
     def success_result(
         cls,
         file_hash: str,
         confidence: float = 1.0,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> "ProcessingResult":
         """Create a successful processing result."""
         return cls(
@@ -193,7 +194,7 @@ class Asset:
     identifiers: list[str]
     created_date: datetime
     last_updated: datetime
-    metadata: Optional[dict[str, Any]] = None
+    metadata: dict[str, Any] | None = None
 
 
 class SecurityService:
@@ -209,7 +210,7 @@ class SecurityService:
         self.logger = get_logger(f"{__name__}.SecurityService")
         self.clamscan_path = self._find_clamscan()
 
-    def _find_clamscan(self) -> Optional[str]:
+    def _find_clamscan(self) -> str | None:
         """
         Find ClamAV clamscan executable.
 
@@ -235,7 +236,7 @@ class SecurityService:
 
     async def scan_file_antivirus(
         self, file_content: bytes, filename: str
-    ) -> tuple[bool, Optional[str]]:
+    ) -> tuple[bool, str | None]:
         """
         Scan file content with ClamAV antivirus.
 
@@ -291,7 +292,7 @@ class SecurityService:
             self.logger.warning("ClamAV scan error for %s: %s", filename, stderr_text)
             return False, f"Scan error: {stderr_text}"
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             self.logger.warning("ClamAV scan timeout for %s", filename)
             return False, "Scan timeout"
         except Exception as e:
@@ -300,10 +301,8 @@ class SecurityService:
         finally:
             # Clean up temporary file
             if temp_path:
-                try:
+                with contextlib.suppress(OSError):
                     Path(temp_path).unlink()
-                except OSError:
-                    pass
 
     def _extract_threat_name(self, stdout: str, temp_path: str) -> str:
         """Extract threat name from ClamAV output."""
@@ -408,9 +407,9 @@ class AssetDocumentAgent:
 
     def __init__(
         self,
-        qdrant_client: Optional[QdrantClient] = None,
+        qdrant_client: QdrantClient | None = None,
         base_assets_path: str = "./assets",
-        clamav_socket: Optional[str] = None,
+        clamav_socket: str | None = None,
     ) -> None:
         """
         Initialize the learning agent.
@@ -500,6 +499,8 @@ class AssetDocumentAgent:
 
     async def _collection_exists(self, collection_name: str) -> bool:
         """Check if a Qdrant collection exists."""
+        if not self.qdrant:
+            return False
         try:
             collections = self.qdrant.get_collections()
             return any(c.name == collection_name for c in collections.collections)
@@ -508,6 +509,8 @@ class AssetDocumentAgent:
 
     async def _create_collection(self, collection_name: str, vector_size: int) -> None:
         """Create a Qdrant collection with specified vector size."""
+        if not self.qdrant:
+            return
         self.qdrant.create_collection(
             collection_name=collection_name,
             vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE),
@@ -746,7 +749,7 @@ class AssetDocumentAgent:
         """Get all assets associated with a sender."""
         self.logger.info("Checking sender asset mappings for: %s", sender_email)
 
-        assets = []
+        assets: list[dict[str, Any]] = []
 
         if not self.qdrant:
             self.logger.warning(
@@ -772,6 +775,8 @@ class AssetDocumentAgent:
                 self.logger.info("Found %d sender mapping(s)", len(search_result[0]))
 
                 for point in search_result[0]:
+                    if point.payload is None:
+                        continue
                     mapping_data = {
                         "asset_id": point.payload.get("asset_id"),
                         "confidence": point.payload.get("confidence", 0.0),
@@ -797,7 +802,7 @@ class AssetDocumentAgent:
         email_subject: str,
         email_body: str = "",
         filename: str = "",
-        known_assets: Optional[list[Asset]] = None,
+        known_assets: list[Asset] | None = None,
     ) -> list[tuple[str, float]]:
         """
         Enhanced memory-driven asset identification with sophisticated matching logic.
@@ -915,9 +920,7 @@ class AssetDocumentAgent:
                     )
 
             # Convert to sorted list (highest confidence first)
-            asset_matches = [
-                (asset_id, confidence) for asset_id, confidence in asset_scores.items()
-            ]
+            asset_matches = list(asset_scores.items())
             asset_matches.sort(key=lambda x: x[1], reverse=True)
 
             # Enhanced result logging (like old system)
@@ -1052,11 +1055,14 @@ class AssetDocumentAgent:
 
         # Step 5: Asset type matching boost
         pattern_asset_type = pattern_data.get("asset_type", "")
-        if pattern_asset_type and hasattr(asset, "asset_type"):
-            if pattern_asset_type == asset.asset_type.value:
-                type_boost = 0.05
-                max_confidence = min(max_confidence + type_boost, 1.0)
-                self.logger.debug(f"   🎯 ASSET TYPE MATCH: +{type_boost:.3f}")
+        if (
+            pattern_asset_type
+            and hasattr(asset, "asset_type")
+            and pattern_asset_type == asset.asset_type.value
+        ):
+            type_boost = 0.05
+            max_confidence = min(max_confidence + type_boost, 1.0)
+            self.logger.debug(f"   🎯 ASSET TYPE MATCH: +{type_boost:.3f}")
 
         self.logger.debug(f"   📊 Final confidence: {max_confidence:.3f}")
         return max_confidence
@@ -1066,8 +1072,8 @@ class AssetDocumentAgent:
         attachment_content: bytes,
         filename: str,
         processing_result: ProcessingResult,
-        asset_id: Optional[str] = None,
-    ) -> Optional[Path]:
+        asset_id: str | None = None,
+    ) -> Path | None:
         """
         Save processed attachment to the appropriate asset folder.
 
@@ -1095,7 +1101,12 @@ class AssetDocumentAgent:
                 asset = await self.get_asset(asset_id)
                 if asset:
                     # Use the asset's predefined folder path
-                    asset_base_folder = self.base_assets_path / asset.folder_path
+                    folder_path = (
+                        asset.folder_path
+                        if isinstance(asset.folder_path, str)
+                        else str(asset.folder_path)
+                    )
+                    asset_base_folder = self.base_assets_path / folder_path
 
                     # Create document category subfolder within asset folder
                     if (
@@ -1129,7 +1140,12 @@ class AssetDocumentAgent:
                 # Low confidence with asset match: Save to asset's review subfolder
                 asset = await self.get_asset(asset_id)
                 if asset:
-                    asset_base_folder = self.base_assets_path / asset.folder_path
+                    folder_path = (
+                        asset.folder_path
+                        if isinstance(asset.folder_path, str)
+                        else str(asset.folder_path)
+                    )
+                    asset_base_folder = self.base_assets_path / folder_path
                     target_folder = asset_base_folder / "needs_review"
                     self.logger.info(
                         "Saving to asset review folder: %s/needs_review",
@@ -1187,7 +1203,7 @@ class AssetDocumentAgent:
         self,
         file_hash: str,
         processing_result: ProcessingResult,
-        asset_id: Optional[str] = None,
+        asset_id: str | None = None,
     ) -> str:
         """Store processed document metadata in Qdrant."""
         document_id = str(uuid.uuid4())
@@ -1232,7 +1248,7 @@ class AssetDocumentAgent:
             self.logger.error("Failed to store processed document: %s", e)
             return document_id
 
-    async def check_duplicate(self, file_hash: str) -> Optional[str]:
+    async def check_duplicate(self, file_hash: str) -> str | None:
         """
         Check if file hash already exists in processed documents.
 
@@ -1259,7 +1275,9 @@ class AssetDocumentAgent:
             )
 
             if search_result[0]:
-                return search_result[0][0].payload.get("document_id")
+                point = search_result[0][0]
+                if point.payload is not None:
+                    return point.payload.get("document_id")
 
             return None
 
@@ -1335,7 +1353,7 @@ class AssetDocumentAgent:
         deal_name: str,
         asset_name: str,
         asset_type: AssetType,
-        identifiers: Optional[list[str]] = None,
+        identifiers: list[str] | None = None,
     ) -> str:
         """
         Create asset definition with actual storage in Qdrant.
@@ -1378,7 +1396,12 @@ class AssetDocumentAgent:
             )
 
             # Create asset folder structure
-            asset_folder = self.base_assets_path / asset_data["folder_path"]
+            folder_path = (
+                asset_data["folder_path"]
+                if isinstance(asset_data["folder_path"], str)
+                else str(asset_data["folder_path"])
+            )
+            asset_folder = self.base_assets_path / folder_path
             asset_folder.mkdir(parents=True, exist_ok=True)
 
             self.logger.info("✅ Created and stored asset: %s (%s)", deal_name, deal_id)
@@ -1388,7 +1411,7 @@ class AssetDocumentAgent:
             self.logger.error("Failed to create asset %s: %s", deal_name, e)
             return deal_id
 
-    async def get_asset(self, deal_id: str) -> Optional[Asset]:
+    async def get_asset(self, deal_id: str) -> Asset | None:
         """
         Get asset by deal_id from Qdrant storage.
 
@@ -1413,6 +1436,9 @@ class AssetDocumentAgent:
                 return None
 
             payload = points[0].payload
+            if payload is None:
+                self.logger.debug("Asset payload is None: %s", deal_id)
+                return None
             asset = Asset(
                 deal_id=payload["deal_id"],
                 deal_name=payload["deal_name"],
@@ -1453,6 +1479,8 @@ class AssetDocumentAgent:
             assets = []
             for point in scroll_result[0]:
                 payload = point.payload
+                if payload is None:
+                    continue
                 try:
                     asset = Asset(
                         deal_id=payload["deal_id"],
@@ -1486,7 +1514,7 @@ class AssetDocumentAgent:
         Returns:
             List of sender mapping dictionaries
         """
-        mappings = []
+        mappings: list[dict[str, Any]] = []
 
         if not self.qdrant:
             self.logger.debug("No Qdrant client - returning empty mappings list")
@@ -1502,6 +1530,8 @@ class AssetDocumentAgent:
 
             for point in search_result[0]:
                 payload = point.payload
+                if payload is None:
+                    continue
                 mappings.append(
                     {
                         "mapping_id": payload["mapping_id"],
@@ -1565,9 +1595,9 @@ class AssetDocumentAgent:
     async def update_asset_sender_mapping(
         self,
         mapping_id: str,
-        sender_email: Optional[str] = None,
-        deal_id: Optional[str] = None,
-        confidence: Optional[float] = None,
+        sender_email: str | None = None,
+        deal_id: str | None = None,
+        confidence: float | None = None,
     ) -> bool:
         """
         Update asset sender mapping (backward compatibility).

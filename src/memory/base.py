@@ -235,7 +235,7 @@ class BaseMemory:
             self.logger.error(f"Failed to ensure collection: {e}")
             raise ConnectionError(
                 f"Failed to initialize collection '{self.collection_name}': {e}"
-            )
+            ) from e
 
     @log_function()
     async def add(self, content: str, metadata: dict[str, Any] | None = None) -> str:
@@ -288,7 +288,7 @@ class BaseMemory:
 
         except Exception as e:
             self.logger.error(f"Failed to add memory item: {e}")
-            raise ConnectionError(f"Failed to store memory item: {e}")
+            raise ConnectionError(f"Failed to store memory item: {e}") from e
 
     @log_function()
     async def get(self, memory_id: str) -> MemoryItem | None:
@@ -421,7 +421,7 @@ class BaseMemory:
 
         except Exception as e:
             self.logger.error(f"Search failed: {e}")
-            raise ConnectionError(f"Search operation failed: {e}")
+            raise ConnectionError(f"Search operation failed: {e}") from e
 
     @log_function()
     async def update(
@@ -509,7 +509,7 @@ class BaseMemory:
 
         except Exception as e:
             self.logger.error(f"Failed to update memory item {memory_id}: {e}")
-            raise ConnectionError(f"Update operation failed: {e}")
+            raise ConnectionError(f"Update operation failed: {e}") from e
 
     @log_function()
     async def delete(self, memory_id: str) -> bool:
@@ -560,7 +560,7 @@ class BaseMemory:
 
         except Exception as e:
             self.logger.error(f"Failed to delete memory item {memory_id}: {e}")
-            raise ConnectionError(f"Delete operation failed: {e}")
+            raise ConnectionError(f"Delete operation failed: {e}") from e
 
     @log_function()
     async def clear_collection(self, force_delete: bool = False) -> None:
@@ -592,7 +592,7 @@ class BaseMemory:
 
         except Exception as e:
             self.logger.error(f"Failed to clear collection: {e}")
-            raise ConnectionError(f"Clear operation failed: {e}")
+            raise ConnectionError(f"Clear operation failed: {e}") from e
 
     @log_function()
     async def get_collection_info(self) -> dict[str, Any]:
@@ -625,7 +625,7 @@ class BaseMemory:
 
         except Exception as e:
             self.logger.error(f"Failed to get collection info: {e}")
-            raise ConnectionError(f"Info retrieval failed: {e}")
+            raise ConnectionError(f"Info retrieval failed: {e}") from e
 
     @log_function()
     async def _update_access_time(self, memory_id: str, access_time: str) -> None:

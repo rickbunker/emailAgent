@@ -29,9 +29,9 @@ from typing import Any
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 # # Local application imports
-from memory.episodic import EpisodicMemory
-from utils.config import config
-from utils.logging_system import get_logger
+from src.memory.episodic import EpisodicMemory
+from src.utils.config import config
+from src.utils.logging_system import get_logger
 
 logger = get_logger(__name__)
 

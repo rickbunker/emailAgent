@@ -505,61 +505,67 @@ class ContactMemory(BaseMemory):
         changes = []
 
         # Update name if provided and confidence allows
-        if name and (
-            not existing.name or confidence.value >= existing.confidence.value
+        if (
+            name
+            and (not existing.name or confidence.value >= existing.confidence.value)
+            and existing.name != name
         ):
-            if existing.name != name:
-                existing.name = name
-                # Update name components
-                name_parts = name.strip().split()
-                if len(name_parts) >= 2:
-                    existing.first_name = name_parts[0]
-                    existing.last_name = " ".join(name_parts[1:])
-                elif len(name_parts) == 1:
-                    existing.first_name = name_parts[0]
-                changes.append(f"name: '{existing.name}' -> '{name}'")
-                updated = True
+            existing.name = name
+            # Update name components
+            name_parts = name.strip().split()
+            if len(name_parts) >= 2:
+                existing.first_name = name_parts[0]
+                existing.last_name = " ".join(name_parts[1:])
+            elif len(name_parts) == 1:
+                existing.first_name = name_parts[0]
+            changes.append(f"name: '{existing.name}' -> '{name}'")
+            updated = True
 
         # Update phone if provided and higher confidence
-        if phone and (
-            not existing.phone or confidence.value >= existing.confidence.value
+        if (
+            phone
+            and (not existing.phone or confidence.value >= existing.confidence.value)
+            and existing.phone != phone
         ):
-            if existing.phone != phone:
-                changes.append(f"phone: '{existing.phone}' -> '{phone}'")
-                existing.phone = phone
-                updated = True
+            changes.append(f"phone: '{existing.phone}' -> '{phone}'")
+            existing.phone = phone
+            updated = True
 
         # Update organization with confidence comparison
-        if organization and (
-            not existing.organization or confidence.value >= existing.confidence.value
+        if (
+            organization
+            and (
+                not existing.organization
+                or confidence.value >= existing.confidence.value
+            )
+            and existing.organization != organization
         ):
-            if existing.organization != organization:
-                changes.append(
-                    f"organization: '{existing.organization}' -> '{organization}'"
-                )
-                existing.organization = organization
-                updated = True
+            changes.append(
+                f"organization: '{existing.organization}' -> '{organization}'"
+            )
+            existing.organization = organization
+            updated = True
 
         # Update title with confidence comparison
-        if title and (
-            not existing.title or confidence.value >= existing.confidence.value
+        if (
+            title
+            and (not existing.title or confidence.value >= existing.confidence.value)
+            and existing.title != title
         ):
-            if existing.title != title:
-                changes.append(f"title: '{existing.title}' -> '{title}'")
-                existing.title = title
-                updated = True
+            changes.append(f"title: '{existing.title}' -> '{title}'")
+            existing.title = title
+            updated = True
 
         # Update contact type if higher confidence
         if (
             contact_type != ContactType.UNKNOWN
             and confidence.value >= existing.confidence.value
-        ):
-            if existing.contact_type != contact_type:
-                changes.append(
-                    f"contact_type: {existing.contact_type.value} -> {contact_type.value}"
-                )
-                existing.contact_type = contact_type
-                updated = True
+        ) and existing.contact_type != contact_type:
+            changes.append(
+                f"contact_type: {existing.contact_type.value} -> {contact_type.value}"
+            )
+            existing.contact_type = contact_type
+            updated = True
 
         # Update confidence if higher
         if confidence.value > existing.confidence.value:

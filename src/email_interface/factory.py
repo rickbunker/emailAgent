@@ -178,7 +178,7 @@ class EmailInterfaceFactory:
             logger.error(f"Failed to create email interface for {normalized_type}: {e}")
             raise EmailSystemError(
                 f"Failed to create {system_type} email interface: {e}"
-            )
+            ) from e
 
     @classmethod
     @log_function()
@@ -241,11 +241,11 @@ class EmailInterfaceFactory:
 
         except Exception as e:
             logger.error(f"Failed to create interface from config: {e}")
-            if isinstance(e, (EmailSystemError, ValueError)):
+            if isinstance(e, EmailSystemError | ValueError):
                 raise
             raise EmailSystemError(
                 f"Configuration-based interface creation failed: {e}"
-            )
+            ) from e
 
     @classmethod
     @log_function()
@@ -434,11 +434,13 @@ class EmailInterfaceFactory:
 
             # Check required fields
             for field_name, field_config in template.items():
-                if field_config.get("required", False):
-                    if field_name not in credentials:
-                        validation_result["errors"].append(
-                            f"Missing required field '{field_name}': {field_config['description']}"
-                        )
+                if (
+                    field_config.get("required", False)
+                    and field_name not in credentials
+                ):
+                    validation_result["errors"].append(
+                        f"Missing required field '{field_name}': {field_config['description']}"
+                    )
 
             # Check for unknown fields (warnings)
             template_fields = set(template.keys())
@@ -466,7 +468,7 @@ class EmailInterfaceFactory:
             logger.error(f"Credentials validation failed: {e}")
             if isinstance(e, EmailSystemError):
                 raise
-            raise EmailSystemError(f"Credentials validation error: {e}")
+            raise EmailSystemError(f"Credentials validation error: {e}") from e
 
     @classmethod
     @log_function()

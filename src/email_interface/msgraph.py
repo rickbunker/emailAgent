@@ -64,6 +64,9 @@ import msal
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
+# # Standard library imports
+import contextlib
+
 # # Local application imports
 from utils.logging_system import get_logger, log_function
 
@@ -388,9 +391,9 @@ class MicrosoftGraphInterface(BaseEmailInterface):
             return credentials
 
         except json.JSONDecodeError as e:
-            raise ValueError(f"Invalid JSON in credentials file: {e}")
+            raise ValueError(f"Invalid JSON in credentials file: {e}") from e
         except Exception as e:
-            raise ValueError(f"Error loading credentials: {e}")
+            raise ValueError(f"Error loading credentials: {e}") from e
 
     @log_function()
     async def connect(self) -> bool:
@@ -492,7 +495,7 @@ class MicrosoftGraphInterface(BaseEmailInterface):
             raise
         except Exception as e:
             self.logger.error(f"Microsoft Graph connection failed: {e}")
-            raise ConnectionError(f"Failed to connect to Microsoft Graph: {e}")
+            raise ConnectionError(f"Failed to connect to Microsoft Graph: {e}") from e
 
     @log_function()
     async def _perform_interactive_authentication(
@@ -533,7 +536,9 @@ class MicrosoftGraphInterface(BaseEmailInterface):
                 break
             except OSError:
                 if attempt == max_port_attempts - 1:
-                    raise RuntimeError("Cannot start local server for OAuth callback")
+                    raise RuntimeError(
+                        "Cannot start local server for OAuth callback"
+                    ) from None
                 continue
 
         # Start server in background thread
@@ -723,7 +728,7 @@ class MicrosoftGraphInterface(BaseEmailInterface):
             if isinstance(e, EmailSystemError):
                 raise
             self.logger.error(f"Microsoft Graph profile retrieval failed: {e}")
-            raise EmailSystemError(f"Profile retrieval error: {e}")
+            raise EmailSystemError(f"Profile retrieval error: {e}") from e
 
     async def list_emails(self, criteria: EmailSearchCriteria) -> list[Email]:
         """List emails matching criteria."""
@@ -831,7 +836,9 @@ class MicrosoftGraphInterface(BaseEmailInterface):
                 return emails
 
         except aiohttp.ClientError as e:
-            raise EmailSystemError(f"Failed to list Microsoft Graph messages: {e}")
+            raise EmailSystemError(
+                f"Failed to list Microsoft Graph messages: {e}"
+            ) from e
 
     async def get_email(
         self, email_id: str, include_attachments: bool = False
@@ -863,7 +870,7 @@ class MicrosoftGraphInterface(BaseEmailInterface):
                 return self._parse_graph_message(data, include_attachments)
 
         except aiohttp.ClientError as e:
-            raise EmailSystemError(f"Failed to get Microsoft Graph message: {e}")
+            raise EmailSystemError(f"Failed to get Microsoft Graph message: {e}") from e
 
     async def send_email(self, request: EmailSendRequest) -> str:
         """Send an email via Microsoft Graph."""
@@ -959,7 +966,9 @@ class MicrosoftGraphInterface(BaseEmailInterface):
                 return "sent"
 
         except aiohttp.ClientError as e:
-            raise EmailSystemError(f"Failed to send Microsoft Graph message: {e}")
+            raise EmailSystemError(
+                f"Failed to send Microsoft Graph message: {e}"
+            ) from e
 
     async def mark_as_read(self, email_id: str) -> bool:
         """Mark email as read."""
@@ -992,7 +1001,9 @@ class MicrosoftGraphInterface(BaseEmailInterface):
                 return True
 
         except aiohttp.ClientError as e:
-            raise EmailSystemError(f"Failed to delete Microsoft Graph message: {e}")
+            raise EmailSystemError(
+                f"Failed to delete Microsoft Graph message: {e}"
+            ) from e
 
     async def get_labels(self) -> list[str]:
         """Get available folders (labels)."""
@@ -1017,7 +1028,7 @@ class MicrosoftGraphInterface(BaseEmailInterface):
                 return [folder["displayName"] for folder in folders]
 
         except aiohttp.ClientError as e:
-            raise EmailSystemError(f"Failed to get Microsoft Graph folders: {e}")
+            raise EmailSystemError(f"Failed to get Microsoft Graph folders: {e}") from e
 
     async def add_label(self, email_id: str, label: str) -> bool:
         """Move email to folder (Microsoft Graph doesn't have labels like Gmail)."""
@@ -1053,7 +1064,7 @@ class MicrosoftGraphInterface(BaseEmailInterface):
         except aiohttp.ClientError as e:
             raise EmailSystemError(
                 f"Failed to add label to Microsoft Graph message: {e}"
-            )
+            ) from e
 
     async def remove_label(self, email_id: str, label: str) -> bool:
         """Move email from folder back to inbox."""
@@ -1088,7 +1099,7 @@ class MicrosoftGraphInterface(BaseEmailInterface):
         except aiohttp.ClientError as e:
             raise EmailSystemError(
                 f"Failed to download Microsoft Graph attachment: {e}"
-            )
+            ) from e
 
     # Helper methods
     async def _run_in_executor(self, func: Callable, *args: Any, **kwargs: Any) -> Any:
@@ -1119,7 +1130,9 @@ class MicrosoftGraphInterface(BaseEmailInterface):
                 return True
 
         except aiohttp.ClientError as e:
-            raise EmailSystemError(f"Failed to update Microsoft Graph message: {e}")
+            raise EmailSystemError(
+                f"Failed to update Microsoft Graph message: {e}"
+            ) from e
 
     async def _get_folders_dict(self) -> dict[str, str]:
         """Get folder name to ID mapping."""
@@ -1207,10 +1220,8 @@ class MicrosoftGraphInterface(BaseEmailInterface):
 
                 # If content is included
                 if att.get("contentBytes"):
-                    try:
+                    with contextlib.suppress(ValueError, TypeError, binascii.Error):
                         attachment.content = base64.b64decode(att["contentBytes"])
-                    except (ValueError, TypeError, binascii.Error):
-                        pass
 
                 attachments.append(attachment)
 
