@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Testing Cleanup - Email Agent{% endblock %}
+{% block title %}Testing Cleanup - Inveniam Email Agent{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
@@ -160,6 +160,17 @@
                                     <strong>All Memory Collections</strong>
                                     <br><small class="text-muted">Clears semantic, episodic, procedural, and contact
                                         memory</small>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" value="memory_smart_reset"
+                                    id="memorySmartReset">
+                                <label class="form-check-label" for="memorySmartReset">
+                                    <strong class="text-primary">🎯 Smart Memory Reset</strong>
+                                    <br><small class="text-muted">Clears episodic memories but re-seeds procedural
+                                        knowledge from saved patterns</small>
                                 </label>
                             </div>
                         </div>

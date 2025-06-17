@@ -1,0 +1,324 @@
+{% extends "base.html" %}
+
+{% block title %}Memory Systems Dashboard - Inveniam Email Agent{% endblock %}
+
+{% block page_title %}Memory Systems Dashboard{% endblock %}
+
+{% block page_actions %}
+<div class="btn-group" role="group">
+    <a href="{{ url_for('episodic_memory') }}" class="btn btn-outline-primary">
+        <i class="bi bi-clock-history"></i> Episodic Memory
+    </a>
+    <a href="{{ url_for('procedural_memory') }}" class="btn btn-outline-success">
+        <i class="bi bi-gear"></i> Procedural Memory
+    </a>
+    <a href="{{ url_for('contact_memory') }}" class="btn btn-outline-info">
+        <i class="bi bi-people"></i> Contact Memory
+    </a>
+    <a href="{{ url_for('knowledge_base') }}" class="btn btn-outline-warning">
+        <i class="bi bi-book"></i> Knowledge Base
+    </a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="alert alert-info" role="alert">
+            <i class="bi bi-info-circle"></i>
+            <strong>Memory Systems Overview</strong> - Monitor and manage the various types of memory used by the Email
+            Agent for learning and decision making.
+        </div>
+    </div>
+</div>
+
+<!-- Memory Type Cards -->
+<div class="row">
+    <!-- Episodic Memory Card -->
+    <div class="col-md-6 col-lg-3 mb-4">
+        <div class="card border-primary">
+            <div class="card-header bg-primary text-white">
+                <h6 class="card-title mb-0">
+                    <i class="bi bi-clock-history"></i> Episodic Memory
+                </h6>
+            </div>
+            <div class="card-body">
+                {% set episodic_count = memory_types.episodic | length %}
+                {% if episodic_count > 0 %}
+                {% for collection in memory_types.episodic %}
+                {% if collection in stats %}
+                <p class="mb-1">
+                    <strong>{{ stats[collection].points_count }}</strong> experiences
+                    <small class="text-muted d-block">{{ collection }}</small>
+                </p>
+                {% endif %}
+                {% endfor %}
+                {% else %}
+                <p class="text-muted mb-1">No episodic collections found</p>
+                {% endif %}
+                <hr class="my-2">
+                <small class="text-muted">Individual experiences and conversations</small>
+            </div>
+            <div class="card-footer">
+                <a href="{{ url_for('episodic_memory') }}" class="btn btn-primary btn-sm">
+                    <i class="bi bi-eye"></i> View Details
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Procedural Memory Card -->
+    <div class="col-md-6 col-lg-3 mb-4">
+        <div class="card border-success">
+            <div class="card-header bg-success text-white">
+                <h6 class="card-title mb-0">
+                    <i class="bi bi-gear"></i> Procedural Memory
+                </h6>
+            </div>
+            <div class="card-body">
+                {% set procedural_count = memory_types.procedural | length %}
+                {% if procedural_count > 0 %}
+                {% for collection in memory_types.procedural %}
+                {% if collection in stats %}
+                <p class="mb-1">
+                    <strong>{{ stats[collection].points_count }}</strong> patterns
+                    <small class="text-muted d-block">{{ collection.replace('procedural_', '').replace('_', ' ').title()
+                        }}</small>
+                </p>
+                {% endif %}
+                {% endfor %}
+                {% else %}
+                <p class="text-muted mb-1">No procedural collections found</p>
+                {% endif %}
+                <hr class="my-2">
+                <small class="text-muted">Learned patterns and decision rules</small>
+            </div>
+            <div class="card-footer">
+                <a href="{{ url_for('procedural_memory') }}" class="btn btn-success btn-sm">
+                    <i class="bi bi-eye"></i> View Details
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contact Memory Card -->
+    <div class="col-md-6 col-lg-3 mb-4">
+        <div class="card border-info">
+            <div class="card-header bg-info text-white">
+                <h6 class="card-title mb-0">
+                    <i class="bi bi-people"></i> Contact Memory
+                </h6>
+            </div>
+            <div class="card-body">
+                {% set contact_count = memory_types.contact | length %}
+                {% if contact_count > 0 %}
+                {% for collection in memory_types.contact %}
+                {% if collection in stats %}
+                <p class="mb-1">
+                    <strong>{{ stats[collection].points_count }}</strong> contacts
+                    <small class="text-muted d-block">{{ collection }}</small>
+                </p>
+                {% endif %}
+                {% endfor %}
+                {% else %}
+                <p class="text-muted mb-1">No contact collections found</p>
+                {% endif %}
+                <hr class="my-2">
+                <small class="text-muted">Known contacts and relationships</small>
+            </div>
+            <div class="card-footer">
+                <a href="{{ url_for('contact_memory') }}" class="btn btn-info btn-sm">
+                    <i class="bi bi-eye"></i> View Details
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Knowledge Base Card -->
+    <div class="col-md-6 col-lg-3 mb-4">
+        <div class="card border-warning">
+            <div class="card-header bg-warning text-dark">
+                <h6 class="card-title mb-0">
+                    <i class="bi bi-book"></i> Knowledge Base
+                </h6>
+            </div>
+            <div class="card-body">
+                <p class="mb-1">
+                    <strong>5</strong> knowledge files
+                    <small class="text-muted d-block">Static configurations</small>
+                </p>
+                <hr class="my-2">
+                <small class="text-muted">Static knowledge and business rules</small>
+            </div>
+            <div class="card-footer">
+                <a href="{{ url_for('knowledge_base') }}" class="btn btn-warning btn-sm text-dark">
+                    <i class="bi bi-eye"></i> View Details
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Asset Management Collections -->
+{% if memory_types.asset_management | length > 0 %}
+<div class="row">
+    <div class="col-12">
+        <h5><i class="bi bi-building"></i> Asset Management Collections</h5>
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Collection Name</th>
+                        <th>Points</th>
+                        <th>Status</th>
+                        <th>Purpose</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for collection in memory_types.asset_management %}
+                    {% if collection in stats %}
+                    <tr>
+                        <td><code>{{ collection }}</code></td>
+                        <td>
+                            <span class="badge bg-primary">{{ stats[collection].points_count }}</span>
+                        </td>
+                        <td>
+                            <span
+                                class="badge bg-{% if stats[collection].status == 'green' %}success{% else %}warning{% endif %}">
+                                {{ stats[collection].status }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if 'assets' in collection %}
+                            Asset definitions and metadata
+                            {% elif 'sender' in collection %}
+                            Email sender to asset mappings
+                            {% elif 'processed' in collection %}
+                            Processed document tracking
+                            {% elif 'unknown' in collection %}
+                            Unknown sender tracking
+                            {% else %}
+                            Asset management data
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Other Collections -->
+{% if memory_types.other | length > 0 %}
+<div class="row mt-4">
+    <div class="col-12">
+        <h5><i class="bi bi-collection"></i> Other Collections</h5>
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Collection Name</th>
+                        <th>Points</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for collection in memory_types.other %}
+                    {% if collection in stats %}
+                    <tr>
+                        <td><code>{{ collection }}</code></td>
+                        <td>
+                            <span class="badge bg-secondary">{{ stats[collection].points_count }}</span>
+                        </td>
+                        <td>
+                            <span
+                                class="badge bg-{% if stats[collection].status == 'green' %}success{% else %}warning{% endif %}">
+                                {{ stats[collection].status }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Quick Actions -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="bi bi-lightning"></i> Quick Actions
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3 mb-2">
+                        <button class="btn btn-outline-danger btn-sm w-100" onclick="clearMemoryType('episodic')">
+                            <i class="bi bi-trash"></i> Clear Episodic
+                        </button>
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <button class="btn btn-outline-warning btn-sm w-100" onclick="clearMemoryType('procedural')">
+                            <i class="bi bi-gear"></i> Clear Procedural
+                        </button>
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <button class="btn btn-outline-info btn-sm w-100" onclick="clearMemoryType('contact')">
+                            <i class="bi bi-people"></i> Clear Contacts
+                        </button>
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <a href="{{ url_for('testing_cleanup') }}" class="btn btn-outline-secondary btn-sm w-100">
+                            <i class="bi bi-tools"></i> Advanced Cleanup
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    async function clearMemoryType(memoryType) {
+        if (!confirm(`Are you sure you want to clear all ${memoryType} memory? This action cannot be undone.`)) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/memory/${memoryType}/clear`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                alert(`Successfully cleared ${result.cleared_count} items from ${memoryType} memory.`);
+                location.reload(); // Refresh to show updated counts
+            } else {
+                alert(`Error clearing ${memoryType} memory: ${result.error}`);
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert(`Failed to clear ${memoryType} memory. Check console for details.`);
+        }
+    }
+
+    // Auto-refresh every 30 seconds
+    setInterval(() => {
+        location.reload();
+    }, 30000);
+</script>
+{% endblock %}

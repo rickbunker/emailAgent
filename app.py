@@ -9,8 +9,14 @@ sender mappings, and document classification settings.
 # # Standard library imports
 # Suppress HuggingFace tokenizers forking warning before any imports
 import os
+import warnings
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+# Suppress known qdrant-client SyntaxWarnings on Python 3.13+
+warnings.filterwarnings(
+    "ignore", message="invalid escape sequence", category=SyntaxWarning
+)
 
 # # Standard library imports
 import sys

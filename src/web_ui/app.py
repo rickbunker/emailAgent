@@ -1385,10 +1385,10 @@ def create_sender_mapping() -> str:
 
             mapping_id = loop.run_until_complete(
                 asset_agent.create_asset_sender_mapping(
-                    asset_id=asset_id,
                     sender_email=sender_email,
+                    deal_id=asset_id,
                     confidence=confidence,
-                    document_types=document_types,
+                    source="manual",
                 )
             )
 
@@ -1820,10 +1820,9 @@ def edit_sender_mapping(mapping_id: str) -> str:
                 success = loop.run_until_complete(
                     asset_agent.update_asset_sender_mapping(
                         mapping_id=mapping_id,
-                        asset_id=asset_id,
+                        deal_id=asset_id,
                         sender_email=sender_email,
                         confidence=confidence,
-                        document_types=document_types,
                     )
                 )
 
@@ -2611,6 +2610,608 @@ async def _process_reclassification(
         return False
 
 
+# Memory Management Routes
+
+
+@app.route("/memory")
+@log_function()
+def memory_dashboard() -> str:
+    """Memory systems dashboard showing overview of all memory types"""
+    try:
+        stats = {}
+
+        if asset_agent and asset_agent.qdrant:
+            # Get collection information
+            collections = asset_agent.qdrant.get_collections()
+            collection_names = [c.name for c in collections.collections]
+
+            # Memory system stats
+            for collection_name in collection_names:
+                try:
+                    info = asset_agent.qdrant.get_collection(collection_name)
+                    stats[collection_name] = {
+                        "points_count": info.points_count,
+                        "vectors_count": (
+                            info.vectors_count if hasattr(info, "vectors_count") else 0
+                        ),
+                        "status": info.status,
+                    }
+                except Exception as e:
+                    logger.warning(f"Failed to get stats for {collection_name}: {e}")
+                    stats[collection_name] = {"error": str(e)}
+
+        # Categorize collections by memory type
+        memory_types = {
+            "episodic": [name for name in stats.keys() if "episodic" in name.lower()],
+            "procedural": [
+                name for name in stats.keys() if "procedural" in name.lower()
+            ],
+            "contact": [name for name in stats.keys() if "contact" in name.lower()],
+            "semantic": [name for name in stats.keys() if "semantic" in name.lower()],
+            "asset_management": [
+                name for name in stats.keys() if "asset_management" in name.lower()
+            ],
+            "other": [
+                name
+                for name in stats.keys()
+                if not any(
+                    mem_type in name.lower()
+                    for mem_type in [
+                        "episodic",
+                        "procedural",
+                        "contact",
+                        "semantic",
+                        "asset_management",
+                    ]
+                )
+            ],
+        }
+
+        logger.info("Memory dashboard loaded")
+        return render_template(
+            "memory_dashboard.html", stats=stats, memory_types=memory_types
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to load memory dashboard: {e}")
+        flash(f"Error loading memory dashboard: {e}", "error")
+        return render_template("error.html", error=str(e))
+
+
+def _parse_human_feedback(content: str) -> dict:
+    """Parse human feedback from episodic memory content text."""
+    feedback = {
+        "asset_feedback": "",
+        "document_feedback": "",
+        "asset_hints": "",
+        "document_hints": "",
+        "email_subject": "",
+        "filename": "",
+        "system_category": "",
+        "human_category": "",
+        "has_feedback": False,
+    }
+
+    if not content:
+        return feedback
+
+    try:
+        # Extract email context
+        if "Subject:" in content:
+            start = content.find("Subject:") + 8
+            end = content.find("\n", start)
+            if end > start:
+                feedback["email_subject"] = content[start:end].strip()
+
+        if "Filename:" in content:
+            start = content.find("Filename:") + 9
+            end = content.find("\n", start)
+            if end > start:
+                feedback["filename"] = content[start:end].strip()
+
+        # Extract system vs human categories
+        if "Document Category:" in content:
+            start = content.find("Document Category:") + 18
+            end = content.find("\n", start)
+            if end > start:
+                feedback["system_category"] = content[start:end].strip()
+
+        if "Correct Category:" in content:
+            start = content.find("Correct Category:") + 17
+            end = content.find("\n", start)
+            if end > start:
+                feedback["human_category"] = content[start:end].strip()
+
+        # Extract human feedback
+        if "Additional Feedback:" in content:
+            feedback["has_feedback"] = True
+            feedback_start = content.find("Additional Feedback:")
+            feedback_section = content[feedback_start:]
+
+            # Extract asset feedback
+            if "Asset feedback:" in feedback_section:
+                start = feedback_section.find("Asset feedback:") + 15
+                end = feedback_section.find("|", start)
+                if end == -1:
+                    end = feedback_section.find("Document feedback:", start)
+                if end == -1:
+                    end = len(feedback_section)
+                feedback["asset_feedback"] = feedback_section[start:end].strip()
+
+            # Extract document feedback
+            if "Document feedback:" in feedback_section:
+                start = feedback_section.find("Document feedback:") + 18
+                end = feedback_section.find("Asset learning hints:", start)
+                if end == -1:
+                    end = feedback_section.find("Document learning hints:", start)
+                if end == -1:
+                    end = len(feedback_section)
+                raw_feedback = feedback_section[start:end].strip()
+                # Clean up trailing pipe character
+                feedback["document_feedback"] = raw_feedback.rstrip("|").strip()
+
+            # Extract learning hints
+            if "Asset learning hints:" in feedback_section:
+                start = feedback_section.find("Asset learning hints:") + 21
+                end = feedback_section.find("|", start)
+                if end == -1:
+                    end = feedback_section.find("Document learning hints:", start)
+                if end == -1:
+                    end = len(feedback_section)
+                feedback["asset_hints"] = feedback_section[start:end].strip()
+
+            if "Document learning hints:" in feedback_section:
+                start = feedback_section.find("Document learning hints:") + 24
+                end = feedback_section.find("\n", start)
+                if end == -1:
+                    end = len(feedback_section)
+                feedback["document_hints"] = feedback_section[start:end].strip()
+
+    except Exception as e:
+        logger.warning(f"Error parsing human feedback: {e}")
+
+    return feedback
+
+
+@app.route("/memory/episodic")
+@log_function()
+def episodic_memory() -> str:
+    """Episodic memory management - individual experiences and conversations"""
+    try:
+        items = []
+        stats = {"total_items": 0, "recent_items": 0}
+
+        if asset_agent and asset_agent.qdrant:
+            # Get episodic memory items
+            try:
+                collection_name = "episodic"
+                if collection_name in [
+                    c.name for c in asset_agent.qdrant.get_collections().collections
+                ]:
+                    result = asset_agent.qdrant.scroll(
+                        collection_name=collection_name,
+                        limit=50,  # Show last 50 items
+                        with_payload=True,
+                        with_vectors=False,
+                    )
+
+                    for point in result[0]:
+                        # Parse human feedback from content if available
+                        parsed_feedback = _parse_human_feedback(
+                            point.payload.get("content", "")
+                        )
+
+                        items.append(
+                            {
+                                "id": point.id,
+                                "payload": point.payload,
+                                "created_at": point.payload.get(
+                                    "created_at", "Unknown"
+                                ),
+                                "event_type": point.payload.get(
+                                    "event_type", "Unknown"
+                                ),
+                                "summary": (
+                                    point.payload.get(
+                                        "summary", "No summary available"
+                                    )[:100]
+                                    + "..."
+                                    if len(point.payload.get("summary", "")) > 100
+                                    else point.payload.get("summary", "")
+                                ),
+                                "human_feedback": parsed_feedback,  # Add structured feedback
+                            }
+                        )
+
+                    # Get collection stats
+                    info = asset_agent.qdrant.get_collection(collection_name)
+                    stats["total_items"] = info.points_count
+
+            except Exception as e:
+                logger.warning(f"Failed to load episodic memory: {e}")
+                flash(f"Warning: Could not load episodic memory: {e}", "warning")
+
+        # Sort by creation date (newest first)
+        items.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+        stats["recent_items"] = len(items)
+
+        logger.info(f"Episodic memory page loaded with {len(items)} items")
+        return render_template("episodic_memory.html", items=items, stats=stats)
+
+    except Exception as e:
+        logger.error(f"Failed to load episodic memory page: {e}")
+        flash(f"Error loading episodic memory: {e}", "error")
+        return render_template("error.html", error=str(e))
+
+
+def _create_friendly_pattern_id(payload: dict, pattern_type: str) -> str:
+    """Create a human-friendly identifier for patterns based on their type and content."""
+    try:
+        if pattern_type == "asset_matching":
+            asset_type = payload.get("asset_type", "unknown")
+            keywords = payload.get("keywords", [])
+            keyword_count = len(keywords)
+            return f"{asset_type.replace('_', ' ').title()} Keywords ({keyword_count})"
+
+        elif pattern_type == "classification":
+            predicted = payload.get("predicted_category", "")
+            corrected = payload.get("corrected_category", "")
+            if corrected:
+                return f"Classification: {predicted} → {corrected}"
+            elif predicted:
+                return f"Classification: {predicted}"
+            else:
+                filename = payload.get("filename", "")
+                if filename:
+                    return f"Classification: {filename[:30]}..."
+                return "Classification Pattern"
+
+        elif pattern_type == "routing":
+            asset_type = payload.get("asset_type", "")
+            confidence = payload.get("confidence", 0)
+            if asset_type:
+                return f"Routing: {asset_type.replace('_', ' ').title()} ({confidence:.1%})"
+            return f"Routing Pattern ({confidence:.1%})"
+
+        elif pattern_type == "confidence":
+            confidence = payload.get("confidence", 0)
+            source = payload.get("source", "")
+            return f"Confidence: {confidence:.1%} ({source})"
+
+        else:
+            # Fallback: use filename, email subject, or pattern type
+            filename = payload.get("filename", "")
+            email_subject = payload.get("email_subject", "")
+            if filename:
+                return f"{pattern_type.title()}: {filename[:30]}..."
+            elif email_subject:
+                return f"{pattern_type.title()}: {email_subject[:30]}..."
+            else:
+                return f"{pattern_type.title()} Pattern"
+
+    except Exception:
+        # Ultimate fallback
+        return f"{pattern_type.title()} Pattern"
+
+
+@app.route("/memory/procedural")
+@log_function()
+def procedural_memory() -> str:
+    """Procedural memory management - learned patterns and rules"""
+    try:
+        # Get pagination parameters
+        page = int(request.args.get("page", 1))
+        per_page = int(request.args.get("per_page", 25))
+        collection_filter = request.args.get("collection", "all")
+
+        patterns = {}
+        stats = {
+            "total_patterns": 0,
+            "pattern_types": 0,
+            "pages": 1,
+            "current_page": page,
+        }
+
+        if asset_agent and asset_agent.procedural_memory:
+            # Get procedural memory patterns by collection (using actual collection names)
+            all_procedural_collections = [
+                "procedural_classification_patterns",
+                "procedural_confidence_models",  # Contains routing, confidence, validation patterns
+                "procedural_asset_patterns",  # Contains asset_matching patterns
+                "procedural_configuration_rules",  # Contains configuration patterns
+            ]
+
+            # Filter collections if specified
+            if (
+                collection_filter != "all"
+                and collection_filter in all_procedural_collections
+            ):
+                procedural_collections = [collection_filter]
+                logger.info(f"Filtering to collection: {collection_filter}")
+            else:
+                procedural_collections = all_procedural_collections
+                logger.info("Showing all procedural collections")
+
+            for collection_name in procedural_collections:
+                patterns[collection_name] = []
+                try:
+                    if collection_name in [
+                        c.name for c in asset_agent.qdrant.get_collections().collections
+                    ]:
+                        # Get collection stats - only count patterns from filtered collections
+                        info = asset_agent.qdrant.get_collection(collection_name)
+                        collection_count = info.points_count
+                        stats["total_patterns"] += collection_count
+                        if collection_count > 0:
+                            stats["pattern_types"] += 1
+
+                        # Load ALL patterns from this collection
+                        result = asset_agent.qdrant.scroll(
+                            collection_name=collection_name,
+                            limit=10000,  # Get all patterns from this collection
+                            with_payload=True,
+                            with_vectors=False,
+                        )
+
+                        for point in result[0]:
+                            # Create human-friendly identifier based on pattern type
+                            pattern_type = point.payload.get("pattern_type", "Unknown")
+                            friendly_id = _create_friendly_pattern_id(
+                                point.payload, pattern_type
+                            )
+
+                            # Include full pattern details
+                            pattern_data = {
+                                "id": str(point.id),
+                                "friendly_id": friendly_id,
+                                "collection": collection_name,
+                                "pattern_type": pattern_type,
+                                "confidence": round(
+                                    point.payload.get("confidence", 0), 3
+                                ),
+                                "source": point.payload.get("source", "Unknown"),
+                                "created_at": point.payload.get(
+                                    "created_at", "Unknown"
+                                ),
+                                "filename": point.payload.get("filename", ""),
+                                "email_subject": point.payload.get("email_subject", ""),
+                                "email_body": (
+                                    point.payload.get("email_body", "")[:200] + "..."
+                                    if len(point.payload.get("email_body", "")) > 200
+                                    else point.payload.get("email_body", "")
+                                ),
+                                "predicted_category": point.payload.get(
+                                    "predicted_category", ""
+                                ),
+                                "corrected_category": point.payload.get(
+                                    "corrected_category", ""
+                                ),
+                                "asset_type": point.payload.get("asset_type", ""),
+                                "learning_context": point.payload.get(
+                                    "learning_context", {}
+                                ),
+                                "success_count": point.payload.get("success_count", 0),
+                                "last_used": point.payload.get("last_used", "Never"),
+                                "keywords": point.payload.get("keywords", []),
+                                "metadata": point.payload.get("metadata", {}),
+                                "full_payload": point.payload,  # Include complete payload for detail view
+                            }
+                            patterns[collection_name].append(pattern_data)
+
+                except Exception as e:
+                    logger.warning(f"Failed to load {collection_name}: {e}")
+                    patterns[collection_name] = []
+
+        # Flatten all patterns for proper pagination
+        all_patterns = []
+        for collection_name, collection_patterns in patterns.items():
+            logger.debug(
+                f"Collection {collection_name}: {len(collection_patterns)} patterns"
+            )
+            all_patterns.extend(collection_patterns)
+
+        logger.debug(f"Total flattened patterns: {len(all_patterns)}")
+
+        # Apply pagination to flattened list
+        start_idx = (page - 1) * per_page
+        end_idx = start_idx + per_page
+        paginated_patterns = all_patterns[start_idx:end_idx]
+
+        logger.debug(
+            f"Paginated patterns: {len(paginated_patterns)} (from {start_idx} to {end_idx})"
+        )
+
+        # Reorganize by collection for display
+        patterns = {}
+        for pattern in paginated_patterns:
+            collection = pattern["collection"]
+            if collection not in patterns:
+                patterns[collection] = []
+            patterns[collection].append(pattern)
+
+        # Log final display patterns
+        for collection_name, collection_patterns in patterns.items():
+            logger.debug(
+                f"Final display - {collection_name}: {len(collection_patterns)} patterns"
+            )
+
+        # Calculate total pages based on filtered results
+        if len(all_patterns) > 0:
+            stats["pages"] = max(1, (len(all_patterns) + per_page - 1) // per_page)
+        else:
+            stats["pages"] = 1
+
+        # Update total patterns to reflect filtered count
+        stats["total_patterns"] = len(all_patterns)
+
+        logger.info(
+            f"Procedural memory page loaded with {stats['total_patterns']} patterns (page {page}) - Filter: {collection_filter}"
+        )
+        return render_template(
+            "procedural_memory.html",
+            patterns=patterns,
+            stats=stats,
+            current_collection=collection_filter,
+            per_page=per_page,
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to load procedural memory page: {e}")
+        flash(f"Error loading procedural memory: {e}", "error")
+        return render_template("error.html", error=str(e))
+
+
+@app.route("/memory/contact")
+@log_function()
+def contact_memory() -> str:
+    """Contact memory management - known contacts and relationships"""
+    try:
+        contacts = []
+        stats = {"total_contacts": 0, "recent_contacts": 0}
+
+        if asset_agent and asset_agent.qdrant:
+            # Get contact memory items
+            try:
+                collection_name = "contact_memory"
+                if collection_name in [
+                    c.name for c in asset_agent.qdrant.get_collections().collections
+                ]:
+                    result = asset_agent.qdrant.scroll(
+                        collection_name=collection_name,
+                        limit=50,  # Show last 50 contacts
+                        with_payload=True,
+                        with_vectors=False,
+                    )
+
+                    for point in result[0]:
+                        contacts.append(
+                            {
+                                "id": point.id,
+                                "payload": point.payload,
+                                "email": point.payload.get("email", "Unknown"),
+                                "name": point.payload.get("name", "Unknown"),
+                                "organization": point.payload.get("organization", ""),
+                                "last_contact": point.payload.get(
+                                    "last_contact", "Unknown"
+                                ),
+                                "contact_frequency": point.payload.get(
+                                    "contact_frequency", 0
+                                ),
+                                "relationship_strength": point.payload.get(
+                                    "relationship_strength", 0.0
+                                ),
+                            }
+                        )
+
+                    # Get collection stats
+                    info = asset_agent.qdrant.get_collection(collection_name)
+                    stats["total_contacts"] = info.points_count
+
+            except Exception as e:
+                logger.warning(f"Failed to load contact memory: {e}")
+                flash(f"Warning: Could not load contact memory: {e}", "warning")
+
+        # Sort by last contact (most recent first)
+        contacts.sort(key=lambda x: x.get("last_contact", ""), reverse=True)
+        stats["recent_contacts"] = len(contacts)
+
+        logger.info(f"Contact memory page loaded with {len(contacts)} contacts")
+        return render_template("contact_memory.html", contacts=contacts, stats=stats)
+
+    except Exception as e:
+        logger.error(f"Failed to load contact memory page: {e}")
+        flash(f"Error loading contact memory: {e}", "error")
+        return render_template("error.html", error=str(e))
+
+
+@app.route("/memory/knowledge/<filename>")
+@log_function()
+def serve_knowledge_file(filename: str) -> tuple[dict, int] | str:
+    """Serve knowledge base JSON files"""
+    try:
+        # Validate filename (security: prevent path traversal)
+        if not filename.endswith(".json") or "/" in filename or "\\" in filename:
+            return {"error": "Invalid filename"}, 400
+
+        knowledge_path = Path("./knowledge/") / filename
+
+        if not knowledge_path.exists():
+            logger.warning(f"Knowledge file not found: {filename}")
+            return {"error": "File not found"}, 404
+
+        # Read and return JSON content
+        with open(knowledge_path) as f:
+            data = json.load(f)
+
+        logger.debug(f"Served knowledge file: {filename}")
+        return data
+
+    except json.JSONDecodeError as e:
+        logger.error(f"Invalid JSON in {filename}: {e}")
+        return {"error": f"Invalid JSON: {e}"}, 400
+    except Exception as e:
+        logger.error(f"Error serving knowledge file {filename}: {e}")
+        return {"error": str(e)}, 500
+
+
+@app.route("/memory/knowledge")
+@log_function()
+def knowledge_base() -> str:
+    """Knowledge base management - static knowledge and configurations"""
+    try:
+        knowledge_files = {}
+        knowledge_stats = {"total_files": 0, "total_size": 0}
+
+        knowledge_path = Path("./knowledge/")
+        if knowledge_path.exists():
+            for file_path in knowledge_path.glob("*.json"):
+                try:
+                    # Read file size and basic info
+                    file_size = file_path.stat().st_size
+                    knowledge_stats["total_size"] += file_size
+                    knowledge_stats["total_files"] += 1
+
+                    # Try to read JSON and get summary
+                    with open(file_path) as f:
+                        data = json.load(f)
+
+                    # Extract metadata
+                    metadata = data.get("metadata", {})
+
+                    knowledge_files[file_path.name] = {
+                        "path": str(file_path),
+                        "size": file_size,
+                        "description": metadata.get("description", "No description"),
+                        "version": metadata.get("version", "Unknown"),
+                        "extracted_date": metadata.get("extracted_date", "Unknown"),
+                        "item_count": (
+                            len(data) - 1 if "metadata" in data else len(data)
+                        ),  # Exclude metadata from count
+                    }
+
+                except Exception as e:
+                    logger.warning(f"Failed to read {file_path}: {e}")
+                    knowledge_files[file_path.name] = {
+                        "path": str(file_path),
+                        "size": file_path.stat().st_size if file_path.exists() else 0,
+                        "error": str(e),
+                    }
+
+        logger.info(
+            f"Knowledge base page loaded with {knowledge_stats['total_files']} files"
+        )
+        return render_template(
+            "knowledge_base.html",
+            knowledge_files=knowledge_files,
+            stats=knowledge_stats,
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to load knowledge base page: {e}")
+        flash(f"Error loading knowledge base: {e}", "error")
+        return render_template("error.html", error=str(e))
+
+
 # Testing Cleanup Routes
 
 
@@ -2721,6 +3322,16 @@ def api_testing_cleanup() -> tuple[dict, int] | dict:
             result = _cleanup_memory_collections()
             results["memory_collections"] = result
             total_removed += result.get("removed_count", 0)
+
+        if "memory_smart_reset" in cleanup_types:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                result = loop.run_until_complete(_cleanup_memory_smart_reset())
+                results["memory_smart_reset"] = result
+                total_removed += result.get("removed_count", 0)
+            finally:
+                loop.close()
 
         if "sender_mappings" in cleanup_types:
             result = _cleanup_sender_mappings()
@@ -3035,6 +3646,136 @@ def _cleanup_memory_collections() -> dict[str, Any]:
 
 
 @log_function()
+async def _cleanup_memory_smart_reset() -> dict[str, Any]:
+    """
+    Smart memory reset: Clear episodic memory but re-seed procedural memory.
+
+    This function:
+    1. Clears episodic memory (individual experiences)
+    2. Clears procedural memory collections
+    3. Re-seeds procedural memory from saved knowledge base
+
+    This preserves the domain knowledge while resetting learning state.
+
+    Returns:
+        Dictionary containing operation results with success status,
+        removed count, and descriptive message
+    """
+    try:
+        if (
+            not asset_agent
+            or not asset_agent.qdrant
+            or not asset_agent.procedural_memory
+        ):
+            return {
+                "success": False,
+                "error": "Asset agent or procedural memory not available",
+                "removed_count": 0,
+            }
+
+        total_removed = 0
+        results = []
+
+        # Step 1: Clear episodic memory
+        try:
+            collections = asset_agent.qdrant.get_collections()
+            episodic_collections = ["episodic"]
+
+            for collection_name in episodic_collections:
+                if collection_name in [c.name for c in collections.collections]:
+                    info = asset_agent.qdrant.get_collection(collection_name)
+                    points_count = info.points_count
+
+                    asset_agent.qdrant.delete_collection(collection_name)
+                    total_removed += points_count
+
+                    results.append(f"Cleared {points_count} episodic memories")
+                    logger.info(
+                        f"Cleared episodic memory collection: {points_count} items"
+                    )
+
+        except Exception as e:
+            logger.warning(f"Failed to clear episodic memory: {e}")
+            results.append(f"Warning: Failed to clear episodic memory - {e}")
+
+        # Step 2: Clear procedural memory collections
+        try:
+            # Use actual collection names that exist
+            procedural_collections = [
+                "procedural_classification_patterns",
+                "procedural_confidence_models",
+                "procedural_asset_patterns",
+                "procedural_configuration_rules",
+            ]
+
+            for full_name in procedural_collections:
+                try:
+                    if full_name in [c.name for c in collections.collections]:
+                        info = asset_agent.qdrant.get_collection(full_name)
+                        points_count = info.points_count
+
+                        asset_agent.qdrant.delete_collection(full_name)
+                        total_removed += points_count
+
+                        results.append(
+                            f"Cleared {points_count} {full_name.replace('procedural_', '')}"
+                        )
+                        logger.info(
+                            f"Cleared procedural collection {full_name}: {points_count} items"
+                        )
+
+                except Exception as e:
+                    logger.warning(f"Failed to clear {full_name}: {e}")
+
+        except Exception as e:
+            logger.warning(f"Failed to clear procedural collections: {e}")
+            results.append(f"Warning: Procedural cleanup had issues - {e}")
+
+        # Step 3: Re-initialize procedural memory collections
+        try:
+            await asset_agent.procedural_memory.initialize_collections()
+            results.append("Re-initialized procedural memory collections")
+            logger.info("Re-initialized procedural memory collections")
+        except Exception as e:
+            logger.warning(f"Failed to re-initialize procedural collections: {e}")
+            results.append(f"Warning: Failed to re-initialize - {e}")
+
+        # Step 4: Re-seed from knowledge base
+        try:
+            knowledge_path = "./knowledge/"
+            seeding_stats = (
+                await asset_agent.procedural_memory.seed_from_knowledge_base(
+                    knowledge_path
+                )
+            )
+
+            seeded_count = (
+                sum(seeding_stats.values()) if isinstance(seeding_stats, dict) else 0
+            )
+            results.append(f"Re-seeded {seeded_count} patterns from knowledge base")
+            logger.info(f"Re-seeded procedural memory: {seeding_stats}")
+
+        except Exception as e:
+            logger.warning(f"Failed to re-seed from knowledge base: {e}")
+            results.append(f"Warning: Failed to re-seed knowledge - {e}")
+
+        success_message = "; ".join(results)
+        logger.info(
+            f"Smart memory reset completed: {total_removed} items removed, procedural memory re-seeded"
+        )
+
+        return {
+            "success": True,
+            "removed_count": total_removed,
+            "message": success_message,
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to perform smart memory reset: {e}")
+        return {"success": False, "error": str(e), "removed_count": 0}
+
+
+@log_function()
 def _cleanup_sender_mappings() -> dict[str, Any]:
     """
     Clear all sender-asset mapping relationships.
@@ -3201,6 +3942,180 @@ def _cleanup_assets() -> dict[str, Any]:
     except Exception as e:
         logger.error(f"Failed to cleanup assets: {e}")
         return {"success": False, "error": str(e), "removed_count": 0}
+
+
+# API endpoints for memory operations
+@app.route("/api/memory/<memory_type>/clear", methods=["POST"])
+@log_function()
+def api_clear_memory(memory_type: str) -> tuple[dict, int] | dict:
+    """API endpoint to clear specific memory type"""
+    try:
+        if not asset_agent or not asset_agent.qdrant:
+            return {"error": "Asset agent not available"}, 400
+
+        collections_to_clear = []
+
+        if memory_type == "episodic":
+            collections_to_clear = ["episodic"]
+        elif memory_type == "procedural":
+            collections_to_clear = [
+                "procedural_classification_patterns",
+                "procedural_confidence_models",
+                "procedural_asset_patterns",
+                "procedural_configuration_rules",
+            ]
+        elif memory_type == "contact":
+            collections_to_clear = ["contact_memory"]
+        else:
+            return {"error": f"Unknown memory type: {memory_type}"}, 400
+
+        cleared_count = 0
+        results = []
+
+        for collection_name in collections_to_clear:
+            try:
+                if collection_name in [
+                    c.name for c in asset_agent.qdrant.get_collections().collections
+                ]:
+                    info = asset_agent.qdrant.get_collection(collection_name)
+                    points_count = info.points_count
+
+                    asset_agent.qdrant.delete_collection(collection_name)
+                    cleared_count += points_count
+                    results.append(
+                        f"Cleared {points_count} items from {collection_name}"
+                    )
+
+            except Exception as e:
+                logger.warning(f"Failed to clear {collection_name}: {e}")
+                results.append(f"Warning: Failed to clear {collection_name} - {e}")
+
+        logger.info(f"Cleared {cleared_count} items from {memory_type} memory")
+        return {
+            "success": True,
+            "cleared_count": cleared_count,
+            "memory_type": memory_type,
+            "details": results,
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to clear {memory_type} memory: {e}")
+        return {"error": str(e)}, 500
+
+
+@app.route("/api/memory/procedural/<collection_name>/<item_id>", methods=["GET"])
+@log_function()
+def api_get_procedural_pattern(
+    collection_name: str, item_id: str
+) -> tuple[dict, int] | dict:
+    """Get detailed information about a specific procedural memory pattern"""
+    try:
+        if not asset_agent or not asset_agent.qdrant:
+            return {"error": "Asset agent not available"}, 400
+
+        # Validate collection name
+        valid_collections = [
+            "procedural_classification_patterns",
+            "procedural_confidence_models",
+            "procedural_asset_patterns",
+            "procedural_configuration_rules",
+        ]
+
+        if collection_name not in valid_collections:
+            return {"error": f"Invalid collection: {collection_name}"}, 400
+
+        # Retrieve the specific pattern
+        try:
+            points = asset_agent.qdrant.retrieve(
+                collection_name=collection_name,
+                ids=[item_id],
+                with_payload=True,
+                with_vectors=False,
+            )
+
+            if not points:
+                return {"error": "Pattern not found"}, 404
+
+            point = points[0]
+            pattern_data = {
+                "id": str(point.id),
+                "collection": collection_name,
+                "payload": point.payload,
+            }
+
+            return {"success": True, "pattern": pattern_data}
+
+        except Exception as e:
+            return {"error": f"Failed to retrieve pattern: {str(e)}"}, 500
+
+    except Exception as e:
+        logger.error(f"Failed to get procedural pattern: {e}")
+        return {"error": str(e)}, 500
+
+
+@app.route("/api/memory/procedural/<collection_name>/<item_id>", methods=["DELETE"])
+@log_function()
+def api_delete_procedural_pattern(
+    collection_name: str, item_id: str
+) -> tuple[dict, int] | dict:
+    """Delete a specific procedural memory pattern"""
+    try:
+        if not asset_agent or not asset_agent.qdrant:
+            return {"error": "Asset agent not available"}, 400
+
+        # Validate collection name
+        valid_collections = [
+            "procedural_classification_patterns",
+            "procedural_confidence_models",
+            "procedural_asset_patterns",
+            "procedural_configuration_rules",
+        ]
+
+        if collection_name not in valid_collections:
+            return {"error": f"Invalid collection: {collection_name}"}, 400
+
+        # Delete the specific pattern
+        asset_agent.qdrant.delete(
+            collection_name=collection_name, points_selector=[item_id]
+        )
+
+        logger.info(f"Deleted procedural pattern: {item_id} from {collection_name}")
+        return {"success": True, "message": f"Pattern {item_id} deleted"}
+
+    except Exception as e:
+        logger.error(f"Failed to delete procedural pattern: {e}")
+        return {"error": str(e)}, 500
+
+
+@app.route("/api/memory/<memory_type>/item/<item_id>", methods=["DELETE"])
+@log_function()
+def api_delete_memory_item(memory_type: str, item_id: str) -> tuple[dict, int] | dict:
+    """API endpoint to delete specific memory item"""
+    try:
+        if not asset_agent or not asset_agent.qdrant:
+            return {"error": "Asset agent not available"}, 400
+
+        # Map memory type to collection name
+        collection_mapping = {"episodic": "episodic", "contact": "contact_memory"}
+
+        if memory_type not in collection_mapping:
+            return {
+                "error": f"Unsupported memory type for item deletion: {memory_type}"
+            }, 400
+
+        collection_name = collection_mapping[memory_type]
+
+        # Delete the item
+        asset_agent.qdrant.delete(
+            collection_name=collection_name, points_selector=[item_id]
+        )
+
+        logger.info(f"Deleted item {item_id} from {memory_type} memory")
+        return {"success": True, "deleted_item": item_id, "memory_type": memory_type}
+
+    except Exception as e:
+        logger.error(f"Failed to delete {memory_type} item {item_id}: {e}")
+        return {"error": str(e)}, 500
 
 
 @app.errorhandler(404)

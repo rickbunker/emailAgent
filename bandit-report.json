@@ -1,17 +1,17 @@
 {
   "errors": [],
-  "generated_at": "2025-06-16T20:58:23Z",
+  "generated_at": "2025-06-17T17:33:51Z",
   "metrics": {
     "_totals": {
-      "CONFIDENCE.HIGH": 15,
+      "CONFIDENCE.HIGH": 19,
       "CONFIDENCE.LOW": 0,
       "CONFIDENCE.MEDIUM": 2,
       "CONFIDENCE.UNDEFINED": 0,
       "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 16,
+      "SEVERITY.LOW": 20,
       "SEVERITY.MEDIUM": 1,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 16151,
+      "loc": 18352,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -29,6 +29,19 @@
       "skipped_tests": 0
     },
     "src/agents/asset_document_agent.py": {
+      "CONFIDENCE.HIGH": 4,
+      "CONFIDENCE.LOW": 0,
+      "CONFIDENCE.MEDIUM": 0,
+      "CONFIDENCE.UNDEFINED": 0,
+      "SEVERITY.HIGH": 0,
+      "SEVERITY.LOW": 4,
+      "SEVERITY.MEDIUM": 0,
+      "SEVERITY.UNDEFINED": 0,
+      "loc": 1238,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "src/agents/asset_document_agent_old.py": {
       "CONFIDENCE.HIGH": 5,
       "CONFIDENCE.LOW": 0,
       "CONFIDENCE.MEDIUM": 0,
@@ -219,7 +232,7 @@
       "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 616,
+      "loc": 859,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -323,7 +336,7 @@
       "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 2512,
+      "loc": 3232,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -343,10 +356,101 @@
   },
   "results": [
     {
-      "code": "69 import shutil\n70 import subprocess\n71 import tempfile\n",
+      "code": "25 import hashlib\n26 import subprocess\n27 import tempfile\n",
       "col_offset": 0,
       "end_col_offset": 17,
       "filename": "src/agents/asset_document_agent.py",
+      "issue_confidence": "HIGH",
+      "issue_cwe": {
+        "id": 78,
+        "link": "https://cwe.mitre.org/data/definitions/78.html"
+      },
+      "issue_severity": "LOW",
+      "issue_text": "Consider possible security implications associated with the subprocess module.",
+      "line_number": 26,
+      "line_range": [
+        26
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/0.0.0/blacklists/blacklist_imports.html#b404-import-subprocess",
+      "test_id": "B404",
+      "test_name": "blacklist"
+    },
+    {
+      "code": "219         try:\n220             result = subprocess.run(\n221                 [\"which\", \"clamscan\"],\n222                 capture_output=True,\n223                 text=True,\n224                 timeout=5,  # 5 second timeout for finding clamscan\n225             )\n226             if result.returncode == 0:\n",
+      "col_offset": 21,
+      "end_col_offset": 13,
+      "filename": "src/agents/asset_document_agent.py",
+      "issue_confidence": "HIGH",
+      "issue_cwe": {
+        "id": 78,
+        "link": "https://cwe.mitre.org/data/definitions/78.html"
+      },
+      "issue_severity": "LOW",
+      "issue_text": "Starting a process with a partial executable path",
+      "line_number": 220,
+      "line_range": [
+        220,
+        221,
+        222,
+        223,
+        224,
+        225
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b607_start_process_with_partial_path.html",
+      "test_id": "B607",
+      "test_name": "start_process_with_partial_path"
+    },
+    {
+      "code": "219         try:\n220             result = subprocess.run(\n221                 [\"which\", \"clamscan\"],\n222                 capture_output=True,\n223                 text=True,\n224                 timeout=5,  # 5 second timeout for finding clamscan\n225             )\n226             if result.returncode == 0:\n",
+      "col_offset": 21,
+      "end_col_offset": 13,
+      "filename": "src/agents/asset_document_agent.py",
+      "issue_confidence": "HIGH",
+      "issue_cwe": {
+        "id": 78,
+        "link": "https://cwe.mitre.org/data/definitions/78.html"
+      },
+      "issue_severity": "LOW",
+      "issue_text": "subprocess call - check for execution of untrusted input.",
+      "line_number": 220,
+      "line_range": [
+        220,
+        221,
+        222,
+        223,
+        224,
+        225
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b603_subprocess_without_shell_equals_true.html",
+      "test_id": "B603",
+      "test_name": "subprocess_without_shell_equals_true"
+    },
+    {
+      "code": "1326                 health[\"learned_patterns\"] = result.count\n1327             except Exception:\n1328                 pass\n1329 \n",
+      "col_offset": 12,
+      "end_col_offset": 20,
+      "filename": "src/agents/asset_document_agent.py",
+      "issue_confidence": "HIGH",
+      "issue_cwe": {
+        "id": 703,
+        "link": "https://cwe.mitre.org/data/definitions/703.html"
+      },
+      "issue_severity": "LOW",
+      "issue_text": "Try, Except, Pass detected.",
+      "line_number": 1327,
+      "line_range": [
+        1327,
+        1328
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b110_try_except_pass.html",
+      "test_id": "B110",
+      "test_name": "try_except_pass"
+    },
+    {
+      "code": "69 import shutil\n70 import subprocess\n71 import tempfile\n",
+      "col_offset": 0,
+      "end_col_offset": 17,
+      "filename": "src/agents/asset_document_agent_old.py",
       "issue_confidence": "HIGH",
       "issue_cwe": {
         "id": 78,
@@ -366,7 +470,7 @@
       "code": "426             which_cmd = \"where\" if os.name == \"nt\" else \"which\"\n427             result = subprocess.run(\n428                 [which_cmd, \"clamscan\"], capture_output=True, text=True, timeout=5\n429             )\n430             if result.returncode == 0 and result.stdout.strip():\n",
       "col_offset": 21,
       "end_col_offset": 13,
-      "filename": "src/agents/asset_document_agent.py",
+      "filename": "src/agents/asset_document_agent_old.py",
       "issue_confidence": "HIGH",
       "issue_cwe": {
         "id": 78,
@@ -388,7 +492,7 @@
       "code": "473             # Test clamscan with version check\n474             result = subprocess.run(\n475                 [self.clamscan_path, \"--version\"],\n476                 capture_output=True,\n477                 text=True,\n478                 timeout=10,\n479             )\n480 \n",
       "col_offset": 21,
       "end_col_offset": 13,
-      "filename": "src/agents/asset_document_agent.py",
+      "filename": "src/agents/asset_document_agent_old.py",
       "issue_confidence": "HIGH",
       "issue_cwe": {
         "id": 78,
@@ -413,7 +517,7 @@
       "code": "651                 Path(temp_path).unlink()\n652             except Exception:\n653                 pass\n654 \n",
       "col_offset": 12,
       "end_col_offset": 20,
-      "filename": "src/agents/asset_document_agent.py",
+      "filename": "src/agents/asset_document_agent_old.py",
       "issue_confidence": "HIGH",
       "issue_cwe": {
         "id": 703,
@@ -434,7 +538,7 @@
       "code": "791             health[\"base_path_writable\"] = True\n792         except Exception:\n793             pass\n794 \n",
       "col_offset": 8,
       "end_col_offset": 16,
-      "filename": "src/agents/asset_document_agent.py",
+      "filename": "src/agents/asset_document_agent_old.py",
       "issue_confidence": "HIGH",
       "issue_cwe": {
         "id": 703,

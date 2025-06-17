@@ -1,0 +1,77 @@
+{
+    "metadata": {
+        "description": "Asset type identification keywords extracted from legacy asset_document_agent.py",
+        "version": "1.0.0",
+        "extracted_date": "2025-06-16",
+        "source": "asset_document_agent_old.py",
+        "purpose": "Used for fuzzy matching and asset identification from email content",
+        "notes": "These keywords help identify what type of asset is being discussed in emails"
+    },
+    "asset_keywords": {
+        "commercial_real_estate": [
+            "property",
+            "building",
+            "office",
+            "retail",
+            "warehouse",
+            "industrial",
+            "commercial",
+            "plaza",
+            "center",
+            "tower",
+            "complex",
+            "development"
+        ],
+        "private_credit": [
+            "loan",
+            "credit",
+            "facility",
+            "debt",
+            "financing",
+            "bridge",
+            "term",
+            "revolving",
+            "senior",
+            "subordinate",
+            "mezzanine"
+        ],
+        "private_equity": [
+            "equity",
+            "investment",
+            "portfolio",
+            "fund",
+            "acquisition",
+            "buyout",
+            "growth",
+            "venture",
+            "capital",
+            "holdings"
+        ],
+        "infrastructure": [
+            "infrastructure",
+            "utility",
+            "energy",
+            "transportation",
+            "telecom",
+            "power",
+            "water",
+            "gas",
+            "pipeline",
+            "renewable",
+            "solar",
+            "wind"
+        ]
+    },
+    "usage_notes": {
+        "matching_strategy": "Keywords are matched against combined email content (subject + body + filename)",
+        "scoring": "Each keyword match adds 0.1 to confidence, capped at 0.3 total boost",
+        "case_insensitive": "All matching is case-insensitive",
+        "word_boundaries": "Keywords are matched as substrings, not requiring word boundaries"
+    },
+    "expansion_guidelines": {
+        "commercial_real_estate": "Add property types, building classifications, real estate terminology",
+        "private_credit": "Add loan types, credit instruments, debt terminology",
+        "private_equity": "Add investment strategies, fund types, transaction terminology",
+        "infrastructure": "Add utility types, infrastructure sectors, energy terminology"
+    }
+}

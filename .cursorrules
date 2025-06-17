@@ -2,6 +2,7 @@
 
 ## 📋 Primary Reference
 **ALWAYS follow the complete coding standards in `/docs/CODING_STANDARDS.md`**
+**ALWAYS prefer fixing a root cause, over working around a problem**
 
 ## 🚨 Critical Enforcement Points
 
