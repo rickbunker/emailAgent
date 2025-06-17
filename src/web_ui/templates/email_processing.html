@@ -434,7 +434,7 @@
                                                                 <td>
                                                                     <div>
                                                                         <small class="fw-bold">${getAssetName(match.asset_id) || 'Unknown Asset'}</small><br>
-                                                                        <small class="text-muted">${match.asset_id.substring(0, 8)}...</small>
+                                                                        <small class="text-muted">${match.asset_id ? match.asset_id.substring(0, 8) + '...' : 'Unknown ID'}</small>
                                                                     </div>
                                                                 </td>
                                                                 <td>
@@ -640,6 +640,7 @@
     }
 
     function getAssetName(assetId) {
+        if (!assetId) return 'Unknown Asset';
         const asset = assetsCache[assetId];
         return asset ? asset.name : `Asset ${assetId.substring(0, 8)}...`;
     }

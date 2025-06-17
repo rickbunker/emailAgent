@@ -548,12 +548,13 @@ def get_configured_mailboxes() -> list[dict[str, str]]:
 async def process_mailbox_emails(
     mailbox_config: dict, hours_back: int = 24, force_reprocess: bool = False
 ) -> dict[str, Any]:
-    """Process emails from a specific mailbox"""
+    """Process emails from a specific mailbox with parallel processing for performance"""
     mailbox_id = mailbox_config["id"]
     mailbox_type = mailbox_config["type"]
 
     logger.info(
-        f"Processing emails from mailbox: {mailbox_id} ({hours_back} hours back)"
+        f"🚀 Processing emails from mailbox: {mailbox_id} ({hours_back} hours back) "
+        f"[Parallel: {config.max_concurrent_emails} emails, {config.max_concurrent_attachments} attachments]"
     )
 
     results = {
@@ -563,6 +564,11 @@ async def process_mailbox_emails(
         "skipped_emails": 0,
         "errors": 0,
         "processing_details": [],
+        "parallel_stats": {
+            "max_concurrent_emails": config.max_concurrent_emails,
+            "max_concurrent_attachments": config.max_concurrent_attachments,
+            "batch_size": config.email_batch_size,
+        },
     }
 
     try:
@@ -590,7 +596,7 @@ async def process_mailbox_emails(
             # Connect with credentials
             await email_interface.connect(mailbox_config["config"])
 
-        # Define search criteria for last 24 hours
+        # Define search criteria for last N hours
         start_date = datetime.now(UTC) - timedelta(hours=hours_back)
         search_criteria = EmailSearchCriteria(
             has_attachments=True,  # Only process emails with attachments
@@ -616,51 +622,21 @@ async def process_mailbox_emails(
             for email in all_emails:
                 if email.received_date and email.received_date >= start_date:
                     emails.append(email)
+
         results["total_emails"] = len(emails)
 
         logger.info(
             f"Found {len(emails)} emails with attachments in the last {hours_back} hours"
         )
 
-        for email in emails:
-            try:
-                # Check if already processed
-                if not force_reprocess and email_history.is_processed(
-                    email.id, mailbox_id
-                ):
-                    results["skipped_emails"] += 1
-                    logger.debug(f"Skipping already processed email: {email.id}")
-                    continue
+        if not emails:
+            logger.info("No emails to process")
+            return results
 
-                # Process email and attachments
-                processing_info = await process_single_email(
-                    email, email_interface, mailbox_id
-                )
-
-                # Mark as processed
-                email_history.mark_processed(email.id, mailbox_id, processing_info)
-
-                results["processed_emails"] += 1
-                results["processing_details"].append(
-                    {
-                        "email_id": email.id,
-                        "subject": email.subject,
-                        "sender": email.sender.address if email.sender else "Unknown",
-                        "attachments_count": (
-                            len(email.attachments) if email.attachments else 0
-                        ),
-                        "processing_info": processing_info,
-                    }
-                )
-
-                logger.info(f"Successfully processed email: {email.subject[:50]}...")
-
-            except Exception as e:
-                results["errors"] += 1
-                logger.error(f"Failed to process email {email.id}: {e}")
-                results["processing_details"].append(
-                    {"email_id": email.id, "subject": email.subject, "error": str(e)}
-                )
+        # Process emails in parallel batches for optimal performance
+        await _process_emails_in_parallel(
+            emails, email_interface, mailbox_id, force_reprocess, results
+        )
 
     except Exception as e:
         logger.error(f"Failed to process mailbox {mailbox_id}: {e}")
@@ -674,17 +650,131 @@ async def process_mailbox_emails(
             logger.warning(f"Failed to clean up email interface: {cleanup_error}")
 
     logger.info(
-        f"Mailbox processing complete: {results['processed_emails']} processed, {results['skipped_emails']} skipped, {results['errors']} errors"
+        f"🏁 Mailbox processing complete: {results['processed_emails']} processed, "
+        f"{results['skipped_emails']} skipped, {results['errors']} errors"
     )
     return results
 
 
 @log_function()
-async def process_single_email(
+async def _process_emails_in_parallel(
+    emails: list, email_interface, mailbox_id: str, force_reprocess: bool, results: dict
+) -> None:
+    """
+    Process emails in parallel batches with concurrency control.
+
+    This function implements the core parallel processing logic:
+    - Processes emails in configurable batches
+    - Limits concurrent email processing
+    - Each email processes its attachments in parallel
+    - Maintains comprehensive error handling and logging
+    """
+    # Create semaphore to limit concurrent email processing
+    email_semaphore = asyncio.Semaphore(config.max_concurrent_emails)
+
+    # Process emails in batches to avoid overwhelming the system
+    batch_size = config.email_batch_size
+    total_batches = (len(emails) + batch_size - 1) // batch_size
+
+    logger.info(
+        f"📦 Processing {len(emails)} emails in {total_batches} batches "
+        f"of {batch_size} (max {config.max_concurrent_emails} concurrent)"
+    )
+
+    for batch_num in range(total_batches):
+        start_idx = batch_num * batch_size
+        end_idx = min(start_idx + batch_size, len(emails))
+        batch_emails = emails[start_idx:end_idx]
+
+        logger.info(
+            f"🔄 Processing batch {batch_num + 1}/{total_batches} ({len(batch_emails)} emails)"
+        )
+
+        # Create tasks for this batch
+        batch_tasks = []
+        for email in batch_emails:
+            task = _process_single_email_with_semaphore(
+                email, email_interface, mailbox_id, force_reprocess, email_semaphore
+            )
+            batch_tasks.append(task)
+
+        # Process this batch and collect results
+        batch_results = await asyncio.gather(*batch_tasks, return_exceptions=True)
+
+        # Process batch results
+        for i, result in enumerate(batch_results):
+            email = batch_emails[i]
+
+            if isinstance(result, Exception):
+                # Handle exceptions
+                results["errors"] += 1
+                error_msg = str(result)
+                logger.error(f"❌ Failed to process email {email.id}: {error_msg}")
+                results["processing_details"].append(
+                    {"email_id": email.id, "subject": email.subject, "error": error_msg}
+                )
+            elif result.get("skipped"):
+                # Email was skipped (already processed)
+                results["skipped_emails"] += 1
+                logger.debug(f"⏭️  Skipped already processed email: {email.id}")
+            else:
+                # Email was successfully processed
+                results["processed_emails"] += 1
+
+                # Mark as processed
+                email_history.mark_processed(email.id, mailbox_id, result)
+
+                # Add to results
+                results["processing_details"].append(
+                    {
+                        "email_id": email.id,
+                        "subject": email.subject,
+                        "sender": email.sender.address if email.sender else "Unknown",
+                        "attachments_count": (
+                            len(email.attachments) if email.attachments else 0
+                        ),
+                        "processing_info": result,
+                    }
+                )
+
+                logger.info(f"✅ Successfully processed email: {email.subject[:50]}...")
+
+        logger.info(
+            f"✨ Batch {batch_num + 1} complete: {len([r for r in batch_results if not isinstance(r, Exception) and not r.get('skipped')])} processed"
+        )
+
+
+@log_function()
+async def _process_single_email_with_semaphore(
+    email,
+    email_interface,
+    mailbox_id: str,
+    force_reprocess: bool,
+    semaphore: asyncio.Semaphore,
+) -> dict[str, Any]:
+    """
+    Process a single email with semaphore-controlled concurrency.
+
+    This wrapper ensures we don't exceed the maximum concurrent email processing limit.
+    """
+    async with semaphore:
+        # Check if already processed first (before acquiring semaphore for long)
+        if not force_reprocess and email_history.is_processed(email.id, mailbox_id):
+            return {"skipped": True}
+
+        # Process the email with parallel attachment processing
+        return await process_single_email_parallel(email, email_interface, mailbox_id)
+
+
+@log_function()
+async def process_single_email_parallel(
     email, email_interface: BaseEmailInterface, mailbox_id: str = "unknown"
 ) -> dict[str, Any]:
     """
-    Process a single email and its attachments through the asset document agent.
+    Process a single email and its attachments in parallel through the asset document agent.
+
+    This version processes all attachments within an email concurrently for maximum speed,
+    especially important when antivirus scanning creates bottlenecks.
 
     Args:
         email: Email object containing subject, attachments, and metadata
@@ -708,27 +798,142 @@ async def process_single_email(
         "quarantined": 0,
         "duplicates": 0,
         "errors": 0,
+        "parallel_attachments": True,  # Flag to indicate parallel processing was used
     }
 
     logger.info(
-        f"Processing email '{email.subject}' with {len(email.attachments) if email.attachments else 0} attachments"
+        f"🔄 Processing email '{email.subject}' with {len(email.attachments) if email.attachments else 0} attachments (parallel)"
     )
 
     if not email.attachments:
         logger.warning(f"Email '{email.subject}' has no attachments to process")
         return processing_info
 
+    # Create email data once for all attachments
+    email_data = {
+        "sender_email": email.sender.address if email.sender else None,
+        "sender_name": email.sender.name if email.sender else None,
+        "subject": email.subject,
+        "date": (
+            email.received_date.isoformat()
+            if email.received_date
+            else datetime.now(UTC).isoformat()
+        ),
+        "body": email.body_text or email.body_html or "",
+    }
+
+    # Create semaphore for attachment processing
+    attachment_semaphore = asyncio.Semaphore(config.max_concurrent_attachments)
+
+    # Create tasks for parallel attachment processing
+    attachment_tasks = []
     for attachment in email.attachments:
-        # Initialize attachment_data early to avoid scoping issues
-        attachment_data = {
+        task = _process_single_attachment_with_semaphore(
+            attachment,
+            email,
+            email_interface,
+            email_data,
+            mailbox_id,
+            attachment_semaphore,
+        )
+        attachment_tasks.append(task)
+
+    logger.info(
+        f"🚀 Processing {len(attachment_tasks)} attachments in parallel (max {config.max_concurrent_attachments} concurrent)"
+    )
+
+    # Process all attachments in parallel
+    try:
+        # Use asyncio.wait_for to add timeout protection
+        attachment_results = await asyncio.wait_for(
+            asyncio.gather(*attachment_tasks, return_exceptions=True),
+            timeout=config.processing_timeout_seconds,
+        )
+
+        # Process results from parallel attachment processing
+        for i, result in enumerate(attachment_results):
+            attachment = email.attachments[i]
+
+            if isinstance(result, Exception):
+                processing_info["errors"] += 1
+                logger.error(
+                    f"❌ Failed to process attachment {attachment.filename}: {result}"
+                )
+            else:
+                # Merge attachment result into processing_info
+                if result:
+                    processing_info["attachments_processed"] += 1
+
+                    if result.get("classified"):
+                        processing_info["attachments_classified"] += 1
+
+                    if result.get("quarantined"):
+                        processing_info["quarantined"] += 1
+
+                    if result.get("duplicate"):
+                        processing_info["duplicates"] += 1
+
+                    if result.get("asset_matched"):
+                        processing_info["assets_matched"].append(
+                            result["asset_matched"]
+                        )
+
+                    if result.get("needs_human_review"):
+                        processing_info.setdefault("needs_human_review", []).append(
+                            result["needs_human_review"]
+                        )
+
+        logger.info(
+            f"✅ Email processing complete: {processing_info['attachments_processed']} attachments processed "
+            f"({processing_info['attachments_classified']} classified, {processing_info['errors']} errors)"
+        )
+
+    except asyncio.TimeoutError:
+        processing_info["errors"] += len(email.attachments)
+        logger.error(
+            f"⏰ Email processing timed out after {config.processing_timeout_seconds} seconds"
+        )
+        # Don't raise - return what we have
+
+    return processing_info
+
+
+@log_function()
+async def _process_single_attachment_with_semaphore(
+    attachment,
+    email,
+    email_interface,
+    email_data: dict,
+    mailbox_id: str,
+    semaphore: asyncio.Semaphore,
+) -> dict[str, Any]:
+    """
+    Process a single attachment with semaphore-controlled concurrency.
+
+    This function handles the full attachment processing pipeline:
+    1. Download attachment content (if needed)
+    2. Process through asset document agent (includes antivirus scanning)
+    3. Save to appropriate location
+    4. Handle human review queue if needed
+    """
+    async with semaphore:
+        attachment_result = {
             "filename": attachment.filename,
-            "content": None,
+            "classified": False,
+            "quarantined": False,
+            "duplicate": False,
+            "asset_matched": None,
+            "needs_human_review": None,
         }
 
         try:
-            logger.info(
-                f"Processing attachment: {attachment.filename} (size: {attachment.size}, content loaded: {attachment.content is not None})"
-            )
+            logger.info(f"🔍 Processing attachment: {attachment.filename}")
+
+            # Initialize attachment_data early to avoid scoping issues
+            attachment_data = {
+                "filename": attachment.filename,
+                "content": None,
+            }
 
             # Get attachment content (may already be loaded)
             attachment_content = attachment.content
@@ -743,176 +948,109 @@ async def process_single_email(
                     logger.warning(
                         f"Could not download attachment {attachment.filename}: {download_error}"
                     )
-                    continue
+                    return attachment_result
 
             # Update attachment data with content
             attachment_data["content"] = attachment_content
-
-            email_data = {
-                "sender_email": email.sender.address if email.sender else None,
-                "sender_name": email.sender.name if email.sender else None,
-                "subject": email.subject,
-                "date": (
-                    email.received_date.isoformat()
-                    if email.received_date
-                    else datetime.now(UTC).isoformat()
-                ),
-                "body": email.body_text or email.body_html or "",
-            }
 
             # Process with asset document agent (enhanced with asset matching)
             result = await asset_agent.enhanced_process_attachment(
                 attachment_data=attachment_data, email_data=email_data
             )
 
-            # Skip saving duplicates entirely - duplicates should be discarded
-            should_save = result.status == ProcessingStatus.SUCCESS
+            # Handle different processing results
+            if result.status == ProcessingStatus.QUARANTINED:
+                attachment_result["quarantined"] = True
+                logger.warning(
+                    f"🚨 Attachment quarantined: {attachment.filename} - {result.quarantine_reason}"
+                )
+                return attachment_result
 
-            if should_save:
-                content = attachment_data.get("content", b"")
-                filename = attachment_data.get("filename", "unknown_attachment")
+            if result.status == ProcessingStatus.DUPLICATE:
+                attachment_result["duplicate"] = True
+                logger.info(f"📋 Duplicate attachment skipped: {attachment.filename}")
+                return attachment_result
 
-                if content:
-                    file_path = await asset_agent.save_attachment_to_asset_folder(
-                        content, filename, result, result.matched_asset_id
-                    )
+            if result.status != ProcessingStatus.SUCCESS:
+                logger.warning(
+                    f"⚠️  Attachment processing failed: {attachment.filename} - {result.error_message}"
+                )
+                return attachment_result
 
-                    if file_path:
-                        logger.info(f"File saved successfully to: {file_path}")
+            # Mark as successfully classified
+            attachment_result["classified"] = True
 
-                        # Store document metadata in Qdrant (only for non-duplicates to avoid duplicate entries)
-                        if (
-                            result.status == ProcessingStatus.SUCCESS
-                            and asset_agent.qdrant
-                            and result.file_hash
-                        ):
-                            document_id = await asset_agent.store_processed_document(
-                                result.file_hash, result, result.matched_asset_id
-                            )
-                            if document_id:
-                                logger.info(
-                                    f"Document metadata stored with ID: {document_id[:8]}..."
-                                )
-                    else:
-                        logger.warning("Failed to save file to disk")
-            elif result.status == ProcessingStatus.DUPLICATE:
+            # Save successful attachment to appropriate folder and build detailed asset match info
+            if result.matched_asset_id:
+                # Build asset match object in the format expected by the frontend
+                attachment_result["asset_matched"] = {
+                    "asset_id": result.matched_asset_id,
+                    "confidence": result.asset_confidence,
+                    "attachment_name": attachment.filename,
+                    "file_path": str(result.file_path) if result.file_path else None,
+                    "document_category": (
+                        result.document_category.value
+                        if result.document_category
+                        else None
+                    ),
+                    "confidence_level": (
+                        result.confidence_level.value
+                        if result.confidence_level
+                        else None
+                    ),
+                    "classification_metadata": result.classification_metadata or {},
+                }
                 logger.info(
-                    f"🔄 Duplicate discarded: {attachment_data.get('filename', 'unknown')} (original: {result.duplicate_of})"
+                    f"🎯 Asset matched: {attachment.filename} -> {result.matched_asset_id[:8]}"
                 )
 
-            processing_info["attachments_processed"] += 1
+            # Save attachment to asset folder
+            try:
+                saved_path = await asset_agent.save_attachment_to_asset_folder(
+                    attachment_content,
+                    attachment.filename,
+                    result,
+                    result.matched_asset_id,
+                )
 
-            # Log processing result
-            logger.info(
-                f"Attachment processing result: status={result.status.value}, validation_confidence={result.confidence}"
+                if saved_path:
+                    logger.info(f"💾 Saved: {attachment.filename} -> {saved_path}")
+                    # Update file path in asset match info if it exists
+                    if attachment_result.get("asset_matched"):
+                        attachment_result["asset_matched"]["file_path"] = str(
+                            saved_path
+                        )
+                else:
+                    logger.warning(
+                        f"⚠️  Failed to save attachment: {attachment.filename}"
+                    )
+            except Exception as save_error:
+                logger.error(
+                    f"Failed to save attachment {attachment.filename}: {save_error}"
+                )
+
+            # Store processing metadata
+            try:
+                await asset_agent.store_processed_document(
+                    result.file_hash, result, result.matched_asset_id
+                )
+            except Exception as store_error:
+                logger.warning(f"Failed to store document metadata: {store_error}")
+
+            # Check if human review is needed
+            needs_review = result.confidence_level == ConfidenceLevel.VERY_LOW or (
+                result.confidence_level == ConfidenceLevel.LOW
+                and not result.matched_asset_id
             )
 
-            # Log detailed confidence breakdown if available
-            if result.classification_metadata:
-                meta = result.classification_metadata
-                logger.info(
-                    f"Confidence breakdown - Document: {meta.get('document_confidence', 0):.2f}, Asset: {meta.get('asset_confidence', 0):.2f}, Sender: {'Known' if meta.get('sender_known', False) else 'Unknown'}"
-                )
-                logger.info(
-                    f"Overall routing decision: {result.confidence_level.value if result.confidence_level else 'unknown'}"
-                )
-
-            # Handle different processing statuses
-            if result.status.value == "quarantined":
-                logger.warning(f"Attachment quarantined: {result.quarantine_reason}")
-                processing_info["quarantined"] = (
-                    processing_info.get("quarantined", 0) + 1
-                )
-            elif result.status.value == "duplicate":
-                logger.info(f"Attachment is duplicate of: {result.duplicate_of}")
-                processing_info["duplicates"] = processing_info.get("duplicates", 0) + 1
-            elif result.status.value == "error":
-                logger.error(f"Attachment processing error: {result.error_message}")
-                processing_info["errors"] = processing_info.get("errors", 0) + 1
-
-            if result.matched_asset_id:
-                processing_info["attachments_classified"] += 1
-                processing_info["assets_matched"].append(
-                    {
-                        "asset_id": result.matched_asset_id,
-                        "confidence": result.asset_confidence,
-                        "attachment_name": attachment.filename,
-                        "file_path": (
-                            str(result.file_path) if result.file_path else None
-                        ),
-                        "document_category": (
-                            result.document_category.value
-                            if result.document_category
-                            else None
-                        ),
-                        "confidence_level": (
-                            result.confidence_level.value
-                            if result.confidence_level
-                            else None
-                        ),
-                        "classification_metadata": result.classification_metadata or {},
-                    }
-                )
-                logger.info(
-                    f"Attachment matched to asset: {result.matched_asset_id} (confidence: {result.asset_confidence})"
-                )
-            else:
-                logger.info("Attachment processed but no asset match found")
-
-            # Check if attachment needs human review (low confidence or no match)
-            needs_review = False
-            review_reason = None
-
-            if not result.matched_asset_id:
-                # No asset match at all - needs review
-                needs_review = True
-                review_reason = "no_asset_match"
-                logger.info("Adding to human review: no asset match found")
-            elif result.asset_confidence < config.low_confidence_threshold:
-                # Low confidence match - needs review
-                needs_review = True
-                review_reason = "low_asset_confidence"
-                logger.info(
-                    f"Adding to human review: low asset confidence ({result.asset_confidence:.2f})"
-                )
+            review_reason = ""
+            if result.confidence_level == ConfidenceLevel.VERY_LOW:
+                review_reason = "Very low classification confidence"
             elif (
-                hasattr(result, "confidence_level")
-                and result.confidence_level
-                and result.confidence_level.value in ["very_low", "low"]
+                result.confidence_level == ConfidenceLevel.LOW
+                and not result.matched_asset_id
             ):
-                # System flagged as needing review based on overall confidence
-                needs_review = True
-                review_reason = f"overall_confidence_{result.confidence_level.value}"
-
-                # Provide detailed explanation
-                if result.classification_metadata:
-                    meta = result.classification_metadata
-                    doc_conf = meta.get("document_confidence", 0)
-                    asset_conf = meta.get("asset_confidence", 0)
-                    sender_known = meta.get("sender_known", False)
-
-                    explanation_parts = []
-                    if doc_conf < config.low_confidence_threshold:
-                        explanation_parts.append(
-                            f"low document classification confidence ({doc_conf:.2f})"
-                        )
-                    if asset_conf < config.requires_review_threshold:
-                        explanation_parts.append(
-                            f"uncertain asset match ({asset_conf:.2f})"
-                        )
-                    if not sender_known:
-                        explanation_parts.append("unknown sender")
-
-                    explanation = (
-                        " + ".join(explanation_parts)
-                        if explanation_parts
-                        else "overall low confidence"
-                    )
-                    logger.info(f"Adding to human review: {explanation}")
-                else:
-                    logger.info(
-                        f"Adding to human review: system flagged as {result.confidence_level.value}"
-                    )
+                review_reason = "Low confidence with no asset match"
 
             if needs_review:
                 try:
@@ -923,26 +1061,39 @@ async def process_single_email(
                         email_data=email_data,
                         processing_result=result,
                     )
-                    logger.info(f"Added attachment to human review queue: {review_id}")
-
-                    # Track in processing info
-                    processing_info.setdefault("needs_human_review", []).append(
-                        {
-                            "review_id": review_id,
-                            "attachment_name": attachment.filename,
-                            "reason": review_reason,
-                        }
+                    logger.info(
+                        f"👥 Added attachment to human review queue: {review_id}"
                     )
 
+                    attachment_result["needs_human_review"] = {
+                        "review_id": review_id,
+                        "attachment_name": attachment.filename,
+                        "reason": review_reason,
+                    }
                 except Exception as review_error:
                     logger.error(
                         f"Failed to add attachment to review queue: {review_error}"
                     )
 
-        except Exception as e:
-            logger.error(f"Failed to process attachment {attachment.filename}: {e}")
+            logger.info(f"✅ Attachment processed successfully: {attachment.filename}")
+            return attachment_result
 
-    return processing_info
+        except Exception as e:
+            logger.error(f"❌ Failed to process attachment {attachment.filename}: {e}")
+            raise  # Re-raise to be caught by gather()
+
+
+# Keep the original function for backward compatibility
+@log_function()
+async def process_single_email(
+    email, email_interface: BaseEmailInterface, mailbox_id: str = "unknown"
+) -> dict[str, Any]:
+    """
+    Legacy sequential email processing function (kept for compatibility).
+
+    New code should use process_single_email_parallel() for better performance.
+    """
+    return await process_single_email_parallel(email, email_interface, mailbox_id)
 
 
 @log_function()

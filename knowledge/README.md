@@ -31,6 +31,39 @@ stats = await procedural_memory.get_pattern_stats()
 print(f"Loaded {stats['pattern_count']} classification patterns")
 ```
 
+## 📊 Expected Seeding Results
+
+When running Smart Memory Reset, expect these pattern counts:
+- **Classification patterns**: 24 pattern groups (4 asset types × 6 categories avg)
+- **Asset keywords**: 4 keyword sets
+- **Business rules**: 9 rules (4 confidence + 5 routing)  
+- **Asset configs**: 4 configurations
+- **Total**: ~41 patterns loaded into procedural memory
+
+## 🔍 Knowledge Base Validation
+
+### Quick Validation Commands
+```bash
+# Count classification patterns
+cat knowledge/classification_patterns.json | jq '.classification_patterns | to_entries | map(.value | to_entries | map(.value | length)) | flatten | add'
+
+# Count asset keywords  
+cat knowledge/asset_keywords.json | jq '.asset_keywords | keys | length'
+
+# Count business rules
+cat knowledge/business_rules.json | jq '(.confidence_adjustments | keys | length) + (.routing_decisions | keys | length)'
+
+# Count asset configs
+cat knowledge/asset_configs.json | jq '.asset_configs | keys | length'
+```
+
+### Expected Counts
+- Classification patterns: **112 regex patterns**
+- Asset keywords: **4 asset types** 
+- Business rules: **9 rules**
+- Asset configs: **4 configurations**
+- **Total items**: 129
+
 ## 📊 Extraction Summary
 
 **From Legacy System:**
@@ -77,6 +110,14 @@ print(f"Loaded {stats['pattern_count']} classification patterns")
 - **Remove outdated patterns** that cause false positives
 - **Update thresholds** based on performance metrics
 - **Document changes** with business justification
+
+## ⚠️ Critical Notes
+
+- **This knowledge base IS the source code** for the learning system
+- **Changes should be tested** before committing to production
+- **Smart Memory Reset** relies on these files being complete and valid
+- **Backup before major changes** - this enables disaster recovery
+- **Version control is essential** - track all business rule changes
 
 ---
 

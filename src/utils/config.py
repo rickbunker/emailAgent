@@ -64,6 +64,12 @@ class EmailAgentConfig:
     enable_virus_scanning: bool
     enable_spam_filtering: bool
 
+    # Parallel Processing Configuration
+    max_concurrent_emails: int
+    max_concurrent_attachments: int
+    email_batch_size: int
+    processing_timeout_seconds: int
+
     # Human Review Thresholds
     low_confidence_threshold: float
     requires_review_threshold: float
@@ -156,6 +162,15 @@ class EmailAgentConfig:
             enable_spam_filtering=parse_bool(
                 os.getenv("ENABLE_SPAM_FILTERING", "true")
             ),
+            # Parallel Processing Configuration
+            max_concurrent_emails=int(os.getenv("MAX_CONCURRENT_EMAILS", "5")),
+            max_concurrent_attachments=int(
+                os.getenv("MAX_CONCURRENT_ATTACHMENTS", "10")
+            ),
+            email_batch_size=int(os.getenv("EMAIL_BATCH_SIZE", "20")),
+            processing_timeout_seconds=int(
+                os.getenv("PROCESSING_TIMEOUT_SECONDS", "300")
+            ),
             # Human Review Thresholds
             low_confidence_threshold=float(
                 os.getenv("LOW_CONFIDENCE_THRESHOLD", "0.7")
@@ -226,6 +241,19 @@ class EmailAgentConfig:
 
         if not (0.0 <= self.requires_review_threshold <= 1.0):
             errors.append("Requires review threshold must be between 0.0 and 1.0")
+
+        # Validate parallel processing settings
+        if self.max_concurrent_emails < 1:
+            errors.append("max_concurrent_emails must be at least 1")
+
+        if self.max_concurrent_attachments < 1:
+            errors.append("max_concurrent_attachments must be at least 1")
+
+        if self.email_batch_size < 1:
+            errors.append("email_batch_size must be at least 1")
+
+        if self.processing_timeout_seconds < 30:
+            errors.append("processing_timeout_seconds must be at least 30")
 
         # Validate directories exist or can be created
         for path, name in [
