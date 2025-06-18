@@ -1,6 +1,6 @@
 {
   "errors": [],
-  "generated_at": "2025-06-17T22:32:51Z",
+  "generated_at": "2025-06-17T22:50:45Z",
   "metrics": {
     "_totals": {
       "CONFIDENCE.HIGH": 18,
@@ -11,7 +11,7 @@
       "SEVERITY.LOW": 19,
       "SEVERITY.MEDIUM": 1,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 18476,
+      "loc": 18506,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -37,7 +37,7 @@
       "SEVERITY.LOW": 4,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 1238,
+      "loc": 1268,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -426,7 +426,7 @@
       "test_name": "subprocess_without_shell_equals_true"
     },
     {
-      "code": "1326                 health[\"learned_patterns\"] = result.count\n1327             except Exception:\n1328                 pass\n1329 \n",
+      "code": "1344                 health[\"learned_patterns\"] = result.count\n1345             except Exception:\n1346                 pass\n1347 \n",
       "col_offset": 12,
       "end_col_offset": 20,
       "filename": "src/agents/asset_document_agent.py",
@@ -437,10 +437,10 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 1327,
+      "line_number": 1345,
       "line_range": [
-        1327,
-        1328
+        1345,
+        1346
       ],
       "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b110_try_except_pass.html",
       "test_id": "B110",
