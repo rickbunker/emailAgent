@@ -48,25 +48,57 @@ class MicrosoftGraphDebugger:
         """Validate Microsoft Graph configuration."""
         print("🔧 Checking Microsoft Graph Configuration...")
 
-        required_config = [
-            ("client_id", config.client_id),
-            ("client_secret", config.client_secret),
-            ("tenant_id", config.tenant_id),
-            ("redirect_uri", config.redirect_uri),
-        ]
+        # Check if credentials file exists
+        creds_file = Path(config.msgraph_credentials_path)
 
-        config_valid = True
-        for name, value in required_config:
-            if not value or value == "your_value_here":
-                self.errors.append(f"❌ Missing {name} in configuration")
-                config_valid = False
-            else:
-                print(f"✅ {name}: {'*' * (len(str(value)) - 4)}{str(value)[-4:]}")
+        if not creds_file.exists():
+            self.errors.append(
+                f"❌ Microsoft Graph credentials file not found: {config.msgraph_credentials_path}"
+            )
+            return False
 
-        if config_valid:
-            print("✅ Configuration appears valid")
+        print(f"✅ Credentials file found: {config.msgraph_credentials_path}")
 
-        return config_valid
+        # Try to read the credentials file to check its contents
+        try:
+            import json
+
+            with open(creds_file, "r") as f:
+                creds = json.load(f)
+
+            required_fields = ["client_id", "client_secret", "tenant_id"]
+            missing_fields = []
+
+            for field in required_fields:
+                if (
+                    field not in creds
+                    or not creds[field]
+                    or creds[field] == "your_value_here"
+                ):
+                    missing_fields.append(field)
+                else:
+                    # Show masked version for security
+                    value = str(creds[field])
+                    masked = (
+                        "*" * max(len(value) - 4, 4) + value[-4:]
+                        if len(value) > 4
+                        else "*" * len(value)
+                    )
+                    print(f"✅ {field}: {masked}")
+
+            if missing_fields:
+                for field in missing_fields:
+                    self.errors.append(
+                        f"❌ Missing or invalid {field} in credentials file"
+                    )
+                return False
+
+            print("✅ All required credentials appear to be configured")
+            return True
+
+        except Exception as e:
+            self.errors.append(f"❌ Error reading credentials file: {e}")
+            return False
 
     async def test_authentication(self) -> bool:
         """Test Microsoft Graph authentication."""

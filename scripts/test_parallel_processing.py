@@ -82,42 +82,44 @@ class ParallelProcessingTester:
         """Benchmark sequential email processing."""
         print(f"📈 Sequential Processing Benchmark ({len(emails)} emails)...")
 
+        # Mock agent with realistic timing
+        agent = MagicMock()
+
+        async def mock_process_attachment(attachment_data, email_data):
+            """Mock processing function with realistic delay."""
+            await asyncio.sleep(0.1)  # Simulate 100ms processing time
+            return {
+                "status": "success",
+                "confidence": 0.95,
+                "file_hash": f"hash_{hash(attachment_data.get('filename', ''))}",
+            }
+
+        agent.process_single_attachment = mock_process_attachment
+
         start_time = time.time()
         processed = 0
         errors = 0
 
-        # Mock agent for testing
-        agent = MagicMock()
-        agent.process_single_attachment = asyncio.coroutine(
-            lambda *args, **kwargs: MagicMock(status="success", confidence=0.85)
-        )
-
         for email in emails:
             try:
-                # Simulate processing time
-                await asyncio.sleep(0.1)  # 100ms per email
-
-                # Process attachments sequentially
-                for attachment in email.get("attachments", []):
-                    await agent.process_single_attachment(attachment, email)
-                    await asyncio.sleep(0.05)  # 50ms per attachment
-
-                processed += 1
-
-            except Exception as e:
+                for attachment in email["attachments"]:
+                    result = await agent.process_single_attachment(attachment, email)
+                    if result["status"] == "success":
+                        processed += 1
+                    else:
+                        errors += 1
+            except Exception:
                 errors += 1
-                if self.verbose:
-                    print(f"  ❌ Error processing email {email['id']}: {e}")
 
-        total_time = time.time() - start_time
+        end_time = time.time()
+        total_time = end_time - start_time
 
         return {
-            "method": "sequential",
-            "emails_processed": processed,
-            "errors": errors,
             "total_time": total_time,
-            "emails_per_second": processed / total_time if total_time > 0 else 0,
-            "avg_time_per_email": total_time / processed if processed > 0 else 0,
+            "processed": processed,
+            "errors": errors,
+            "emails_per_second": len(emails) / total_time if total_time > 0 else 0,
+            "concurrency": 1,
         }
 
     async def benchmark_parallel_processing(
@@ -125,18 +127,26 @@ class ParallelProcessingTester:
     ) -> dict[str, Any]:
         """Benchmark parallel email processing."""
         print(
-            f"🚀 Parallel Processing Benchmark ({len(emails)} emails, {max_concurrent} workers)..."
+            f"⚡ Parallel Processing Benchmark ({len(emails)} emails, {max_concurrent} concurrent)..."
         )
+
+        # Mock agent with realistic timing
+        agent = MagicMock()
+
+        async def mock_process_attachment(attachment_data, email_data):
+            """Mock processing function with realistic delay."""
+            await asyncio.sleep(0.1)  # Simulate 100ms processing time
+            return {
+                "status": "success",
+                "confidence": 0.95,
+                "file_hash": f"hash_{hash(attachment_data.get('filename', ''))}",
+            }
+
+        agent.process_single_attachment = mock_process_attachment
 
         start_time = time.time()
         processed = 0
         errors = 0
-
-        # Mock agent for testing
-        agent = MagicMock()
-        agent.process_single_attachment = asyncio.coroutine(
-            lambda *args, **kwargs: MagicMock(status="success", confidence=0.85)
-        )
 
         # Create semaphore for concurrency control
         semaphore = asyncio.Semaphore(max_concurrent)
@@ -147,44 +157,32 @@ class ParallelProcessingTester:
 
             async with semaphore:
                 try:
-                    # Simulate processing time
-                    await asyncio.sleep(0.1)  # 100ms per email
-
-                    # Process attachments in parallel
-                    if email.get("attachments"):
-                        attachment_tasks = [
-                            agent.process_single_attachment(attachment, email)
-                            for attachment in email["attachments"]
-                        ]
-                        await asyncio.gather(*attachment_tasks)
-
-                        # Additional delay for attachment processing
-                        await asyncio.sleep(0.05 * len(email["attachments"]))
-
-                    processed += 1
+                    for attachment in email["attachments"]:
+                        result = await agent.process_single_attachment(
+                            attachment, email
+                        )
+                        if result["status"] == "success":
+                            processed += 1
+                        else:
+                            errors += 1
                     return {"status": "success", "email_id": email["id"]}
-
                 except Exception as e:
                     errors += 1
-                    if self.verbose:
-                        print(f"  ❌ Error processing email {email['id']}: {e}")
                     return {"status": "error", "email_id": email["id"], "error": str(e)}
 
-        # Process all emails in parallel
+        # Process all emails concurrently
         tasks = [process_email(email) for email in emails]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+        await asyncio.gather(*tasks, return_exceptions=True)
 
-        total_time = time.time() - start_time
+        end_time = time.time()
+        total_time = end_time - start_time
 
         return {
-            "method": "parallel",
-            "emails_processed": processed,
-            "errors": errors,
             "total_time": total_time,
-            "emails_per_second": processed / total_time if total_time > 0 else 0,
-            "avg_time_per_email": total_time / processed if processed > 0 else 0,
+            "processed": processed,
+            "errors": errors,
+            "emails_per_second": len(emails) / total_time if total_time > 0 else 0,
             "concurrency": max_concurrent,
-            "speedup_factor": 0,  # Will be calculated later
         }
 
     async def test_memory_usage(self, emails: list[dict[str, Any]]) -> dict[str, Any]:
@@ -267,19 +265,19 @@ class ParallelProcessingTester:
         print("\n📈 Sequential Processing:")
         print(f"  ⏱️ Total Time: {sequential_result['total_time']:.2f} seconds")
         print(f"  📧 Emails/Second: {sequential_result['emails_per_second']:.1f}")
-        print(f"  ⚡ Avg Time/Email: {sequential_result['avg_time_per_email']:.3f}s")
-        print(f"  ✅ Processed: {sequential_result['emails_processed']}")
+        print(f"  ✅ Processed: {sequential_result['processed']}")
         print(f"  ❌ Errors: {sequential_result['errors']}")
 
         # Parallel results
-        print(f"\n🚀 Parallel Processing ({parallel_result['concurrency']} workers):")
+        print(
+            f"\n⚡ Parallel Processing ({parallel_result['concurrency']} concurrent):"
+        )
         print(f"  ⏱️ Total Time: {parallel_result['total_time']:.2f} seconds")
         print(f"  📧 Emails/Second: {parallel_result['emails_per_second']:.1f}")
-        print(f"  ⚡ Avg Time/Email: {parallel_result['avg_time_per_email']:.3f}s")
-        print(f"  ✅ Processed: {parallel_result['emails_processed']}")
+        print(f"  ✅ Processed: {parallel_result['processed']}")
         print(f"  ❌ Errors: {parallel_result['errors']}")
 
-        # Performance comparison
+        # Calculate performance improvement
         if sequential_result["total_time"] > 0 and parallel_result["total_time"] > 0:
             speedup = sequential_result["total_time"] / parallel_result["total_time"]
             efficiency = speedup / parallel_result["concurrency"] * 100
@@ -287,9 +285,6 @@ class ParallelProcessingTester:
             print("\n🏆 Performance Improvement:")
             print(f"  🚀 Speedup Factor: {speedup:.2f}x")
             print(f"  ⚡ Efficiency: {efficiency:.1f}%")
-            print(
-                f"  📈 Throughput Increase: {(parallel_result['emails_per_second'] / sequential_result['emails_per_second'] - 1) * 100:.1f}%"
-            )
 
         print("=" * 60)
 

@@ -31,15 +31,16 @@ async def simple_test():
 
     # Check basic configuration
     print("🔧 Configuration Check:")
-    if not config.client_id or config.client_id == "your_value_here":
-        print("❌ CLIENT_ID not configured")
+
+    # Check if credentials file exists
+    creds_file = Path(config.msgraph_credentials_path)
+    if not creds_file.exists():
+        print(
+            f"❌ Microsoft Graph credentials file not found: {config.msgraph_credentials_path}"
+        )
         return False
 
-    if not config.tenant_id or config.tenant_id == "your_value_here":
-        print("❌ TENANT_ID not configured")
-        return False
-
-    print("✅ Basic configuration appears valid")
+    print(f"✅ Credentials file found: {config.msgraph_credentials_path}")
 
     # Test connection
     print("\n🔐 Testing Authentication...")
@@ -52,22 +53,28 @@ async def simple_test():
         if success:
             print("✅ Authentication successful!")
 
-            # Quick mailbox test
-            print("\n📬 Testing Mailbox Access...")
-            mailboxes = await interface.list_mailboxes()
+            # Get user profile
+            print("\n👤 Getting User Profile...")
+            profile = await interface.get_profile()
 
-            if mailboxes:
-                print(f"✅ Found {len(mailboxes)} accessible mailbox(es)")
-                print(f"📧 Primary: {mailboxes[0].get('displayName', 'Unknown')}")
+            if profile:
+                print(
+                    f"✅ User: {profile.get('name', 'Unknown')} ({profile.get('email', 'No email')})"
+                )
             else:
-                print("⚠️ No mailboxes found")
+                print("⚠️ Could not retrieve user profile")
 
             # Quick email test
             print("\n📨 Testing Email Retrieval...")
-            emails = await interface.get_emails(limit=1)
+            from src.email_interface.base import EmailSearchCriteria
+
+            criteria = EmailSearchCriteria(max_results=1)
+            emails = await interface.list_emails(criteria)
 
             if emails:
-                print("✅ Email retrieval successful")
+                print(f"✅ Email retrieval successful - found {len(emails)} email(s)")
+                email = emails[0]
+                print(f"📧 Latest: '{email.subject[:50]}...' from {email.sender}")
             else:
                 print("⚠️ No emails found (this may be normal)")
 
