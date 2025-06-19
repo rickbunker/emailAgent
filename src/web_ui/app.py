@@ -934,9 +934,7 @@ async def _process_single_attachment_with_semaphore(
     async with semaphore:
         # Check for cancellation at start of attachment processing
         if processing_cancelled:
-            logger.info(
-                f"🛑 Processing cancelled for attachment: {attachment.filename}"
-            )
+            logger.info(f"🛑 Processing cancelled for attachment: {attachment.filename}")
             return {"cancelled": True, "filename": attachment.filename}
 
         attachment_result = {
@@ -2652,7 +2650,7 @@ def inspect_classification(file_path: str) -> str:
                 "current_asset_id": current_asset_id,
                 "current_category": current_category,
             }
-            logger.debug(f"File info dict created successfully")
+            logger.debug("File info dict created successfully")
         except Exception as e:
             logger.error(f"Failed to create file_info dict: {e}")
             raise
@@ -2929,9 +2927,6 @@ async def _process_reclassification(
 ) -> bool:
     """Process file reclassification including file movement and memory storage"""
     try:
-        # # Local application imports
-        from src.memory.episodic import EpisodicMemory
-
         logger.info(f"🔄 RECLASSIFICATION START: {filename}")
         logger.info(
             f"   📂 Current: Asset {current_asset_id} / Category {current_category}"
@@ -3003,68 +2998,90 @@ async def _process_reclassification(
             full_path.rename(new_file_path)
             logger.info("   ✅ File moved successfully")
 
-            # Step 3: Store correction in episodic memory
+            # Step 3: Store correction in semantic memory (experiential knowledge)
         try:
-            episodic_memory = EpisodicMemory()
+            # # Local application imports
+            from src.memory.semantic import SemanticMemory
 
-            # Create memory content with correction details
-            if action_type == "delete":
-                action_description = "DISCARDED (permanently deleted)"
-                new_asset_display = "N/A (file discarded)"
-                new_category_display = "N/A (file discarded)"
-            elif new_asset_id is None:
-                action_description = "MOVED to uncategorized"
-                new_asset_display = "None (not asset-related)"
-                new_category_display = new_document_category or "None"
-            else:
-                action_description = f"MOVED to asset {new_asset_id}"
-                new_asset_display = new_asset_id
-                new_category_display = new_document_category or "None"
-
-            memory_content = f"""
-            USER CORRECTION: File {action_description.lower()}
-
-            Filename: {filename}
-            Original Classification:
-            - Asset: {current_asset_id or 'None'}
-            - Category: {current_category or 'None'}
-
-            User Action: {action_description}
-            - Asset: {new_asset_display}
-            - Category: {new_category_display}
-
-            User Reason: {correction_reason}
-
-            This correction indicates the system's classification was wrong and should learn from this feedback.
-            """.strip()
-
-            # Store in episodic memory
-            metadata = {
-                "feedback_type": "correction",
-                "filename": filename,
-                "original_asset_id": current_asset_id,
-                "original_category": current_category,
-                "action_type": action_type,
-                "correction_reason": correction_reason,
-                "corrected_by": "human",
-                "correction_timestamp": datetime.now(UTC).isoformat(),
-            }
-
-            if action_type == "delete":
-                metadata["file_discarded"] = True
-            else:
-                metadata["corrected_asset_id"] = new_asset_id
-                metadata["corrected_category"] = new_document_category
-
-            await episodic_memory.add(
-                content=memory_content,
-                metadata=metadata,
+            semantic_memory = SemanticMemory(
+                max_items=config.semantic_memory_max_items,
+                qdrant_url=config.qdrant_url,
+                embedding_model=config.embedding_model,
             )
 
-            logger.info("   🧠 Correction stored in episodic memory")
+            # Determine what type of correction this is
+            if action_type == "delete":
+                # Store as general human correction - file discarded
+                await semantic_memory.store_human_correction(
+                    original_prediction=f"asset_id={current_asset_id}, category={current_category}",
+                    human_correction="file_discarded",
+                    metadata={
+                        "filename": filename,
+                        "original_asset_id": current_asset_id,
+                        "original_category": current_category,
+                        "action_type": "discard",
+                        "correction_reason": correction_reason,
+                        "corrected_by": "web_user_reclassification",
+                        "file_extension": Path(filename).suffix.lower(),
+                        "correction_source": "reclassification_ui",
+                    },
+                )
+                logger.info("   🧠 File discard correction stored in semantic memory")
+
+            elif new_asset_id is None:
+                # File moved to uncategorized (not asset-related)
+                await semantic_memory.store_human_correction(
+                    original_prediction=f"asset_related (asset_id={current_asset_id})",
+                    human_correction="non_asset_related",
+                    metadata={
+                        "filename": filename,
+                        "original_asset_id": current_asset_id,
+                        "original_category": current_category,
+                        "corrected_category": new_document_category,
+                        "action_type": "move_to_uncategorized",
+                        "correction_reason": correction_reason,
+                        "corrected_by": "web_user_reclassification",
+                        "file_extension": Path(filename).suffix.lower(),
+                        "correction_source": "reclassification_ui",
+                    },
+                )
+                logger.info("   🧠 Non-asset correction stored in semantic memory")
+
+            else:
+                # File reclassified to different asset - use classification feedback
+                # Determine asset type for the new asset
+                assets = await asset_agent.list_assets()
+                target_asset = next(
+                    (a for a in assets if a.deal_id == new_asset_id), None
+                )
+                asset_type = (
+                    target_asset.asset_type.value
+                    if target_asset and hasattr(target_asset, "asset_type")
+                    else "unknown"
+                )
+
+                await semantic_memory.add_classification_feedback(
+                    filename=filename,
+                    email_subject="",  # No email context for reclassification
+                    email_body="",
+                    correct_category=new_document_category or "uncategorized",
+                    asset_type=asset_type,
+                    confidence=0.95,  # High confidence for human corrections
+                    source="reclassification_ui",
+                    original_prediction=current_category,
+                    corrected_by="web_user_reclassification",
+                    review_context=correction_reason,
+                    system_confidence=0.0,  # No system confidence for manual reclassification
+                    asset_id=new_asset_id,
+                    original_asset_id=current_asset_id,
+                    file_extension=Path(filename).suffix.lower(),
+                    correction_type="manual_reclassification",
+                    learning_priority="high",  # User-initiated corrections are high priority
+                )
+                logger.info("   🧠 Classification correction stored in semantic memory")
 
         except Exception as e:
-            logger.warning(f"Failed to store correction in episodic memory: {e}")
+            logger.warning(f"Failed to store correction in semantic memory: {e}")
             # Don't fail the whole operation for memory storage issues
 
         # Step 4: Clean up empty directories (for both move and delete)

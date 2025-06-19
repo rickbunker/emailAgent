@@ -29,7 +29,7 @@ from typing import Any
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 # # Local application imports
-from src.memory.episodic import EpisodicMemory
+from src.memory.semantic import SemanticMemory
 from src.utils.config import config
 from src.utils.logging_system import get_logger
 
@@ -86,7 +86,12 @@ class HumanReviewQueue:
     def __init__(self, queue_file: str = None):
         self.queue_file = Path(queue_file or config.human_review_queue_file)
         self.queue_file.parent.mkdir(parents=True, exist_ok=True)
-        self.episodic_memory = EpisodicMemory(max_items=5000)
+        # Use semantic memory for human feedback (experiential knowledge)
+        self.semantic_memory = SemanticMemory(
+            max_items=config.semantic_memory_max_items,
+            qdrant_url=config.qdrant_url,
+            embedding_model=config.embedding_model,
+        )
         self._load_queue()
 
     def _load_queue(self) -> None:
@@ -299,80 +304,110 @@ class HumanReviewQueue:
         return True
 
     async def _store_learning_experience(self, review_item: dict[str, Any]) -> None:
-        """Store the learning experience in episodic memory"""
+        """Store the learning experience in semantic memory (experiential knowledge)"""
 
         # Determine if this is asset-related
         is_asset_related = review_item.get("is_asset_related", True)
 
-        # Create comprehensive learning content
-        learning_content = f"""
-Human Review Correction - {'Asset Matching' if is_asset_related else 'Non-Asset Classification'} Learning
-
-ORIGINAL EMAIL:
-Subject: {review_item['email_subject']}
-Sender: {review_item['sender_email']} ({review_item['sender_name'] or 'No name'})
-Date: {review_item['email_date']}
-
-ATTACHMENT:
-Filename: {review_item['attachment_filename']}
-
-SYSTEM ANALYSIS:
-Confidence: {review_item['system_confidence']:.2f}
-Document Category: {review_item['document_category'] or 'Unknown'}
-Confidence Level: {review_item['confidence_level']}
-System Reasoning: {review_item['system_reasoning']}
-
-SYSTEM SUGGESTIONS:
-{self._format_system_suggestions(review_item['system_asset_suggestions'])}
-
-HUMAN CORRECTION:
-{'Asset-Related: NO' if not is_asset_related else f'Correct Asset: {review_item["human_asset_id"]}'}
-Correct Category: {review_item['human_document_category']}
-Human Reasoning: {review_item['human_reasoning']}
-Additional Feedback: {review_item['human_feedback']}
-
-LEARNING INSIGHTS:
-{self._generate_learning_insights(review_item)}
-"""
-
-        # Metadata for the learning experience
-        metadata = {
-            "review_id": review_item["review_id"],
-            "email_id": review_item["email_id"],
-            "sender_email": review_item["sender_email"],
-            "attachment_filename": review_item["attachment_filename"],
-            "system_confidence": review_item["system_confidence"],
-            "system_category": review_item["document_category"],
-            "human_asset_id": review_item["human_asset_id"],
-            "human_category": review_item["human_document_category"],
-            "is_asset_related": is_asset_related,
-            "correction_type": self._determine_correction_type(review_item),
-            "confidence_gap": review_item["system_confidence"],
-            "learning_priority": self._calculate_learning_priority(review_item),
-            "sender_domain": (
-                review_item["sender_email"].split("@")[1]
-                if "@" in review_item["sender_email"]
-                else ""
-            ),
-            "file_extension": Path(review_item["attachment_filename"]).suffix.lower(),
-            "review_date": review_item["reviewed_at"],
-            "reviewed_by": review_item["reviewed_by"],
-        }
-
-        # Store in episodic memory
         try:
-            await self.episodic_memory.add_feedback(
-                content=learning_content,
-                feedback_type="correction",
-                source="human_review",
-                user_id=review_item["reviewed_by"],
-                context=metadata,
-            )
-            logger.info(
-                f"Stored learning experience for review: {review_item['review_id']}"
-            )
+            if is_asset_related:
+                # Store classification feedback in semantic memory
+                await self.semantic_memory.add_classification_feedback(
+                    filename=review_item["attachment_filename"],
+                    email_subject=review_item["email_subject"],
+                    email_body=review_item.get("email_body", ""),
+                    correct_category=review_item["human_document_category"],
+                    asset_type=self._determine_asset_type(review_item),
+                    confidence=0.95,  # High confidence for human corrections
+                    source="human_review",
+                    original_prediction=review_item.get("document_category"),
+                    corrected_by=review_item["reviewed_by"],
+                    review_context=review_item["human_reasoning"],
+                    system_confidence=review_item["system_confidence"],
+                    asset_id=review_item["human_asset_id"],
+                    sender_email=review_item["sender_email"],
+                    sender_domain=self._extract_domain(review_item["sender_email"]),
+                    file_extension=Path(
+                        review_item["attachment_filename"]
+                    ).suffix.lower(),
+                    correction_type=self._determine_correction_type(review_item),
+                    learning_priority=self._calculate_learning_priority(review_item),
+                )
+
+                logger.info(
+                    f"Stored classification feedback for review: {review_item['review_id']} -> {review_item['human_document_category']}"
+                )
+            else:
+                # Store general human correction for non-asset-related document
+                await self.semantic_memory.store_human_correction(
+                    original_prediction=review_item.get(
+                        "document_category", "asset_related"
+                    ),
+                    human_correction="non_asset_related",
+                    metadata={
+                        "filename": review_item["attachment_filename"],
+                        "email_subject": review_item["email_subject"],
+                        "sender_email": review_item["sender_email"],
+                        "sender_domain": self._extract_domain(
+                            review_item["sender_email"]
+                        ),
+                        "file_extension": Path(
+                            review_item["attachment_filename"]
+                        ).suffix.lower(),
+                        "corrected_by": review_item["reviewed_by"],
+                        "correction_reason": review_item["human_reasoning"],
+                        "human_feedback": review_item["human_feedback"],
+                        "review_id": review_item["review_id"],
+                        "email_id": review_item["email_id"],
+                        "system_confidence": review_item["system_confidence"],
+                        "correction_type": "marked_as_non_asset_related",
+                        "learning_priority": self._calculate_learning_priority(
+                            review_item
+                        ),
+                    },
+                )
+
+                logger.info(
+                    f"Stored non-asset correction for review: {review_item['review_id']} -> non_asset_related"
+                )
+
         except Exception as e:
-            logger.error(f"Failed to store learning experience: {e}")
+            logger.error(f"Failed to store learning experience in semantic memory: {e}")
+            # Log the error but don't fail the review submission
+            logger.debug(f"Review item data: {review_item}")
+
+    def _determine_asset_type(self, review_item: dict[str, Any]) -> str:
+        """Determine asset type from review item context"""
+        # Try to extract asset type from system suggestions or default to generic
+        system_suggestions = review_item.get("system_asset_suggestions", [])
+
+        # Check if we have asset type information in suggestions
+        for suggestion in system_suggestions:
+            if "asset_type" in suggestion:
+                return suggestion["asset_type"]
+
+        # Fallback: try to infer from filename or category
+        filename = review_item.get("attachment_filename", "").lower()
+        category = review_item.get("human_document_category", "").lower()
+
+        # Simple heuristics based on common patterns
+        if any(term in filename + category for term in ["loan", "credit", "debt"]):
+            return "private_credit"
+        elif any(term in filename + category for term in ["equity", "stock", "share"]):
+            return "private_equity"
+        elif any(
+            term in filename + category for term in ["real", "estate", "property"]
+        ):
+            return "real_estate"
+
+        # Default to unknown if we can't determine
+        return "unknown"
+
+    def _extract_domain(self, email: str) -> str:
+        """Extract domain from email address"""
+        if "@" in email:
+            return email.split("@")[1]
+        return ""
 
     def _format_system_suggestions(self, suggestions: list[dict[str, Any]]) -> str:
         """Format system suggestions for learning content"""

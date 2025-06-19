@@ -1,17 +1,17 @@
 {
   "errors": [],
-  "generated_at": "2025-06-18T14:01:50Z",
+  "generated_at": "2025-06-19T15:16:50Z",
   "metrics": {
     "_totals": {
-      "CONFIDENCE.HIGH": 18,
+      "CONFIDENCE.HIGH": 19,
       "CONFIDENCE.LOW": 0,
       "CONFIDENCE.MEDIUM": 2,
       "CONFIDENCE.UNDEFINED": 0,
       "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 19,
+      "SEVERITY.LOW": 20,
       "SEVERITY.MEDIUM": 1,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 18506,
+      "loc": 21461,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -37,7 +37,7 @@
       "SEVERITY.LOW": 4,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 1268,
+      "loc": 1759,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -63,7 +63,7 @@
       "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 851,
+      "loc": 858,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -89,7 +89,7 @@
       "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 946,
+      "loc": 957,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -102,7 +102,7 @@
       "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 924,
+      "loc": 935,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -193,7 +193,7 @@
       "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 547,
+      "loc": 560,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -232,7 +232,7 @@
       "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 851,
+      "loc": 1171,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -245,7 +245,7 @@
       "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 569,
+      "loc": 1901,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -297,7 +297,7 @@
       "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 1,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 221,
+      "loc": 244,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -328,15 +328,15 @@
       "skipped_tests": 0
     },
     "src/web_ui/app.py": {
-      "CONFIDENCE.HIGH": 0,
+      "CONFIDENCE.HIGH": 1,
       "CONFIDENCE.LOW": 0,
       "CONFIDENCE.MEDIUM": 0,
       "CONFIDENCE.UNDEFINED": 0,
       "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 0,
+      "SEVERITY.LOW": 1,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 3329,
+      "loc": 4048,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -349,7 +349,7 @@
       "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 401,
+      "loc": 429,
       "nosec": 0,
       "skipped_tests": 0
     }
@@ -376,7 +376,7 @@
       "test_name": "blacklist"
     },
     {
-      "code": "220         try:\n221             result = subprocess.run(\n222                 [\"which\", \"clamscan\"],\n223                 capture_output=True,\n224                 text=True,\n225                 timeout=5,  # 5 second timeout for finding clamscan\n226             )\n227             if result.returncode == 0:\n",
+      "code": "232         try:\n233             result = subprocess.run(\n234                 [\"which\", \"clamscan\"],\n235                 capture_output=True,\n236                 text=True,\n237                 timeout=5,  # 5 second timeout for finding clamscan\n238             )\n239             if result.returncode == 0:\n",
       "col_offset": 21,
       "end_col_offset": 13,
       "filename": "src/agents/asset_document_agent.py",
@@ -387,21 +387,21 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Starting a process with a partial executable path",
-      "line_number": 221,
+      "line_number": 233,
       "line_range": [
-        221,
-        222,
-        223,
-        224,
-        225,
-        226
+        233,
+        234,
+        235,
+        236,
+        237,
+        238
       ],
       "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b607_start_process_with_partial_path.html",
       "test_id": "B607",
       "test_name": "start_process_with_partial_path"
     },
     {
-      "code": "220         try:\n221             result = subprocess.run(\n222                 [\"which\", \"clamscan\"],\n223                 capture_output=True,\n224                 text=True,\n225                 timeout=5,  # 5 second timeout for finding clamscan\n226             )\n227             if result.returncode == 0:\n",
+      "code": "232         try:\n233             result = subprocess.run(\n234                 [\"which\", \"clamscan\"],\n235                 capture_output=True,\n236                 text=True,\n237                 timeout=5,  # 5 second timeout for finding clamscan\n238             )\n239             if result.returncode == 0:\n",
       "col_offset": 21,
       "end_col_offset": 13,
       "filename": "src/agents/asset_document_agent.py",
@@ -412,21 +412,21 @@
       },
       "issue_severity": "LOW",
       "issue_text": "subprocess call - check for execution of untrusted input.",
-      "line_number": 221,
+      "line_number": 233,
       "line_range": [
-        221,
-        222,
-        223,
-        224,
-        225,
-        226
+        233,
+        234,
+        235,
+        236,
+        237,
+        238
       ],
       "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b603_subprocess_without_shell_equals_true.html",
       "test_id": "B603",
       "test_name": "subprocess_without_shell_equals_true"
     },
     {
-      "code": "1344                 health[\"learned_patterns\"] = result.count\n1345             except Exception:\n1346                 pass\n1347 \n",
+      "code": "1953                 health[\"learned_patterns\"] = result.count\n1954             except Exception:\n1955                 pass\n1956 \n",
       "col_offset": 12,
       "end_col_offset": 20,
       "filename": "src/agents/asset_document_agent.py",
@@ -437,10 +437,10 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 1345,
+      "line_number": 1954,
       "line_range": [
-        1345,
-        1346
+        1954,
+        1955
       ],
       "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b110_try_except_pass.html",
       "test_id": "B110",
@@ -773,7 +773,7 @@
       "test_name": "subprocess_without_shell_equals_true"
     },
     {
-      "code": "146             ),\n147             flask_host=os.getenv(\"FLASK_HOST\", \"0.0.0.0\"),\n148             flask_port=int(os.getenv(\"FLASK_PORT\", \"5001\")),\n",
+      "code": "174             ),\n175             flask_host=os.getenv(\"FLASK_HOST\", \"0.0.0.0\"),\n176             flask_port=int(os.getenv(\"FLASK_PORT\", \"5001\")),\n",
       "col_offset": 47,
       "end_col_offset": 56,
       "filename": "src/utils/config.py",
@@ -784,9 +784,9 @@
       },
       "issue_severity": "MEDIUM",
       "issue_text": "Possible binding to all interfaces.",
-      "line_number": 147,
+      "line_number": 175,
       "line_range": [
-        147
+        175
       ],
       "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b104_hardcoded_bind_all_interfaces.html",
       "test_id": "B104",
@@ -814,6 +814,27 @@
       "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b107_hardcoded_password_default.html",
       "test_id": "B107",
       "test_name": "hardcoded_password_default"
+    },
+    {
+      "code": "5141                     break\n5142             except Exception:\n5143                 continue\n5144 \n",
+      "col_offset": 12,
+      "end_col_offset": 24,
+      "filename": "src/web_ui/app.py",
+      "issue_confidence": "HIGH",
+      "issue_cwe": {
+        "id": 703,
+        "link": "https://cwe.mitre.org/data/definitions/703.html"
+      },
+      "issue_severity": "LOW",
+      "issue_text": "Try, Except, Continue detected.",
+      "line_number": 5142,
+      "line_range": [
+        5142,
+        5143
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b112_try_except_continue.html",
+      "test_id": "B112",
+      "test_name": "try_except_continue"
     }
   ]
 }

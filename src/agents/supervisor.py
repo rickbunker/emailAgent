@@ -52,6 +52,7 @@ from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
+from ..memory.contact import ContactMemory
 from ..memory.episodic import EpisodicMemory
 
 # Memory system integration
@@ -264,10 +265,26 @@ class EmailSupervisor:
                 f"Priority threshold must be 0.0-1.0, got {priority_threshold}"
             )
 
-        # Initialize memory systems
-        self.procedural_memory = ProceduralMemory(max_items=1000)
-        self.semantic_memory = SemanticMemory(max_items=1000)
-        self.episodic_memory = EpisodicMemory(max_items=1000)
+        # Initialize memory systems with config-based limits
+        try:
+            # For ProceduralMemory, create a minimal client for workflow patterns
+            # # Third-party imports
+            from qdrant_client import QdrantClient
+
+            # EmailSupervisor uses procedural memory for workflow patterns
+            mock_client = QdrantClient(
+                ":memory:"
+            )  # In-memory client for basic functionality
+            self.procedural_memory = ProceduralMemory(mock_client)
+        except Exception:
+            # If Qdrant is not available, supervisor can work with limited functionality
+            self.procedural_memory = None
+
+        self.semantic_memory = (
+            SemanticMemory()
+        )  # Uses config.semantic_memory_max_items automatically
+        self.episodic_memory = EpisodicMemory()
+        self.contact_memory = ContactMemory()
 
         # Initialize logger
         self.logger = get_logger(f"{__name__}.{self.__class__.__name__}")

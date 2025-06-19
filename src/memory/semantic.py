@@ -141,7 +141,7 @@ class SemanticMemory(BaseMemory):
 
     def __init__(
         self,
-        max_items: int | None = 1000,
+        max_items: int | None = None,
         qdrant_url: str = "http://localhost:6333",
         embedding_model: str = "all-MiniLM-L6-v2",
     ):
@@ -149,7 +149,7 @@ class SemanticMemory(BaseMemory):
         Initialize semantic memory system.
 
         Args:
-            max_items: Maximum number of knowledge items to store (default: 1000)
+            max_items: Maximum number of knowledge items to store (uses config default if None)
             qdrant_url: Qdrant database connection URL
             embedding_model: Sentence transformer model for embeddings
         """
@@ -157,7 +157,7 @@ class SemanticMemory(BaseMemory):
             max_items=max_items, qdrant_url=qdrant_url, embedding_model=embedding_model
         )
         self.collection_name = "semantic"
-        logger.info(f"Initialized SemanticMemory with max_items={max_items}")
+        logger.info(f"Initialized SemanticMemory with max_items={self.max_items}")
 
     @log_function()
     async def add(
@@ -267,6 +267,7 @@ class SemanticMemory(BaseMemory):
         Returns:
             SHA-256 hash of the normalized content
         """
+        # # Standard library imports
         import hashlib
 
         # Normalize content for consistent hashing
@@ -1237,6 +1238,513 @@ class SemanticMemory(BaseMemory):
         )
 
     @log_function()
+    async def add_classification_feedback(
+        self,
+        filename: str,
+        email_subject: str,
+        email_body: str,
+        correct_category: str,
+        asset_type: str,
+        confidence: float = 0.95,
+        source: str = "human_correction",
+        original_prediction: str | None = None,
+        **kwargs,
+    ) -> str:
+        """
+        Add human feedback about document classification to semantic memory.
+
+        Stores experiential knowledge from human corrections to improve future
+        classification decisions. This feedback becomes part of the semantic
+        knowledge base that influences classification decisions.
+
+        Args:
+            filename: Document filename that was classified
+            email_subject: Email subject line context
+            email_body: Email body content context
+            correct_category: The correct document category per human feedback
+            asset_type: Type of asset for context filtering
+            confidence: Confidence in the human correction (default: 0.95)
+            source: Source of the feedback (default: "human_correction")
+            original_prediction: What the system originally predicted
+            **kwargs: Additional metadata
+
+        Returns:
+            Knowledge item ID for tracking the feedback
+
+        Raises:
+            ValueError: If required parameters are missing or invalid
+
+        Example:
+            >>> feedback_id = await semantic_memory.add_classification_feedback(
+            ...     filename="loan_agreement.pdf",
+            ...     email_subject="Q4 Documentation",
+            ...     email_body="Attached is the loan agreement...",
+            ...     correct_category="loan_documents",
+            ...     asset_type="private_credit",
+            ...     original_prediction="financial_statements"
+            ... )
+        """
+        # # Local application imports
+
+        # Validate required parameters
+        if not filename or not correct_category or not asset_type:
+            raise ValueError("filename, correct_category, and asset_type are required")
+
+        logger.info(
+            f"Adding classification feedback: {filename} -> {correct_category} (asset_type: {asset_type})"
+        )
+
+        # Create comprehensive content for semantic search
+        content_parts = [
+            f"Document: {filename}",
+            f"Correct Category: {correct_category}",
+            f"Asset Type: {asset_type}",
+        ]
+
+        if email_subject:
+            content_parts.append(f"Email Subject: {email_subject}")
+
+        if original_prediction and original_prediction != correct_category:
+            content_parts.append(f"System Predicted: {original_prediction} (incorrect)")
+
+        # Add key context from email body (first 200 chars)
+        if email_body:
+            email_context = email_body.strip()[:200]
+            if len(email_body) > 200:
+                email_context += "..."
+            content_parts.append(f"Email Context: {email_context}")
+
+        content = " | ".join(content_parts)
+
+        # Build metadata for classification feedback
+        metadata = {
+            "knowledge_type": KnowledgeType.PATTERN.value,
+            "knowledge_category": "classification_feedback",
+            "confidence": str(confidence),
+            "filename": filename,
+            "email_subject": email_subject,
+            "email_body_hash": await self._generate_content_hash(
+                email_body
+            ),  # Store hash for privacy
+            "correct_category": correct_category,
+            "asset_type": asset_type,
+            "source": source,
+            "original_prediction": original_prediction,
+            "feedback_date": datetime.now(UTC).isoformat(),
+            "corrected_by": kwargs.get("corrected_by", "human_reviewer"),
+            "review_context": kwargs.get("review_context", ""),
+        }
+
+        # Add any additional metadata
+        for key, value in kwargs.items():
+            if key not in metadata:
+                metadata[key] = value
+
+        # Map confidence to knowledge confidence enum
+        if confidence >= 0.95:
+            knowledge_confidence = KnowledgeConfidence.HIGH
+        elif confidence >= 0.8:
+            knowledge_confidence = KnowledgeConfidence.MEDIUM
+        elif confidence >= 0.6:
+            knowledge_confidence = KnowledgeConfidence.LOW
+        else:
+            knowledge_confidence = KnowledgeConfidence.EXPERIMENTAL
+
+        feedback_id = await self.add(
+            content=content,
+            metadata=metadata,
+            knowledge_type=KnowledgeType.PATTERN,
+            confidence=knowledge_confidence,
+        )
+
+        logger.info(f"Successfully added classification feedback: {feedback_id}")
+        return feedback_id
+
+    @log_function()
+    async def get_classification_hints(
+        self, asset_type: str, document_context: dict[str, Any]
+    ) -> list[dict[str, Any]]:
+        """
+        Get classification hints from human feedback for similar documents.
+
+        Retrieves relevant human feedback that can inform classification decisions
+        for documents with similar context, providing experiential knowledge to
+        improve classification accuracy.
+
+        Args:
+            asset_type: Type of asset for context filtering
+            document_context: Context about the document being classified
+                            (filename, email_subject, email_body, etc.)
+
+        Returns:
+            List of classification hints with confidence scores:
+            [
+                {
+                    "suggested_category": str,
+                    "confidence": float,
+                    "reason": str,
+                    "similar_case": str,
+                    "feedback_id": str
+                }
+            ]
+
+        Example:
+            >>> hints = await semantic_memory.get_classification_hints(
+            ...     asset_type="private_credit",
+            ...     document_context={
+            ...         "filename": "credit_agreement.pdf",
+            ...         "email_subject": "Loan Documentation"
+            ...     }
+            ... )
+        """
+        logger.info(
+            f"Getting classification hints for asset_type: {asset_type}, context: {document_context.keys()}"
+        )
+
+        hints = []
+
+        try:
+            # Build search query from document context
+            search_terms = []
+
+            filename = document_context.get("filename", "")
+            if filename:
+                # Extract meaningful terms from filename
+                filename_terms = filename.lower().replace("_", " ").replace("-", " ")
+                search_terms.append(filename_terms)
+
+            email_subject = document_context.get("email_subject", "")
+            if email_subject:
+                search_terms.append(email_subject.lower())
+
+            email_body = document_context.get("email_body", "")
+            if email_body:
+                # Use first 100 characters of email body
+                search_terms.append(email_body[:100].lower())
+
+            # Create comprehensive search query
+            search_query = " ".join(search_terms) if search_terms else "classification"
+
+            # Search for similar classification feedback
+            feedback_filter = {
+                "must": [
+                    {
+                        "key": "metadata.knowledge_category",
+                        "match": {"value": "classification_feedback"},
+                    },
+                    {"key": "metadata.asset_type", "match": {"value": asset_type}},
+                ]
+            }
+
+            feedback_results = await self.search(
+                query=search_query,
+                limit=10,
+                filter=feedback_filter,
+                knowledge_type=KnowledgeType.PATTERN,
+                min_confidence=KnowledgeConfidence.LOW,
+            )
+
+            # Process feedback results into hints
+            category_scores = {}
+
+            for feedback_item in feedback_results:
+                try:
+                    metadata = feedback_item.metadata
+                    category = metadata.get("correct_category")
+                    confidence = float(metadata.get("confidence", 0.5))
+                    filename_match = metadata.get("filename", "")
+                    original_pred = metadata.get("original_prediction", "")
+
+                    if not category:
+                        continue
+
+                    # Calculate similarity boost based on filename matching
+                    similarity_boost = 0.0
+                    if filename and filename_match:
+                        # Simple similarity check - can be enhanced
+                        filename_words = set(filename.lower().split())
+                        match_words = set(filename_match.lower().split())
+                        if filename_words & match_words:  # Any common words
+                            similarity_boost = 0.1
+
+                    adjusted_confidence = min(confidence + similarity_boost, 1.0)
+
+                    # Aggregate scores by category
+                    if category in category_scores:
+                        category_scores[category]["confidence"] = max(
+                            category_scores[category]["confidence"], adjusted_confidence
+                        )
+                        category_scores[category]["count"] += 1
+                        category_scores[category]["examples"].append(filename_match)
+                    else:
+                        category_scores[category] = {
+                            "confidence": adjusted_confidence,
+                            "count": 1,
+                            "examples": [filename_match],
+                            "original_prediction": original_pred,
+                            "feedback_id": feedback_item.id,
+                        }
+
+                except Exception as e:
+                    logger.debug(f"Error processing feedback item: {e}")
+                    continue
+
+            # Convert to hints format and sort by confidence
+            for category, score_data in category_scores.items():
+                # Boost confidence based on multiple examples
+                count_boost = min(score_data["count"] * 0.05, 0.2)
+                final_confidence = min(score_data["confidence"] + count_boost, 1.0)
+
+                reason_parts = [f"Based on {score_data['count']} similar case(s)"]
+                if score_data["examples"]:
+                    example = score_data["examples"][0]
+                    reason_parts.append(f"similar to '{example}'")
+
+                if score_data["original_prediction"]:
+                    reason_parts.append(
+                        f"often confused with '{score_data['original_prediction']}'"
+                    )
+
+                hints.append(
+                    {
+                        "suggested_category": category,
+                        "confidence": final_confidence,
+                        "reason": "; ".join(reason_parts),
+                        "similar_case": (
+                            score_data["examples"][0] if score_data["examples"] else ""
+                        ),
+                        "feedback_id": score_data["feedback_id"],
+                        "example_count": score_data["count"],
+                    }
+                )
+
+            # Sort by confidence (highest first)
+            hints.sort(key=lambda x: x["confidence"], reverse=True)
+
+            logger.info(
+                f"Generated {len(hints)} classification hints for asset_type: {asset_type}"
+            )
+
+            return hints[:5]  # Return top 5 hints
+
+        except Exception as e:
+            logger.error(f"Failed to get classification hints: {e}")
+            return []
+
+    @log_function()
+    async def store_human_correction(
+        self,
+        original_prediction: str,
+        human_correction: str,
+        metadata: dict[str, Any],
+    ) -> str:
+        """
+        Store a human correction with complete context metadata.
+
+        Stores human corrections as experiential knowledge that can influence
+        future decisions. This is a general-purpose method for any type of
+        human correction beyond just document classification.
+
+        Args:
+            original_prediction: What the system originally predicted
+            human_correction: What the human corrected it to
+            metadata: Complete context metadata about the correction
+
+        Returns:
+            Knowledge item ID for tracking the correction
+
+        Raises:
+            ValueError: If required parameters are missing
+
+        Example:
+            >>> correction_id = await semantic_memory.store_human_correction(
+            ...     original_prediction="financial_statements",
+            ...     human_correction="loan_documents",
+            ...     metadata={
+            ...         "filename": "agreement.pdf",
+            ...         "asset_type": "private_credit",
+            ...         "corrected_by": "analyst_jane",
+            ...         "correction_reason": "Document contains loan terms, not financials"
+            ...     }
+            ... )
+        """
+        if not original_prediction or not human_correction:
+            raise ValueError("original_prediction and human_correction are required")
+
+        if not metadata:
+            metadata = {}
+
+        logger.info(
+            f"Storing human correction: {original_prediction} -> {human_correction}"
+        )
+
+        # Create content describing the correction
+        content = f"Human Correction: {original_prediction} → {human_correction}"
+
+        # Add context if available
+        if metadata.get("filename"):
+            content += f" | Document: {metadata['filename']}"
+
+        if metadata.get("asset_type"):
+            content += f" | Asset Type: {metadata['asset_type']}"
+
+        if metadata.get("correction_reason"):
+            content += f" | Reason: {metadata['correction_reason']}"
+
+        # Enhance metadata for correction tracking
+        correction_metadata = {
+            "knowledge_type": KnowledgeType.INSIGHT.value,
+            "knowledge_category": "human_correction",
+            "original_prediction": original_prediction,
+            "human_correction": human_correction,
+            "correction_date": datetime.now(UTC).isoformat(),
+            "confidence": "high",  # Human corrections are high confidence
+            "source": "human_correction",
+        }
+
+        # Merge with provided metadata
+        correction_metadata.update(metadata)
+
+        correction_id = await self.add(
+            content=content,
+            metadata=correction_metadata,
+            knowledge_type=KnowledgeType.INSIGHT,
+            confidence=KnowledgeConfidence.HIGH,
+        )
+
+        logger.info(f"Successfully stored human correction: {correction_id}")
+        return correction_id
+
+    @log_function()
+    async def get_asset_feedback(
+        self, asset_id: str, context: dict[str, Any] | None = None
+    ) -> list[dict[str, Any]]:
+        """
+        Get human feedback related to a specific asset.
+
+        Retrieves all human feedback, corrections, and experiential knowledge
+        related to a specific asset to inform decision-making.
+
+        Args:
+            asset_id: Unique identifier of the asset
+            context: Optional context to filter feedback (e.g., document_type)
+
+        Returns:
+            List of feedback items with metadata:
+            [
+                {
+                    "feedback_type": str,
+                    "content": str,
+                    "confidence": float,
+                    "date": str,
+                    "source": str,
+                    "metadata": dict
+                }
+            ]
+
+        Example:
+            >>> feedback = await semantic_memory.get_asset_feedback(
+            ...     asset_id="12345-abcd",
+            ...     context={"document_type": "loan_documents"}
+            ... )
+        """
+        if not asset_id:
+            raise ValueError("asset_id is required")
+
+        logger.info(f"Getting asset feedback for: {asset_id}")
+
+        feedback_items = []
+
+        try:
+            # Search for feedback related to this asset
+            asset_filter = {
+                "must": [
+                    {"key": "metadata.asset_id", "match": {"value": asset_id}},
+                    {
+                        "key": "metadata.knowledge_category",
+                        "match": {
+                            "any": [
+                                "classification_feedback",
+                                "human_correction",
+                                "asset_feedback",
+                            ]
+                        },
+                    },
+                ]
+            }
+
+            # Add context filters if provided
+            if context:
+                for key, value in context.items():
+                    asset_filter["must"].append(
+                        {"key": f"metadata.{key}", "match": {"value": value}}
+                    )
+
+            feedback_results = await self.search(
+                query=f"asset {asset_id}",
+                limit=50,
+                filter=asset_filter,
+                min_confidence=KnowledgeConfidence.LOW,
+            )
+
+            # Process results into feedback format
+            for item in feedback_results:
+                try:
+                    metadata = item.metadata
+                    feedback_type = metadata.get("knowledge_category", "unknown")
+
+                    feedback_item = {
+                        "feedback_id": item.id,
+                        "feedback_type": feedback_type,
+                        "content": item.content,
+                        "confidence": metadata.get("confidence", "medium"),
+                        "date": metadata.get(
+                            "feedback_date",
+                            metadata.get("correction_date", metadata.get("created_at")),
+                        ),
+                        "source": metadata.get("source", "unknown"),
+                        "metadata": metadata,
+                    }
+
+                    # Add type-specific information
+                    if feedback_type == "classification_feedback":
+                        feedback_item.update(
+                            {
+                                "document_category": metadata.get("correct_category"),
+                                "filename": metadata.get("filename"),
+                                "original_prediction": metadata.get(
+                                    "original_prediction"
+                                ),
+                            }
+                        )
+                    elif feedback_type == "human_correction":
+                        feedback_item.update(
+                            {
+                                "correction": f"{metadata.get('original_prediction')} → {metadata.get('human_correction')}",
+                                "reason": metadata.get("correction_reason"),
+                            }
+                        )
+
+                    feedback_items.append(feedback_item)
+
+                except Exception as e:
+                    logger.debug(f"Error processing feedback item: {e}")
+                    continue
+
+            # Sort by date (most recent first)
+            feedback_items.sort(key=lambda x: x.get("date", ""), reverse=True)
+
+            logger.info(
+                f"Retrieved {len(feedback_items)} feedback items for asset: {asset_id}"
+            )
+
+            return feedback_items
+
+        except Exception as e:
+            logger.error(f"Failed to get asset feedback: {e}")
+            return []
+
+    @log_function()
     async def load_knowledge_base(
         self, knowledge_base_path: str = "knowledge"
     ) -> dict[str, int]:
@@ -1261,6 +1769,7 @@ class SemanticMemory(BaseMemory):
             >>> results = await semantic_memory.load_knowledge_base("knowledge")
             >>> print(f"Loaded {results['file_types_loaded']} file type validations")
         """
+        # # Standard library imports
         import json
         from pathlib import Path
 
@@ -1304,7 +1813,7 @@ class SemanticMemory(BaseMemory):
         file_validation_path = knowledge_path / "file_type_validation.json"
         if file_validation_path.exists():
             try:
-                with open(file_validation_path, "r", encoding="utf-8") as f:
+                with open(file_validation_path, encoding="utf-8") as f:
                     file_validation_data = json.load(f)
 
                 validation_config = file_validation_data.get("file_type_validation", {})

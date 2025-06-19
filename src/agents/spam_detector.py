@@ -246,11 +246,28 @@ class SpamDetector:
         Args:
             spamassassin_threshold: SpamAssassin score threshold for spam
         """
-        # Initialize memory systems
-        self.procedural_memory = ProceduralMemory(max_items=1000)
-        self.semantic_memory = SemanticMemory(max_items=1000)
-        self.episodic_memory = EpisodicMemory(max_items=1000)
-        self.contact_memory = ContactMemory(max_items=5000)
+        # Initialize memory systems with config-based limits
+        try:
+            # For ProceduralMemory, create a minimal client for spam detection patterns
+            # # Third-party imports
+            from qdrant_client import QdrantClient
+
+            # SpamDetector uses procedural memory for spam detection patterns
+            mock_client = QdrantClient(
+                ":memory:"
+            )  # In-memory client for basic functionality
+            self.procedural_memory = ProceduralMemory(mock_client)
+        except Exception:
+            # If Qdrant is not available, spam detector can work with other memory types
+            self.procedural_memory = None
+
+        self.semantic_memory = (
+            SemanticMemory()
+        )  # Uses config.semantic_memory_max_items automatically
+        self.episodic_memory = EpisodicMemory()
+        self.contact_memory = (
+            ContactMemory()
+        )  # Uses config.contact_memory_max_items automatically
 
         # Initialize logger
         self.logger = get_logger(f"{__name__}.{self.__class__.__name__}")

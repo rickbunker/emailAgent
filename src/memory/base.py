@@ -63,6 +63,7 @@ from sentence_transformers import SentenceTransformer
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 # # Local application imports
+from utils.config import config
 from utils.logging_system import get_logger, log_function
 
 # Initialize logger
@@ -145,7 +146,7 @@ class BaseMemory:
 
     def __init__(
         self,
-        max_items: int = 1000,
+        max_items: int | None = None,
         qdrant_url: str | None = None,
         embedding_model: str | None = None,
         vector_size: int = 384,
@@ -154,7 +155,7 @@ class BaseMemory:
         Initialize the memory system.
 
         Args:
-            max_items: Maximum number of items to store before cleanup
+            max_items: Maximum number of items to store before cleanup (uses config defaults if None)
             qdrant_url: URL for Qdrant server (defaults to QDRANT_URL env var)
             embedding_model: Name of the sentence transformer model to use
             vector_size: Dimension of embedding vectors (must match model)
@@ -163,6 +164,21 @@ class BaseMemory:
             ValueError: If parameters are invalid
             ConnectionError: If cannot connect to Qdrant
         """
+        # Use config-based defaults for memory limits
+        if max_items is None:
+            # Derive default from memory type based on class name
+            class_name = self.__class__.__name__.lower()
+            if "semantic" in class_name:
+                max_items = config.semantic_memory_max_items
+            elif "procedural" in class_name:
+                max_items = config.procedural_memory_max_items
+            elif "episodic" in class_name:
+                max_items = config.episodic_memory_max_items
+            elif "contact" in class_name:
+                max_items = config.contact_memory_max_items
+            else:
+                max_items = 10000  # Fallback for unknown memory types
+
         if max_items <= 0:
             raise ValueError("max_items must be positive")
         if vector_size <= 0:

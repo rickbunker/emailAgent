@@ -1,16 +1,16 @@
 """
 Procedural Memory System for Asset Document Agent
 
-Replaces hardcoded patterns, rules, and configurations with learned knowledge
-stored in vector memory. The agent learns from successful classifications,
-human feedback, and processing outcomes.
+Stores stable business rules and procedures (like compiled program code).
+Contains proven, tested patterns and algorithms that form the foundation
+of asset identification and document classification logic.
 
 Key Features:
-    - Dynamic pattern learning from examples
-    - Adaptive confidence thresholds
-    - Semantic similarity-based classification
-    - Human feedback integration
-    - Configuration optimization
+    - Stable business rule storage and evaluation
+    - Asset type-aware pattern matching
+    - Procedural classification algorithms
+    - Configuration rule management
+    - Business rule validation
 
 Author: Rick Bunker
 License: For Inveniam use only
@@ -30,18 +30,17 @@ from qdrant_client import QdrantClient
 from qdrant_client.http.models import Distance, PointStruct, VectorParams
 
 from ..utils.logging_system import get_logger, log_function
-from .episodic import EpisodicMemory
 
 
 class PatternType(Enum):
-    """Types of learned patterns"""
+    """Types of stable business rule patterns"""
 
-    CLASSIFICATION = "classification"  # Document classification patterns
-    ASSET_MATCHING = "asset_matching"  # Asset identification patterns
-    CONFIGURATION = "configuration"  # Learned configuration rules
-    CONFIDENCE = "confidence"  # Confidence scoring patterns
-    ROUTING = "routing"  # Document routing patterns
-    VALIDATION = "validation"  # File validation patterns
+    CLASSIFICATION = "classification"  # Document classification business rules
+    ASSET_MATCHING = "asset_matching"  # Asset identification business rules
+    CONFIGURATION = "configuration"  # Configuration business rules
+    CONFIDENCE = "confidence"  # Confidence scoring business rules
+    ROUTING = "routing"  # Document routing business rules
+    VALIDATION = "validation"  # File validation business rules
 
 
 class RuleType(Enum):
@@ -74,33 +73,32 @@ class RuleConfidence(Enum):
 
 
 @dataclass
-class LearnedPattern:
-    """A pattern learned from successful processing"""
+class BusinessRule:
+    """A stable business rule or procedural pattern"""
 
-    pattern_id: str
-    pattern_type: PatternType
-    pattern_data: dict[str, Any]
-    success_count: int
-    failure_count: int
+    rule_id: str
+    rule_type: PatternType
+    rule_data: dict[str, Any]
+    usage_count: int
     confidence: float
     last_used: datetime
     created_date: datetime
-    source: str  # "human_feedback", "auto_learning", "initial_seed"
+    source: str  # "knowledge_base", "initial_seed", "validated_rule"
 
 
 class ProceduralMemory:
     """
-    Procedural memory system that learns and stores processing patterns.
+    Procedural memory system for stable business rules and procedures.
 
-    Replaces hardcoded rules with learned knowledge from successful
-    document processing and human feedback.
+    Stores proven, compiled business logic for asset identification and
+    document classification. Does not learn or adapt - contains stable
+    rules like program code that form the foundation of decision-making.
     """
 
     def __init__(self, qdrant_client: QdrantClient):
         """Initialize procedural memory system."""
         self.logger = get_logger(f"{__name__}.ProceduralMemory")
         self.qdrant = qdrant_client
-        self.episodic = EpisodicMemory()
 
         # Collections for different types of procedural knowledge
         self.collections = {
@@ -151,60 +149,6 @@ class ProceduralMemory:
             collection_name=collection_name,
             vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE),
         )
-
-    @log_function()
-    async def learn_classification_pattern(
-        self,
-        filename: str,
-        email_subject: str,
-        email_body: str,
-        document_category: str,
-        asset_type: str,
-        confidence: float,
-        source: str = "auto_learning",
-    ) -> str:
-        """
-        Learn a new classification pattern from successful classification.
-
-        Args:
-            filename: Document filename
-            email_subject: Email subject line
-            email_body: Email body content
-            document_category: Classified category
-            asset_type: Asset type context
-            confidence: Classification confidence
-            source: Learning source (auto_learning, human_feedback)
-
-        Returns:
-            Pattern ID
-        """
-        self.logger.info(
-            f"🧠 Learning classification pattern: {document_category} ({confidence:.3f})"
-        )
-
-        # Extract meaningful phrases from text
-        combined_text = f"{filename} {email_subject} {email_body}".lower()
-        patterns = await self._extract_patterns(combined_text, document_category)
-
-        # Create learned pattern
-        pattern_data = {
-            "document_category": document_category,
-            "asset_type": asset_type,
-            "text_patterns": patterns,
-            "filename_indicators": self._extract_filename_indicators(filename),
-            "subject_indicators": self._extract_subject_indicators(email_subject),
-            "confidence_range": (confidence - 0.1, confidence + 0.1),
-        }
-
-        pattern_id = await self._store_pattern(
-            PatternType.CLASSIFICATION, pattern_data, combined_text, confidence, source
-        )
-
-        # Store in procedural memory only - this is a learned rule/pattern
-        # Episodic memory is for individual experiences, not learned rules
-        self.logger.info(f"📚 Learned classification pattern: {pattern_id}")
-
-        return pattern_id
 
     @log_function()
     async def classify_document_with_details(
@@ -511,6 +455,254 @@ class ProceduralMemory:
                 patterns.append(term)
 
         return list(set(patterns))  # Remove duplicates
+
+    @log_function()
+    async def get_classification_rules(
+        self, asset_type: str | None = None
+    ) -> dict[str, Any]:
+        """
+        Get stable business rules for document classification.
+
+        Args:
+            asset_type: Optional filter for asset type specific rules
+
+        Returns:
+            Dictionary containing classification rules and patterns
+
+        Raises:
+            RuntimeError: If unable to retrieve rules from memory
+        """
+        try:
+            # Get all stored classification patterns from procedural memory
+            scroll_result = self.qdrant.scroll(
+                collection_name=self.collections["classification_patterns"],
+                limit=10000,  # Get all patterns
+                with_payload=True,
+                with_vectors=False,
+            )
+
+            if not scroll_result or not scroll_result[0]:
+                self.logger.warning("No classification rules in procedural memory")
+                return {"rules": [], "total_count": 0, "asset_type_filter": asset_type}
+
+            patterns = scroll_result[0]
+
+            # Filter by asset type if specified
+            filtered_rules = []
+            for point in patterns:
+                try:
+                    payload = point.payload
+                    pattern_data = payload.get("pattern_data", {})
+
+                    # Skip if asset type filter doesn't match
+                    if asset_type:
+                        pattern_asset_type = pattern_data.get("asset_type", "")
+                        if pattern_asset_type and pattern_asset_type != asset_type:
+                            continue
+
+                    rule = {
+                        "rule_id": payload.get("pattern_id", "unknown"),
+                        "category": pattern_data.get("document_category", "unknown"),
+                        "asset_type": pattern_data.get("asset_type", "any"),
+                        "confidence_range": pattern_data.get(
+                            "confidence_range", (0.0, 1.0)
+                        ),
+                        "regex_patterns": pattern_data.get("regex_patterns", []),
+                        "keywords": pattern_data.get("keywords", []),
+                        "filename_indicators": pattern_data.get(
+                            "filename_indicators", []
+                        ),
+                        "subject_indicators": pattern_data.get(
+                            "subject_indicators", []
+                        ),
+                        "source": payload.get("source", "unknown"),
+                        "created_date": payload.get("created_date", "unknown"),
+                    }
+                    filtered_rules.append(rule)
+
+                except Exception as e:
+                    self.logger.debug(f"Error processing rule: {e}")
+                    continue
+
+            self.logger.info(
+                f"Retrieved {len(filtered_rules)} classification rules (asset_type: {asset_type})"
+            )
+
+            return {
+                "rules": filtered_rules,
+                "total_count": len(filtered_rules),
+                "asset_type_filter": asset_type,
+                "categories_available": list(
+                    set(rule["category"] for rule in filtered_rules)
+                ),
+            }
+
+        except Exception as e:
+            self.logger.error(f"Failed to get classification rules: {e}")
+            raise RuntimeError(f"Unable to retrieve classification rules: {e}")
+
+    @log_function()
+    async def get_asset_matching_rules(self) -> dict[str, Any]:
+        """
+        Get stable business rules for asset identification.
+
+        Returns:
+            Dictionary containing asset matching rules and procedures
+
+        Raises:
+            RuntimeError: If unable to retrieve rules from memory
+        """
+        try:
+            # Get asset patterns from procedural memory
+            scroll_result = self.qdrant.scroll(
+                collection_name=self.collections["asset_patterns"],
+                limit=10000,  # Get all patterns
+                with_payload=True,
+                with_vectors=False,
+            )
+
+            asset_rules = []
+            if scroll_result and scroll_result[0]:
+                for point in scroll_result[0]:
+                    try:
+                        payload = point.payload
+                        pattern_data = payload.get("pattern_data", {})
+
+                        rule = {
+                            "rule_id": payload.get("pattern_id", "unknown"),
+                            "asset_type": pattern_data.get("asset_type", "unknown"),
+                            "matching_keywords": pattern_data.get("keywords", []),
+                            "regex_patterns": pattern_data.get("regex_patterns", []),
+                            "confidence_threshold": pattern_data.get(
+                                "confidence_threshold", 0.5
+                            ),
+                            "priority": pattern_data.get("priority", "medium"),
+                            "source": payload.get("source", "unknown"),
+                            "created_date": payload.get("created_date", "unknown"),
+                        }
+                        asset_rules.append(rule)
+
+                    except Exception as e:
+                        self.logger.debug(f"Error processing asset rule: {e}")
+                        continue
+
+            self.logger.info(f"Retrieved {len(asset_rules)} asset matching rules")
+
+            return {
+                "rules": asset_rules,
+                "total_count": len(asset_rules),
+                "asset_types_available": list(
+                    set(rule["asset_type"] for rule in asset_rules)
+                ),
+            }
+
+        except Exception as e:
+            self.logger.error(f"Failed to get asset matching rules: {e}")
+            raise RuntimeError(f"Unable to retrieve asset matching rules: {e}")
+
+    @log_function()
+    async def evaluate_business_rules(
+        self, context: dict[str, Any], constraints: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        """
+        Evaluate business rules against provided context.
+
+        Args:
+            context: Context data containing filename, subject, body, asset_type, etc.
+            constraints: Optional constraints to filter applicable rules
+
+        Returns:
+            Dictionary containing evaluation results and applicable rules
+
+        Raises:
+            ValueError: If context is missing required fields
+            RuntimeError: If rule evaluation fails
+        """
+        # Validate required context fields
+        required_fields = ["filename", "email_subject", "email_body"]
+        missing_fields = [field for field in required_fields if field not in context]
+        if missing_fields:
+            raise ValueError(f"Context missing required fields: {missing_fields}")
+
+        try:
+            filename = context["filename"]
+            email_subject = context["email_subject"]
+            email_body = context["email_body"]
+            asset_type = context.get("asset_type")
+
+            # Get applicable classification rules
+            classification_rules = await self.get_classification_rules(asset_type)
+            combined_text = f"{filename} {email_subject} {email_body}".lower()
+
+            # Evaluate each rule
+            rule_evaluations = []
+            for rule in classification_rules["rules"]:
+                try:
+                    # Convert rule to pattern_data format for evaluation
+                    pattern_data = {
+                        "document_category": rule["category"],
+                        "asset_type": rule["asset_type"],
+                        "regex_patterns": rule["regex_patterns"],
+                        "keywords": rule["keywords"],
+                        "filename_indicators": rule["filename_indicators"],
+                        "subject_indicators": rule["subject_indicators"],
+                    }
+
+                    # Evaluate rule against context
+                    match_score = await self._evaluate_memory_pattern(
+                        pattern_data, combined_text, filename, email_subject, email_body
+                    )
+
+                    # Apply constraints if provided
+                    if constraints:
+                        min_confidence = constraints.get("min_confidence", 0.0)
+                        if match_score < min_confidence:
+                            continue
+
+                        required_category = constraints.get("required_category")
+                        if required_category and rule["category"] != required_category:
+                            continue
+
+                    if match_score > 0.1:  # Only include meaningful matches
+                        rule_evaluations.append(
+                            {
+                                "rule_id": rule["rule_id"],
+                                "category": rule["category"],
+                                "asset_type": rule["asset_type"],
+                                "match_score": match_score,
+                                "rule_source": rule["source"],
+                                "confidence_range": rule["confidence_range"],
+                            }
+                        )
+
+                except Exception as e:
+                    self.logger.debug(
+                        f"Error evaluating rule {rule.get('rule_id', 'unknown')}: {e}"
+                    )
+                    continue
+
+            # Sort by match score descending
+            rule_evaluations.sort(key=lambda x: x["match_score"], reverse=True)
+
+            result = {
+                "evaluated_rules": rule_evaluations,
+                "total_rules_evaluated": len(classification_rules["rules"]),
+                "matching_rules_count": len(rule_evaluations),
+                "best_match": rule_evaluations[0] if rule_evaluations else None,
+                "context_provided": context,
+                "constraints_applied": constraints or {},
+            }
+
+            self.logger.info(
+                f"Evaluated {len(classification_rules['rules'])} rules, "
+                f"{len(rule_evaluations)} matches found"
+            )
+
+            return result
+
+        except Exception as e:
+            self.logger.error(f"Business rule evaluation failed: {e}")
+            raise RuntimeError(f"Unable to evaluate business rules: {e}")
 
     def _extract_filename_indicators(self, filename: str) -> list[str]:
         """Extract classification indicators from filename."""
@@ -848,61 +1040,22 @@ class ProceduralMemory:
             ]
 
             for pattern in initial_patterns:
-                await self.learn_classification_pattern(
-                    pattern["filename"],
-                    pattern["subject"],
-                    pattern["body"],
-                    pattern["category"],
-                    pattern["asset_type"],
-                    0.9,
-                    "initial_seed",
-                )
-
-    @log_function()
-    async def learn_from_human_feedback(
-        self,
-        filename: str,
-        email_subject: str,
-        email_body: str,
-        system_prediction: str,
-        human_correction: str,
-        asset_type: str,
-    ) -> str:
-        """
-        Learn from human feedback to improve classification patterns.
-
-        This is the key method for improving the agent's procedural knowledge.
-        """
-        self.logger.info(
-            f"👨‍🏫 Learning from human feedback: {system_prediction} -> {human_correction}"
-        )
-
-        # Store the corrected pattern with high confidence
-        pattern_id = await self.learn_classification_pattern(
-            filename,
-            email_subject,
-            email_body,
-            human_correction,
-            asset_type,
-            0.95,  # High confidence for human corrections
-            "human_feedback",
-        )
-
-        # Store feedback in episodic memory (this IS an individual experience)
-        await self.episodic.add_feedback(
-            f"Classification correction: {filename}",
-            {
-                "system_prediction": system_prediction,
-                "human_correction": human_correction,
-                "feedback_type": "correction",
-                "pattern_id": pattern_id,
-                "filename": filename,
-                "email_subject": email_subject,
-                "asset_type": asset_type,
-            },
-        )
-
-        return pattern_id
+                # Store pattern directly as stable business rule
+                pattern_data = {
+                    "pattern_type": PatternType.CLASSIFICATION,
+                    "asset_type": pattern["asset_type"],
+                    "document_category": pattern["category"],
+                    "filename_indicators": [pattern["filename"].lower()],
+                    "subject_indicators": pattern["subject"].lower().split(),
+                    "keywords": pattern["body"].lower().split(),
+                    "confidence_range": (0.8, 0.95),
+                    "source": "initial_seed",
+                    "metadata": {
+                        "pattern_category": "bootstrap_seed",
+                        "seeded_from": "initial_patterns",
+                    },
+                }
+                await self._store_procedural_pattern(pattern_data)
 
     async def seed_from_knowledge_base(
         self, knowledge_path: str = "./knowledge/"
@@ -947,9 +1100,9 @@ class ProceduralMemory:
             # Load classification patterns
             patterns_file = knowledge_dir / "classification_patterns.json"
             if patterns_file.exists():
-                stats["classification_patterns"] = (
-                    await self._seed_classification_patterns(patterns_file)
-                )
+                stats[
+                    "classification_patterns"
+                ] = await self._seed_classification_patterns(patterns_file)
                 self.logger.info(
                     "✅ Loaded %d classification patterns",
                     stats["classification_patterns"],

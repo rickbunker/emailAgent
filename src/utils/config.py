@@ -49,6 +49,14 @@ class EmailAgentConfig:
     qdrant_host: str
     qdrant_port: int
     qdrant_api_key: str | None
+    qdrant_url: str
+
+    # Memory System Configuration (Phase 1.3 Addition)
+    semantic_memory_max_items: int
+    procedural_memory_max_items: int
+    episodic_memory_max_items: int
+    contact_memory_max_items: int
+    embedding_model: str
 
     # Application Settings
     flask_env: str
@@ -121,6 +129,11 @@ class EmailAgentConfig:
                 return []
             return [item.strip() for item in value.split(separator) if item.strip()]
 
+        # Construct qdrant_url from host and port
+        qdrant_host = os.getenv("QDRANT_HOST", "localhost")
+        qdrant_port = int(os.getenv("QDRANT_PORT", "6333"))
+        qdrant_url = f"http://{qdrant_host}:{qdrant_port}"
+
         return cls(
             # Gmail Configuration
             gmail_credentials_path=os.getenv(
@@ -136,9 +149,24 @@ class EmailAgentConfig:
                 str(PROJECT_ROOT / "config/msgraph_credentials.json"),
             ),
             # Database/Storage
-            qdrant_host=os.getenv("QDRANT_HOST", "localhost"),
-            qdrant_port=int(os.getenv("QDRANT_PORT", "6333")),
+            qdrant_host=qdrant_host,
+            qdrant_port=qdrant_port,
             qdrant_api_key=os.getenv("QDRANT_API_KEY"),
+            qdrant_url=qdrant_url,
+            # Memory System Configuration (recommended production limits)
+            semantic_memory_max_items=int(
+                os.getenv("SEMANTIC_MEMORY_MAX_ITEMS", "50000")
+            ),
+            procedural_memory_max_items=int(
+                os.getenv("PROCEDURAL_MEMORY_MAX_ITEMS", "10000")
+            ),
+            episodic_memory_max_items=int(
+                os.getenv("EPISODIC_MEMORY_MAX_ITEMS", "100000")
+            ),
+            contact_memory_max_items=int(
+                os.getenv("CONTACT_MEMORY_MAX_ITEMS", "25000")
+            ),
+            embedding_model=os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2"),
             # Application Settings
             flask_env=os.getenv("FLASK_ENV", "development"),
             flask_secret_key=os.getenv(

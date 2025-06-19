@@ -284,13 +284,13 @@ class ContactMemory(BaseMemory):
         - audit trail and interaction tracking
     """
 
-    def __init__(self, max_items: int = 5000, **kwargs):
+    def __init__(self, max_items: int | None = None, **kwargs):
         """
         Initialize contact memory system.
 
         Args:
-            max_items: Maximum number of contacts to store (default: 5000)
-            **kwargs: Additional BaseMemory configuration parameters
+            max_items: Maximum number of contacts to store (uses config default if None)
+            **kwargs: Additional arguments passed to BaseMemory
         """
         super().__init__(max_items=max_items, **kwargs)
         self.collection_name = "contacts"

@@ -120,7 +120,7 @@ class EpisodicMemory(BaseMemory):
 
     def __init__(
         self,
-        max_items: int | None = 1000,
+        max_items: int | None = None,
         qdrant_url: str = "http://localhost:6333",
         embedding_model: str = "all-MiniLM-L6-v2",
     ):
@@ -128,7 +128,7 @@ class EpisodicMemory(BaseMemory):
         Initialize episodic memory system.
 
         Args:
-            max_items: Maximum number of episodic memories to store (default: 1000)
+            max_items: Maximum number of episodic memories to store (uses config default if None)
             qdrant_url: Qdrant database connection URL
             embedding_model: Sentence transformer model for embeddings
         """

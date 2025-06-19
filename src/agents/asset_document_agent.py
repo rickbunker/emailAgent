@@ -616,15 +616,16 @@ class AssetDocumentAgent:
 
         self.logger.info("Memory-driven agent initialized successfully")
 
-        # Bootstrap semantic memory with knowledge base (async initialization)
-        if self.semantic_memory:
-            # Note: This will be called asynchronously during first use
-            # to avoid blocking initialization
-            self._knowledge_base_loaded = False
+        # Phase 1.3: Knowledge base used for initial seeding/bootstrap only
+        # Runtime processing operates purely from memory systems
+        # Knowledge base also used for testing cleanup functions
 
     async def initialize_collections(self) -> bool:
         """
         Initialize Qdrant collections for asset management.
+
+        Phase 1.3: Knowledge base used for initial seeding only.
+        Runtime processing operates purely from memory.
 
         Returns:
             True if initialization successful, False otherwise
@@ -634,11 +635,11 @@ class AssetDocumentAgent:
             return False
 
         try:
-            # Initialize procedural memory collections and load asset matching procedures
+            # Initialize procedural memory collections with initial knowledge base seeding
             if self.procedural_memory:
                 await self.procedural_memory.initialize_collections()
 
-                # Load asset matching procedures from knowledge base
+                # Load initial patterns from knowledge base (bootstrap only)
                 try:
                     stats = await self.procedural_memory.seed_from_knowledge_base(
                         "knowledge"
@@ -647,17 +648,19 @@ class AssetDocumentAgent:
                     total_loaded = stats.get("total_patterns", 0)
 
                     self.logger.info(
-                        f"Procedural memory loaded: {total_loaded} patterns ({procedures_loaded} asset procedures)"
+                        f"Procedural memory bootstrapped: {total_loaded} patterns ({procedures_loaded} asset procedures)"
                     )
                 except Exception as e:
                     self.logger.warning(
-                        f"Failed to load procedural knowledge base: {e}"
+                        f"Failed to seed procedural memory from knowledge base: {e}"
                     )
 
-                self.logger.info("Procedural memory collections initialized")
+                self.logger.info(
+                    "Procedural memory collections initialized with bootstrap data"
+                )
 
-            # Initialize semantic memory and load knowledge base
-            if self.semantic_memory and not self._knowledge_base_loaded:
+            # Initialize semantic memory with initial knowledge base seeding
+            if self.semantic_memory:
                 try:
                     results = await self.semantic_memory.load_knowledge_base(
                         "knowledge"
@@ -668,13 +671,12 @@ class AssetDocumentAgent:
 
                     if errors:
                         self.logger.warning(
-                            f"Knowledge base loading had {len(errors)} warnings: {errors}"
+                            f"Knowledge base bootstrap had {len(errors)} warnings: {errors}"
                         )
 
                     self.logger.info(
                         f"Semantic memory bootstrapped: {loaded_count} items ({file_types_loaded} file types)"
                     )
-                    self._knowledge_base_loaded = True
 
                 except Exception as e:
                     self.logger.warning(
@@ -689,7 +691,9 @@ class AssetDocumentAgent:
                     )
                     self.logger.info("Created collection: %s", collection_name)
 
-            self.logger.info("All collections initialized successfully")
+            self.logger.info(
+                "All collections initialized successfully (bootstrapped, runtime is pure memory)"
+            )
             return True
 
         except Exception as e:
@@ -835,10 +839,12 @@ class AssetDocumentAgent:
 
             try:
                 # Step 1: Memory-driven document classification with detailed patterns
-                (category_str, classification_confidence, detailed_patterns) = (
-                    await self.procedural_memory.classify_document_with_details(
-                        filename, email_subject, email_body
-                    )
+                (
+                    category_str,
+                    classification_confidence,
+                    detailed_patterns,
+                ) = await self.procedural_memory.classify_document_with_details(
+                    filename, email_subject, email_body
                 )
 
                 # Memory-only approach: No knowledge base fallback
@@ -853,10 +859,11 @@ class AssetDocumentAgent:
 
                 # Step 2: Memory-driven asset identification with detailed capture
                 known_assets = await self.list_assets()
-                asset_matches, asset_identification_details = (
-                    await self.identify_asset_from_content_with_details(
-                        email_subject, email_body, filename, known_assets
-                    )
+                (
+                    asset_matches,
+                    asset_identification_details,
+                ) = await self.identify_asset_from_content_with_details(
+                    email_subject, email_body, filename, known_assets
                 )
 
                 # Determine best asset match
@@ -865,21 +872,10 @@ class AssetDocumentAgent:
                 if asset_matches:
                     matched_asset_id, asset_confidence = asset_matches[0]
 
-                # Step 3: Learn from high-confidence results (but not from knowledge base overrides)
-                if (
-                    classification_confidence > 0.75
-                    and learning_source == "procedural_memory"
-                ):  # Auto-learning threshold
-                    await self.procedural_memory.learn_classification_pattern(
-                        filename,
-                        email_subject,
-                        email_body,
-                        category_str,
-                        "unknown",  # Asset type determined separately
-                        classification_confidence,
-                        "auto_learning",
-                    )
-                    self.stats["learned"] += 1
+                # Step 3: Auto-learning removed - procedural memory now contains stable business rules only
+                # Learning from feedback will be handled by semantic memory (human feedback)
+                # and episodic memory (individual experiences) in the new architecture
+                pass
 
                 # Convert to enum for backward compatibility
                 try:
@@ -958,50 +954,9 @@ class AssetDocumentAgent:
 
         return result
 
-    async def learn_from_human_feedback(
-        self,
-        filename: str,
-        email_subject: str,
-        email_body: str,
-        system_prediction: str,
-        human_correction: str,
-        asset_type: str = "unknown",
-    ) -> str:
-        """
-        Learn from human corrections to improve future classifications.
-
-        Args:
-            filename: Original filename
-            email_subject: Email subject line
-            email_body: Email body content
-            system_prediction: What the system predicted
-            human_correction: What the human corrected it to
-            asset_type: Asset type context
-
-        Returns:
-            Pattern ID of the learned correction
-        """
-        if not self.procedural_memory:
-            self.logger.warning("No procedural memory available for learning")
-            return "no_memory_available"
-
-        self.logger.info(
-            "Learning from human feedback: %s -> %s",
-            system_prediction,
-            human_correction,
-        )
-
-        pattern_id = await self.procedural_memory.learn_from_human_feedback(
-            filename,
-            email_subject,
-            email_body,
-            system_prediction,
-            human_correction,
-            asset_type,
-        )
-
-        self.stats["corrected"] += 1
-        return pattern_id
+    # NOTE: learn_from_human_feedback method removed in Phase 1.1
+    # Human feedback now goes directly to semantic memory via web UI, not through asset agent
+    # This implements the new memory architecture where human feedback is experiential knowledge
 
     async def get_sender_assets(self, sender_email: str) -> list[dict[str, Any]]:
         """Get all assets associated with a sender."""
@@ -1140,7 +1095,7 @@ class AssetDocumentAgent:
                         )
                 else:
                     self.logger.warning(
-                        "❌ No asset knowledge in semantic memory - using fallback"
+                        "❌ No asset data in semantic memory - using fallback"
                     )
             else:
                 self.logger.warning("❌ No semantic memory available - using fallback")
@@ -1311,10 +1266,11 @@ class AssetDocumentAgent:
                     reasoning_details["method_used"] = "semantic_memory"
 
                     # Use smart matching with detailed capture
-                    asset_scores, semantic_details = (
-                        await self._match_assets_with_semantic_data_detailed(
-                            combined_text, asset_knowledge_items, known_assets
-                        )
+                    (
+                        asset_scores,
+                        semantic_details,
+                    ) = await self._match_assets_with_semantic_data_detailed(
+                        combined_text, asset_knowledge_items, known_assets
                     )
 
                     # Merge semantic details into reasoning
@@ -1355,10 +1311,10 @@ class AssetDocumentAgent:
                         )
                 else:
                     self.logger.warning(
-                        "❌ No asset knowledge in semantic memory - using fallback"
+                        "❌ No asset data in semantic memory - using fallback"
                     )
                     reasoning_details["decision_flow"].append(
-                        "❌ No asset knowledge in semantic memory - using fallback"
+                        "❌ No asset data in semantic memory - using fallback"
                     )
             else:
                 self.logger.warning("❌ No semantic memory available - using fallback")
@@ -1878,9 +1834,9 @@ class AssetDocumentAgent:
 
             # Store detailed classification metadata for inspect functionality
             if processing_result.classification_metadata:
-                payload["classification_metadata"] = (
-                    processing_result.classification_metadata
-                )
+                payload[
+                    "classification_metadata"
+                ] = processing_result.classification_metadata
 
             if processing_result.asset_confidence:
                 payload["asset_confidence"] = processing_result.asset_confidence
