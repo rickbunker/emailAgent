@@ -17,7 +17,7 @@ This document outlines the API structure for the new web interface, designed to 
 ```
 /api/v1/
 ├── /assets/              # Asset management
-├── /senders/             # Sender mapping management  
+├── /senders/             # Sender mapping management
 ├── /documents/           # Document processing & files
 ├── /email/               # Email processing
 ├── /review/              # Human review system
@@ -863,4 +863,4 @@ async def websocket_endpoint(websocket: WebSocket):
 ### Phase 4: Real-time
 1. WebSocket events
 2. Progress tracking
-3. Live updates 
+3. Live updates

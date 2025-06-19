@@ -5,17 +5,20 @@ This module handles initialization of services and provides
 dependency functions for FastAPI routes.
 """
 
+# # Standard library imports
 from typing import Optional
 
+# # Third-party imports
 from qdrant_client import QdrantClient
 
-from src.asset_management.services.asset_service import AssetService
+# # Local application imports
 from src.asset_management import (
     AssetIdentifier,
     DocumentClassifier,
     SenderMappingService,
 )
 from src.asset_management.processing.document_processor import DocumentProcessor
+from src.asset_management.services.asset_service import AssetService
 from src.asset_management.utils.storage import StorageService
 from src.utils.config import config
 from src.utils.logging_system import get_logger

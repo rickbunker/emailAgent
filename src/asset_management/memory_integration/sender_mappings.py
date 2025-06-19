@@ -338,6 +338,7 @@ class SenderMappingService:
         Raises:
             MemorySystemError: If creation fails
         """
+        # # Standard library imports
         import uuid
         from datetime import datetime
 
@@ -367,6 +368,7 @@ class SenderMappingService:
             }
 
             # Upsert to Qdrant
+            # # Third-party imports
             from qdrant_client.models import PointStruct
 
             self.qdrant.upsert(
@@ -436,6 +438,7 @@ class SenderMappingService:
             return None
 
         try:
+            # # Standard library imports
             from datetime import datetime
 
             # Build update payload

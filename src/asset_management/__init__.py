@@ -18,9 +18,6 @@ Key components:
 __version__ = "2.0.0"
 __author__ = "Email Agent Team"
 
-# Import AssetService
-from src.asset_management.services.asset_service import AssetService
-
 # # Local application imports
 from src.asset_management.classification.document_classifier import DocumentClassifier
 
@@ -61,6 +58,9 @@ from src.asset_management.memory_integration.episodic_learner import (
 
 # Memory integration
 from src.asset_management.memory_integration.sender_mappings import SenderMappingService
+
+# Import AssetService
+from src.asset_management.services.asset_service import AssetService
 
 __all__ = [
     # Version

@@ -5,16 +5,16 @@ This module provides endpoints for monitoring system health
 and service availability.
 """
 
+# # Standard library imports
 from datetime import datetime
-from typing import Any, Dict
+from typing import Any
 
+# # Third-party imports
 from fastapi import APIRouter, Depends
 
-from src.web_api.dependencies import (
-    get_asset_service,
-    get_qdrant_client,
-)
+# # Local application imports
 from src.utils.logging_system import get_logger
+from src.web_api.dependencies import get_asset_service, get_qdrant_client
 
 logger = get_logger(__name__)
 
@@ -25,7 +25,7 @@ startup_time = datetime.utcnow()
 
 
 @router.get("/health")
-async def health_check() -> Dict[str, Any]:
+async def health_check() -> dict[str, Any]:
     """
     Basic health check endpoint.
 
@@ -44,7 +44,7 @@ async def health_check() -> Dict[str, Any]:
 async def detailed_health_check(
     asset_service=Depends(get_asset_service),
     qdrant_client=Depends(get_qdrant_client),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Detailed health check with service status.
 
@@ -95,7 +95,10 @@ async def detailed_health_check(
 
     # Check file system
     try:
+        # # Standard library imports
         from pathlib import Path
+
+        # # Local application imports
         from src.utils.config import config
 
         assets_path = Path(config.assets_base_path)
@@ -123,13 +126,14 @@ async def detailed_health_check(
 
 
 @router.get("/info")
-async def system_info() -> Dict[str, Any]:
+async def system_info() -> dict[str, Any]:
     """
     Get system configuration information.
 
     Returns:
         System configuration (non-sensitive)
     """
+    # # Local application imports
     from src.utils.config import config
 
     return {

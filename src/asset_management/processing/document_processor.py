@@ -12,21 +12,20 @@ It brings together all the modular components to provide a clean,
 maintainable processing pipeline.
 """
 
+# # Standard library imports
 from datetime import datetime
-from pathlib import Path
 from typing import Any, Optional
 
+# # Local application imports
 from src.asset_management.classification.document_classifier import DocumentClassifier
 from src.asset_management.core.data_models import (
     Asset,
-    AssetType,
     ClassificationContext,
     IdentificationContext,
     ProcessingResult,
     ProcessingStatus,
 )
 from src.asset_management.core.exceptions import (
-    AssetNotFoundError,
     ProcessingError,
     SecurityError,
 )

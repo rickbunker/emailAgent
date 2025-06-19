@@ -4,15 +4,18 @@ Asset management endpoints.
 This module provides CRUD operations for managing assets.
 """
 
-from typing import Any, Dict, List, Optional
+# # Standard library imports
+from typing import Any, Optional
 
+# # Third-party imports
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
+# # Local application imports
 from src.asset_management import Asset, AssetType
 from src.asset_management.services.asset_service import AssetService
-from src.web_api.dependencies import get_asset_service
 from src.utils.logging_system import get_logger
+from src.web_api.dependencies import get_asset_service
 
 logger = get_logger(__name__)
 
@@ -28,10 +31,10 @@ class AssetCreate(BaseModel):
     deal_name: str = Field(..., description="Short name for the asset")
     asset_name: str = Field(..., description="Full descriptive name")
     asset_type: AssetType = Field(..., description="Type of private market asset")
-    identifiers: List[str] = Field(
+    identifiers: list[str] = Field(
         default_factory=list, description="Alternative names/identifiers"
     )
-    metadata: Optional[Dict[str, Any]] = Field(
+    metadata: Optional[dict[str, Any]] = Field(
         default=None, description="Additional metadata"
     )
 
@@ -42,8 +45,8 @@ class AssetUpdate(BaseModel):
     deal_name: Optional[str] = Field(None, description="New deal name")
     asset_name: Optional[str] = Field(None, description="New asset name")
     asset_type: Optional[AssetType] = Field(None, description="New asset type")
-    identifiers: Optional[List[str]] = Field(None, description="New identifiers")
-    metadata: Optional[Dict[str, Any]] = Field(None, description="New metadata")
+    identifiers: Optional[list[str]] = Field(None, description="New identifiers")
+    metadata: Optional[dict[str, Any]] = Field(None, description="New metadata")
 
 
 class AssetResponse(BaseModel):
@@ -54,16 +57,16 @@ class AssetResponse(BaseModel):
     asset_name: str
     asset_type: AssetType
     folder_path: str
-    identifiers: List[str]
+    identifiers: list[str]
     created_date: str
     last_updated: str
-    metadata: Optional[Dict[str, Any]]
+    metadata: Optional[dict[str, Any]]
 
 
 class AssetListResponse(BaseModel):
     """Response model for asset list."""
 
-    items: List[AssetResponse]
+    items: list[AssetResponse]
     total: int
     limit: int
     offset: int
@@ -73,8 +76,8 @@ class AssetStatsResponse(BaseModel):
     """Response model for asset statistics."""
 
     total_assets: int
-    by_type: Dict[str, int]
-    recent_assets: List[AssetResponse]
+    by_type: dict[str, int]
+    recent_assets: list[AssetResponse]
 
 
 # Helper function to convert Asset to response model
@@ -220,11 +223,11 @@ async def get_asset(
         raise HTTPException(status_code=500, detail=f"Failed to get asset: {str(e)}")
 
 
-@router.post("/", response_model=Dict[str, Any])
+@router.post("/", response_model=dict[str, Any])
 async def create_asset(
     asset_data: AssetCreate,
     asset_service: AssetService = Depends(get_asset_service),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Create a new asset.
 
@@ -316,7 +319,7 @@ async def delete_asset(
     asset_id: str,
     asset_service: AssetService = Depends(get_asset_service),
     preserve_files: bool = Query(True, description="Preserve asset files on disk"),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Delete an asset.
 

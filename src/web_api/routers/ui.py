@@ -5,18 +5,21 @@ This module serves HTML pages using Jinja2 templates with HTMX
 for dynamic behavior without a full SPA framework.
 """
 
-from typing import Any, Dict, Optional
+# # Standard library imports
+from pathlib import Path
+from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Form
+# # Third-party imports
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from pathlib import Path
 
+# # Local application imports
 from src.asset_management import AssetType
-from src.asset_management.services.asset_service import AssetService
 from src.asset_management.memory_integration.sender_mappings import SenderMappingService
-from src.web_api.dependencies import get_asset_service, get_sender_mapping_service
+from src.asset_management.services.asset_service import AssetService
 from src.utils.logging_system import get_logger
+from src.web_api.dependencies import get_asset_service, get_sender_mapping_service
 
 logger = get_logger(__name__)
 
@@ -350,6 +353,7 @@ async def health_check_ui(request: Request) -> HTMLResponse:
 
     Shows system status with a nice UI.
     """
+    # # Third-party imports
     import aiohttp
 
     # Get health data from API

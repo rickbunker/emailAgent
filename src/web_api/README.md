@@ -157,4 +157,4 @@ curl -X POST http://localhost:8000/api/v1/assets/ \
 - [HTMX Documentation](https://htmx.org/)
 - [Bootstrap 5 Documentation](https://getbootstrap.com/)
 - Project Requirements: `/docs/WEB_UI_FEATURE_REQUIREMENTS.md`
-- API Design: `/docs/NEW_API_DESIGN.md` 
+- API Design: `/docs/NEW_API_DESIGN.md`

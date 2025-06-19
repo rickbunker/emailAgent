@@ -5,23 +5,25 @@ This module sets up the FastAPI application with all routers,
 middleware, and configuration.
 """
 
+# # Standard library imports
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any, AsyncGenerator
 
+# # Third-party imports
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from src.utils.config import config
+# # Local application imports
 from src.utils.logging_system import get_logger
+
+# Import services setup
+from src.web_api.dependencies import cleanup_services, initialize_services
 
 # Import routers
 from src.web_api.routers import assets, health, senders, ui
-
-# Import services setup
-from src.web_api.dependencies import initialize_services, cleanup_services
 
 logger = get_logger(__name__)
 
@@ -92,6 +94,7 @@ async def root() -> dict[str, str]:
 
 
 if __name__ == "__main__":
+    # # Third-party imports
     import uvicorn
 
     uvicorn.run(

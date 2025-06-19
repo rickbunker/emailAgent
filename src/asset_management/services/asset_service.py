@@ -6,14 +6,17 @@ replacing the asset management functionality from the old monolithic
 AssetDocumentAgent.
 """
 
+# # Standard library imports
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
+# # Third-party imports
 from qdrant_client import QdrantClient
 from qdrant_client.models import PointStruct
 
+# # Local application imports
 from src.asset_management.core.data_models import Asset, AssetType
 from src.utils.config import config
 from src.utils.logging_system import get_logger, log_function
@@ -62,6 +65,7 @@ class AssetService:
             return
 
         try:
+            # # Third-party imports
             from qdrant_client.models import Distance, VectorParams
 
             # Check if collection exists
@@ -86,8 +90,8 @@ class AssetService:
         deal_name: str,
         asset_name: str,
         asset_type: AssetType,
-        identifiers: Optional[List[str]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        identifiers: Optional[list[str]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> str:
         """
         Create a new asset.
@@ -211,7 +215,7 @@ class AssetService:
             return None
 
     @log_function()
-    async def list_assets(self) -> List[Asset]:
+    async def list_assets(self) -> list[Asset]:
         """
         List all assets.
 
@@ -265,8 +269,8 @@ class AssetService:
         deal_name: Optional[str] = None,
         asset_name: Optional[str] = None,
         asset_type: Optional[AssetType] = None,
-        identifiers: Optional[List[str]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        identifiers: Optional[list[str]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> bool:
         """
         Update an existing asset.

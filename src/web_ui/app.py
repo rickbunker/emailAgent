@@ -39,13 +39,13 @@ try:
     # # Local application imports
     from src.asset_management import (
         Asset,
+        AssetIdentifier,
         AssetType,
         ConfidenceLevel,
         DocumentCategory,
+        DocumentClassifier,
         ProcessingResult,
         ProcessingStatus,
-        AssetIdentifier,
-        DocumentClassifier,
         SenderMappingService,
     )
     from src.asset_management.processing.document_processor import DocumentProcessor
@@ -66,14 +66,13 @@ except ImportError:
     # Fallback to direct imports (when run from src directory)
     # # Local application imports
     from src.asset_management import (
-        Asset,
+        AssetIdentifier,
         AssetType,
         ConfidenceLevel,
         DocumentCategory,
+        DocumentClassifier,
         ProcessingResult,
         ProcessingStatus,
-        AssetIdentifier,
-        DocumentClassifier,
         SenderMappingService,
     )
     from src.asset_management.processing.document_processor import DocumentProcessor
@@ -950,9 +949,7 @@ async def _process_single_attachment_with_semaphore(
     async with semaphore:
         # Check for cancellation at start of attachment processing
         if processing_cancelled:
-            logger.info(
-                f"🛑 Processing cancelled for attachment: {attachment.filename}"
-            )
+            logger.info(f"🛑 Processing cancelled for attachment: {attachment.filename}")
             return {"cancelled": True, "filename": attachment.filename}
 
         attachment_result = {
@@ -1171,6 +1168,7 @@ def initialize_asset_agent() -> None:
             qdrant_client = None
 
         # Import AssetService here to avoid circular imports
+        # # Local application imports
         from src.asset_management.services.asset_service import AssetService
 
         # Initialize individual services

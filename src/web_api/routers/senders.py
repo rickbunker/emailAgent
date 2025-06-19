@@ -5,16 +5,19 @@ This module provides CRUD operations for managing sender email
 to asset mappings.
 """
 
-from typing import Any, Dict, List, Optional
+# # Standard library imports
+from typing import Any, Optional
 
+# # Third-party imports
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
+# # Local application imports
 from src.asset_management import SenderMapping
-from src.asset_management.services.asset_service import AssetService
 from src.asset_management.memory_integration.sender_mappings import SenderMappingService
-from src.web_api.dependencies import get_sender_mapping_service, get_asset_service
+from src.asset_management.services.asset_service import AssetService
 from src.utils.logging_system import get_logger
+from src.web_api.dependencies import get_asset_service, get_sender_mapping_service
 
 logger = get_logger(__name__)
 
@@ -63,7 +66,7 @@ class SenderMappingResponse(BaseModel):
 class SenderMappingListResponse(BaseModel):
     """Response model for sender mapping list."""
 
-    items: List[SenderMappingResponse]
+    items: list[SenderMappingResponse]
     total: int
     limit: int
     offset: int
@@ -205,12 +208,12 @@ async def get_sender_mapping(
         )
 
 
-@router.post("/", response_model=Dict[str, Any])
+@router.post("/", response_model=dict[str, Any])
 async def create_sender_mapping(
     mapping_data: SenderMappingCreate,
     sender_service: SenderMappingService = Depends(get_sender_mapping_service),
     asset_service: AssetService = Depends(get_asset_service),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Create a new sender mapping.
 
@@ -346,7 +349,7 @@ async def update_sender_mapping(
 async def delete_sender_mapping(
     sender_email: str,
     sender_service: SenderMappingService = Depends(get_sender_mapping_service),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Delete a sender mapping.
 
@@ -390,11 +393,11 @@ async def delete_sender_mapping(
         )
 
 
-@router.get("/stats/by-asset", response_model=Dict[str, Any])
+@router.get("/stats/by-asset", response_model=dict[str, Any])
 async def get_sender_stats_by_asset(
     sender_service: SenderMappingService = Depends(get_sender_mapping_service),
     asset_service: AssetService = Depends(get_asset_service),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Get sender mapping statistics grouped by asset.
 
