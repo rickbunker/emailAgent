@@ -91,6 +91,16 @@ class EmailAgentConfig:
     context_agreement_bonus: float
     context_conflict_penalty: float
 
+    # Phase 4.3: Additional episodic memory pattern analysis settings
+    criteria_match_threshold: float
+    similarity_threshold: float
+    max_similar_cases: int
+    pattern_analysis_limit: int
+
+    # Phase 4.4: Contact memory trust evaluation settings
+    default_sender_trust_score: float
+    max_organization_contacts: int
+
     # Application Settings
     flask_env: str
     flask_secret_key: str
@@ -246,6 +256,18 @@ class EmailAgentConfig:
             context_conflict_penalty=float(
                 os.getenv("CONTEXT_CONFLICT_PENALTY", "0.3")
             ),
+            # Phase 4.3: Additional episodic memory pattern analysis settings
+            criteria_match_threshold=float(
+                os.getenv("CRITERIA_MATCH_THRESHOLD", "0.4")
+            ),
+            similarity_threshold=float(os.getenv("SIMILARITY_THRESHOLD", "0.2")),
+            max_similar_cases=int(os.getenv("MAX_SIMILAR_CASES", "10")),
+            pattern_analysis_limit=int(os.getenv("PATTERN_ANALYSIS_LIMIT", "100")),
+            # Phase 4.4: Contact memory trust evaluation settings
+            default_sender_trust_score=float(
+                os.getenv("DEFAULT_SENDER_TRUST_SCORE", "0.3")
+            ),
+            max_organization_contacts=int(os.getenv("MAX_ORGANIZATION_CONTACTS", "50")),
             # Application Settings
             flask_env=os.getenv("FLASK_ENV", "development"),
             flask_secret_key=os.getenv(

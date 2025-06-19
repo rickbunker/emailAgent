@@ -1,17 +1,17 @@
 {
   "errors": [],
-  "generated_at": "2025-06-19T18:15:45Z",
+  "generated_at": "2025-06-19T21:43:21Z",
   "metrics": {
     "_totals": {
       "CONFIDENCE.HIGH": 19,
-      "CONFIDENCE.LOW": 0,
+      "CONFIDENCE.LOW": 1,
       "CONFIDENCE.MEDIUM": 2,
       "CONFIDENCE.UNDEFINED": 0,
       "SEVERITY.HIGH": 0,
       "SEVERITY.LOW": 20,
-      "SEVERITY.MEDIUM": 1,
+      "SEVERITY.MEDIUM": 2,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 23623,
+      "loc": 27704,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -37,7 +37,7 @@
       "SEVERITY.LOW": 4,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 3893,
+      "loc": 5025,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -103,6 +103,175 @@
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
       "loc": 935,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "src/asset_management/__init__.py": {
+      "CONFIDENCE.HIGH": 0,
+      "CONFIDENCE.LOW": 0,
+      "CONFIDENCE.MEDIUM": 0,
+      "CONFIDENCE.UNDEFINED": 0,
+      "SEVERITY.HIGH": 0,
+      "SEVERITY.LOW": 0,
+      "SEVERITY.MEDIUM": 0,
+      "SEVERITY.UNDEFINED": 0,
+      "loc": 75,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "src/asset_management/classification/__init__.py": {
+      "CONFIDENCE.HIGH": 0,
+      "CONFIDENCE.LOW": 0,
+      "CONFIDENCE.MEDIUM": 0,
+      "CONFIDENCE.UNDEFINED": 0,
+      "SEVERITY.HIGH": 0,
+      "SEVERITY.LOW": 0,
+      "SEVERITY.MEDIUM": 0,
+      "SEVERITY.UNDEFINED": 0,
+      "loc": 0,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "src/asset_management/classification/document_classifier.py": {
+      "CONFIDENCE.HIGH": 0,
+      "CONFIDENCE.LOW": 0,
+      "CONFIDENCE.MEDIUM": 0,
+      "CONFIDENCE.UNDEFINED": 0,
+      "SEVERITY.HIGH": 0,
+      "SEVERITY.LOW": 0,
+      "SEVERITY.MEDIUM": 0,
+      "SEVERITY.UNDEFINED": 0,
+      "loc": 292,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "src/asset_management/core/__init__.py": {
+      "CONFIDENCE.HIGH": 0,
+      "CONFIDENCE.LOW": 0,
+      "CONFIDENCE.MEDIUM": 0,
+      "CONFIDENCE.UNDEFINED": 0,
+      "SEVERITY.HIGH": 0,
+      "SEVERITY.LOW": 0,
+      "SEVERITY.MEDIUM": 0,
+      "SEVERITY.UNDEFINED": 0,
+      "loc": 0,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "src/asset_management/core/data_models.py": {
+      "CONFIDENCE.HIGH": 0,
+      "CONFIDENCE.LOW": 0,
+      "CONFIDENCE.MEDIUM": 0,
+      "CONFIDENCE.UNDEFINED": 0,
+      "SEVERITY.HIGH": 0,
+      "SEVERITY.LOW": 0,
+      "SEVERITY.MEDIUM": 0,
+      "SEVERITY.UNDEFINED": 0,
+      "loc": 226,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "src/asset_management/core/exceptions.py": {
+      "CONFIDENCE.HIGH": 0,
+      "CONFIDENCE.LOW": 0,
+      "CONFIDENCE.MEDIUM": 0,
+      "CONFIDENCE.UNDEFINED": 0,
+      "SEVERITY.HIGH": 0,
+      "SEVERITY.LOW": 0,
+      "SEVERITY.MEDIUM": 0,
+      "SEVERITY.UNDEFINED": 0,
+      "loc": 47,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "src/asset_management/identification/__init__.py": {
+      "CONFIDENCE.HIGH": 0,
+      "CONFIDENCE.LOW": 0,
+      "CONFIDENCE.MEDIUM": 0,
+      "CONFIDENCE.UNDEFINED": 0,
+      "SEVERITY.HIGH": 0,
+      "SEVERITY.LOW": 0,
+      "SEVERITY.MEDIUM": 0,
+      "SEVERITY.UNDEFINED": 0,
+      "loc": 0,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "src/asset_management/identification/asset_identifier.py": {
+      "CONFIDENCE.HIGH": 0,
+      "CONFIDENCE.LOW": 0,
+      "CONFIDENCE.MEDIUM": 0,
+      "CONFIDENCE.UNDEFINED": 0,
+      "SEVERITY.HIGH": 0,
+      "SEVERITY.LOW": 0,
+      "SEVERITY.MEDIUM": 0,
+      "SEVERITY.UNDEFINED": 0,
+      "loc": 217,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "src/asset_management/memory_integration/__init__.py": {
+      "CONFIDENCE.HIGH": 0,
+      "CONFIDENCE.LOW": 0,
+      "CONFIDENCE.MEDIUM": 0,
+      "CONFIDENCE.UNDEFINED": 0,
+      "SEVERITY.HIGH": 0,
+      "SEVERITY.LOW": 0,
+      "SEVERITY.MEDIUM": 0,
+      "SEVERITY.UNDEFINED": 0,
+      "loc": 0,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "src/asset_management/memory_integration/episodic_learner.py": {
+      "CONFIDENCE.HIGH": 0,
+      "CONFIDENCE.LOW": 0,
+      "CONFIDENCE.MEDIUM": 0,
+      "CONFIDENCE.UNDEFINED": 0,
+      "SEVERITY.HIGH": 0,
+      "SEVERITY.LOW": 0,
+      "SEVERITY.MEDIUM": 0,
+      "SEVERITY.UNDEFINED": 0,
+      "loc": 320,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "src/asset_management/memory_integration/sender_mappings.py": {
+      "CONFIDENCE.HIGH": 0,
+      "CONFIDENCE.LOW": 0,
+      "CONFIDENCE.MEDIUM": 0,
+      "CONFIDENCE.UNDEFINED": 0,
+      "SEVERITY.HIGH": 0,
+      "SEVERITY.LOW": 0,
+      "SEVERITY.MEDIUM": 0,
+      "SEVERITY.UNDEFINED": 0,
+      "loc": 142,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "src/asset_management/processing/__init__.py": {
+      "CONFIDENCE.HIGH": 0,
+      "CONFIDENCE.LOW": 0,
+      "CONFIDENCE.MEDIUM": 0,
+      "CONFIDENCE.UNDEFINED": 0,
+      "SEVERITY.HIGH": 0,
+      "SEVERITY.LOW": 0,
+      "SEVERITY.MEDIUM": 0,
+      "SEVERITY.UNDEFINED": 0,
+      "loc": 0,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "src/asset_management/utils/__init__.py": {
+      "CONFIDENCE.HIGH": 0,
+      "CONFIDENCE.LOW": 0,
+      "CONFIDENCE.MEDIUM": 0,
+      "CONFIDENCE.UNDEFINED": 0,
+      "SEVERITY.HIGH": 0,
+      "SEVERITY.LOW": 0,
+      "SEVERITY.MEDIUM": 0,
+      "SEVERITY.UNDEFINED": 0,
+      "loc": 0,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -206,7 +375,7 @@
       "SEVERITY.LOW": 1,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 863,
+      "loc": 1511,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -219,7 +388,7 @@
       "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 587,
+      "loc": 1146,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -238,14 +407,14 @@
     },
     "src/memory/semantic.py": {
       "CONFIDENCE.HIGH": 0,
-      "CONFIDENCE.LOW": 0,
+      "CONFIDENCE.LOW": 1,
       "CONFIDENCE.MEDIUM": 0,
       "CONFIDENCE.UNDEFINED": 0,
       "SEVERITY.HIGH": 0,
       "SEVERITY.LOW": 0,
-      "SEVERITY.MEDIUM": 0,
+      "SEVERITY.MEDIUM": 1,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 1901,
+      "loc": 2274,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -297,7 +466,7 @@
       "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 1,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 272,
+      "loc": 322,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -376,7 +545,7 @@
       "test_name": "blacklist"
     },
     {
-      "code": "232         try:\n233             result = subprocess.run(\n234                 [\"which\", \"clamscan\"],\n235                 capture_output=True,\n236                 text=True,\n237                 timeout=5,  # 5 second timeout for finding clamscan\n238             )\n239             if result.returncode == 0:\n",
+      "code": "302         try:\n303             result = subprocess.run(\n304                 [\"which\", \"clamscan\"],\n305                 capture_output=True,\n306                 text=True,\n307                 timeout=5,  # 5 second timeout for finding clamscan\n308             )\n309             if result.returncode == 0:\n",
       "col_offset": 21,
       "end_col_offset": 13,
       "filename": "src/agents/asset_document_agent.py",
@@ -387,21 +556,21 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Starting a process with a partial executable path",
-      "line_number": 233,
+      "line_number": 303,
       "line_range": [
-        233,
-        234,
-        235,
-        236,
-        237,
-        238
+        303,
+        304,
+        305,
+        306,
+        307,
+        308
       ],
       "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b607_start_process_with_partial_path.html",
       "test_id": "B607",
       "test_name": "start_process_with_partial_path"
     },
     {
-      "code": "232         try:\n233             result = subprocess.run(\n234                 [\"which\", \"clamscan\"],\n235                 capture_output=True,\n236                 text=True,\n237                 timeout=5,  # 5 second timeout for finding clamscan\n238             )\n239             if result.returncode == 0:\n",
+      "code": "302         try:\n303             result = subprocess.run(\n304                 [\"which\", \"clamscan\"],\n305                 capture_output=True,\n306                 text=True,\n307                 timeout=5,  # 5 second timeout for finding clamscan\n308             )\n309             if result.returncode == 0:\n",
       "col_offset": 21,
       "end_col_offset": 13,
       "filename": "src/agents/asset_document_agent.py",
@@ -412,21 +581,21 @@
       },
       "issue_severity": "LOW",
       "issue_text": "subprocess call - check for execution of untrusted input.",
-      "line_number": 233,
+      "line_number": 303,
       "line_range": [
-        233,
-        234,
-        235,
-        236,
-        237,
-        238
+        303,
+        304,
+        305,
+        306,
+        307,
+        308
       ],
       "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b603_subprocess_without_shell_equals_true.html",
       "test_id": "B603",
       "test_name": "subprocess_without_shell_equals_true"
     },
     {
-      "code": "1953                 health[\"learned_patterns\"] = result.count\n1954             except Exception:\n1955                 pass\n1956 \n",
+      "code": "2074                 health[\"learned_patterns\"] = result.count\n2075             except Exception:\n2076                 pass\n2077 \n",
       "col_offset": 12,
       "end_col_offset": 20,
       "filename": "src/agents/asset_document_agent.py",
@@ -437,10 +606,10 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Try, Except, Pass detected.",
-      "line_number": 1954,
+      "line_number": 2075,
       "line_range": [
-        1954,
-        1955
+        2075,
+        2076
       ],
       "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b110_try_except_pass.html",
       "test_id": "B110",
@@ -535,7 +704,7 @@
       "test_name": "try_except_pass"
     },
     {
-      "code": "1051 \n1052         assert contact1_id == duplicate_id, \"Deduplication failed\"\n1053         logger.info(\"\u2713 Contact deduplication working correctly\")\n",
+      "code": "1884 \n1885         assert contact1_id == duplicate_id, \"Deduplication failed\"\n1886         logger.info(\"\u2713 Contact deduplication working correctly\")\n",
       "col_offset": 8,
       "end_col_offset": 66,
       "filename": "src/memory/contact.py",
@@ -546,13 +715,33 @@
       },
       "issue_severity": "LOW",
       "issue_text": "Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.",
-      "line_number": 1052,
+      "line_number": 1885,
       "line_range": [
-        1052
+        1885
       ],
       "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b101_assert_used.html",
       "test_id": "B101",
       "test_name": "assert_used"
+    },
+    {
+      "code": "2207         except Exception as e:\n2208             error_msg = f\"Failed to update asset knowledge for {asset_id}: {e}\"\n2209             logger.error(error_msg)\n",
+      "col_offset": 26,
+      "end_col_offset": 63,
+      "filename": "src/memory/semantic.py",
+      "issue_confidence": "LOW",
+      "issue_cwe": {
+        "id": 89,
+        "link": "https://cwe.mitre.org/data/definitions/89.html"
+      },
+      "issue_severity": "MEDIUM",
+      "issue_text": "Possible SQL injection vector through string-based query construction.",
+      "line_number": 2208,
+      "line_range": [
+        2208
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b608_hardcoded_sql_expressions.html",
+      "test_id": "B608",
+      "test_name": "hardcoded_sql_expressions"
     },
     {
       "code": "40 import shutil\n41 import subprocess\n42 \n",
@@ -773,7 +962,7 @@
       "test_name": "subprocess_without_shell_equals_true"
     },
     {
-      "code": "211             ),\n212             flask_host=os.getenv(\"FLASK_HOST\", \"0.0.0.0\"),\n213             flask_port=int(os.getenv(\"FLASK_PORT\", \"5001\")),\n",
+      "code": "275             ),\n276             flask_host=os.getenv(\"FLASK_HOST\", \"0.0.0.0\"),\n277             flask_port=int(os.getenv(\"FLASK_PORT\", \"5001\")),\n",
       "col_offset": 47,
       "end_col_offset": 56,
       "filename": "src/utils/config.py",
@@ -784,9 +973,9 @@
       },
       "issue_severity": "MEDIUM",
       "issue_text": "Possible binding to all interfaces.",
-      "line_number": 212,
+      "line_number": 276,
       "line_range": [
-        212
+        276
       ],
       "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b104_hardcoded_bind_all_interfaces.html",
       "test_id": "B104",
