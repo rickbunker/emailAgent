@@ -1834,9 +1834,9 @@ class AssetDocumentAgent:
 
             # Store detailed classification metadata for inspect functionality
             if processing_result.classification_metadata:
-                payload[
-                    "classification_metadata"
-                ] = processing_result.classification_metadata
+                payload["classification_metadata"] = (
+                    processing_result.classification_metadata
+                )
 
             if processing_result.asset_confidence:
                 payload["asset_confidence"] = processing_result.asset_confidence
@@ -2223,3 +2223,2652 @@ class AssetDocumentAgent:
         self.logger.info("Updated sender mapping: %s", mapping_id)
         # TODO: Implement sender mapping update in procedural memory
         return True
+
+    @log_function()
+    async def identify_asset_combined(
+        self,
+        email_subject: str,
+        email_body: str,
+        filename: str,
+        sender_email: str,
+        known_assets: list[Asset] | None = None,
+    ) -> tuple[list[tuple[str, float]], dict[str, Any]]:
+        """
+        Enhanced asset identification using all four memory types.
+
+        Phase 2.1: Combined Decision Logic implementation that integrates:
+        - Procedural memory (stable matching algorithms)
+        - Semantic memory (asset knowledge + human feedback)
+        - Episodic memory (past experiences)
+        - Contact memory (sender trust and patterns)
+
+        Args:
+            email_subject: Email subject line for context
+            email_body: Email body content for analysis
+            filename: Attachment filename for pattern matching
+            sender_email: Sender email address for contact analysis
+            known_assets: Optional list of assets to match against
+
+        Returns:
+            Tuple containing:
+            - List of (asset_id, confidence_score) tuples sorted by confidence
+            - Detailed reasoning dictionary with all memory type contributions
+
+        Raises:
+            ValueError: If required parameters are missing or invalid
+            RuntimeError: If memory systems are not properly initialized
+        """
+        self.logger.info(
+            "Starting combined asset identification using all memory types"
+        )
+
+        # Validate inputs
+        if not email_subject and not email_body and not filename:
+            raise ValueError(
+                "At least one of email_subject, email_body, or filename must be provided"
+            )
+
+        if not sender_email:
+            raise ValueError("sender_email is required for contact memory analysis")
+
+        # Initialize reasoning capture with comprehensive structure
+        reasoning_details = {
+            "method_used": "combined_memory_system",
+            "input_context": {
+                "email_subject": email_subject,
+                "email_body": (
+                    email_body[:100] + "..." if len(email_body) > 100 else email_body
+                ),
+                "filename": filename,
+                "sender_email": sender_email,
+                "total_assets_available": len(known_assets) if known_assets else 0,
+            },
+            "memory_contributions": {
+                "procedural": {"matches": [], "confidence": 0.0, "weight": 0.0},
+                "semantic": {"matches": [], "confidence": 0.0, "weight": 0.0},
+                "episodic": {"matches": [], "confidence": 0.0, "weight": 0.0},
+                "contact": {"matches": [], "confidence": 0.0, "weight": 0.0},
+            },
+            "decision_flow": [],
+            "final_scores": {},
+            "primary_driver": "none",
+            "confidence_level": "very_low",
+        }
+
+        try:
+            # Get assets if not provided
+            if known_assets is None:
+                known_assets = await self.list_assets()
+                reasoning_details["input_context"]["total_assets_available"] = len(
+                    known_assets
+                )
+
+            if not known_assets:
+                self.logger.warning("No assets available for identification")
+                reasoning_details["decision_flow"].append(
+                    "No assets available for matching"
+                )
+                return [], reasoning_details
+
+            # Phase 2.1: Integrate all four memory types
+            combined_text = f"{email_subject} {email_body} {filename}".lower()
+            reasoning_details["decision_flow"].append(
+                "Starting multi-memory asset identification"
+            )
+
+            # 1. Procedural Memory: Stable matching algorithms
+            procedural_results = await self._get_procedural_asset_matches(
+                combined_text, known_assets, reasoning_details
+            )
+
+            # 2. Semantic Memory: Asset knowledge + human feedback
+            semantic_results = await self._get_semantic_asset_matches(
+                combined_text, known_assets, reasoning_details
+            )
+
+            # 3. Episodic Memory: Past experiences
+            episodic_results = await self._get_episodic_asset_matches(
+                email_subject,
+                email_body,
+                filename,
+                sender_email,
+                known_assets,
+                reasoning_details,
+            )
+
+            # 4. Contact Memory: Sender trust and patterns
+            contact_results = await self._get_contact_asset_matches(
+                sender_email, known_assets, reasoning_details
+            )
+
+            # Phase 2.1: Implement source combination logic
+            final_matches = await self._combine_memory_sources(
+                procedural_results,
+                semantic_results,
+                episodic_results,
+                contact_results,
+                known_assets,
+                reasoning_details,
+            )
+
+            # Determine confidence level and primary driver
+            self._analyze_decision_confidence(final_matches, reasoning_details)
+
+            self.logger.info(
+                f"Combined asset identification complete: {len(final_matches)} matches, "
+                f"primary driver: {reasoning_details['primary_driver']}"
+            )
+
+            return final_matches, reasoning_details
+
+        except Exception as e:
+            self.logger.error(f"Combined asset identification failed: {e}")
+            reasoning_details["decision_flow"].append(f"ERROR: {str(e)}")
+            reasoning_details["primary_driver"] = "error"
+            raise RuntimeError(f"Asset identification failed: {e}") from e
+
+    @log_function()
+    async def _get_procedural_asset_matches(
+        self,
+        combined_text: str,
+        known_assets: list[Asset],
+        reasoning_details: dict[str, Any],
+    ) -> dict[str, float]:
+        """
+        Get asset matches using procedural memory stable algorithms.
+
+        Uses business rules and stable matching patterns from procedural memory
+        to identify potential asset matches based on content analysis.
+
+        Args:
+            combined_text: Combined email and filename text for analysis
+            known_assets: List of available assets to match against
+            reasoning_details: Reasoning dictionary to update with results
+
+        Returns:
+            Dictionary mapping asset_id to confidence score
+
+        Raises:
+            RuntimeError: If procedural memory operations fail
+        """
+        self.logger.debug("Getting procedural memory asset matches")
+
+        procedural_matches: dict[str, float] = {}
+
+        try:
+            if not self.procedural_memory:
+                self.logger.warning("Procedural memory not available")
+                reasoning_details["memory_contributions"]["procedural"].update(
+                    {
+                        "matches": [],
+                        "confidence": 0.0,
+                        "weight": 0.0,
+                        "status": "unavailable",
+                    }
+                )
+                return procedural_matches
+
+            # Get asset matching rules from procedural memory
+            asset_rules = await self.procedural_memory.get_asset_matching_rules()
+
+            if not asset_rules or not asset_rules.get("rules"):
+                self.logger.info("No asset matching rules found in procedural memory")
+                reasoning_details["memory_contributions"]["procedural"].update(
+                    {
+                        "matches": [],
+                        "confidence": 0.0,
+                        "weight": 0.0,
+                        "status": "no_rules",
+                    }
+                )
+                return procedural_matches
+
+            self.logger.info(
+                f"Applying {len(asset_rules['rules'])} procedural asset matching rules"
+            )
+
+            # Apply procedural rules to each asset
+            for asset in known_assets:
+                max_confidence = 0.0
+                matching_rules = []
+
+                for rule in asset_rules["rules"]:
+                    try:
+                        # Match rule keywords against combined text
+                        rule_confidence = 0.0
+                        matched_keywords = []
+
+                        keywords = rule.get("matching_keywords", [])
+                        for keyword in keywords:
+                            if keyword.lower() in combined_text:
+                                rule_confidence += 0.2  # Base keyword match score
+                                matched_keywords.append(keyword)
+
+                        # Apply regex patterns if available
+                        regex_patterns = rule.get("regex_patterns", [])
+                        for pattern in regex_patterns:
+                            try:
+                                # # Standard library imports
+                                import re
+
+                                if re.search(pattern, combined_text, re.IGNORECASE):
+                                    rule_confidence += (
+                                        0.3  # Higher score for regex match
+                                    )
+                                    matched_keywords.append(f"regex:{pattern[:20]}...")
+                            except re.error:
+                                self.logger.warning(f"Invalid regex pattern: {pattern}")
+                                continue
+
+                        # Asset type boost
+                        if (
+                            hasattr(asset, "asset_type")
+                            and rule.get("asset_type") == asset.asset_type.value
+                        ):
+                            rule_confidence *= 1.2  # 20% boost for matching asset type
+
+                        # Record rule application
+                        if rule_confidence > 0.1:  # Only record meaningful matches
+                            matching_rules.append(
+                                {
+                                    "rule_id": rule.get("rule_id", "unknown"),
+                                    "confidence": min(rule_confidence, 1.0),
+                                    "matched_keywords": matched_keywords,
+                                    "asset_type": rule.get("asset_type", "unknown"),
+                                }
+                            )
+                            max_confidence = max(
+                                max_confidence, min(rule_confidence, 1.0)
+                            )
+
+                    except Exception as e:
+                        self.logger.debug(f"Error applying procedural rule: {e}")
+                        continue
+
+                # Store asset match if confidence threshold met
+                if max_confidence >= config.low_confidence_threshold:
+                    procedural_matches[asset.deal_id] = max_confidence
+                    self.logger.debug(
+                        f"Procedural match: {asset.deal_name} -> {max_confidence:.3f}"
+                    )
+
+            # Update reasoning details
+            procedural_confidence = (
+                sum(procedural_matches.values()) / len(procedural_matches)
+                if procedural_matches
+                else 0.0
+            )
+
+            reasoning_details["memory_contributions"]["procedural"].update(
+                {
+                    "matches": [
+                        {
+                            "asset_id": asset_id,
+                            "confidence": confidence,
+                            "asset_name": next(
+                                (
+                                    a.deal_name
+                                    for a in known_assets
+                                    if a.deal_id == asset_id
+                                ),
+                                "Unknown",
+                            ),
+                        }
+                        for asset_id, confidence in sorted(
+                            procedural_matches.items(), key=lambda x: x[1], reverse=True
+                        )[
+                            :5
+                        ]  # Top 5 matches
+                    ],
+                    "confidence": procedural_confidence,
+                    "weight": (
+                        config.procedural_memory_weight
+                        if hasattr(config, "procedural_memory_weight")
+                        else 0.25
+                    ),
+                    "rules_applied": len(asset_rules["rules"]),
+                    "status": "success",
+                }
+            )
+
+            self.logger.info(
+                f"Procedural memory found {len(procedural_matches)} asset matches "
+                f"with average confidence {procedural_confidence:.3f}"
+            )
+
+            return procedural_matches
+
+        except Exception as e:
+            self.logger.error(f"Procedural memory asset matching failed: {e}")
+            reasoning_details["memory_contributions"]["procedural"].update(
+                {
+                    "matches": [],
+                    "confidence": 0.0,
+                    "weight": 0.0,
+                    "status": f"error: {str(e)}",
+                }
+            )
+            raise RuntimeError(f"Procedural memory matching failed: {e}") from e
+
+    @log_function()
+    async def _get_semantic_asset_matches(
+        self,
+        combined_text: str,
+        known_assets: list[Asset],
+        reasoning_details: dict[str, Any],
+    ) -> dict[str, float]:
+        """
+        Get asset matches using semantic memory knowledge and feedback.
+
+        Uses asset knowledge and human feedback stored in semantic memory
+        to identify potential asset matches through similarity search.
+
+        Args:
+            combined_text: Combined email and filename text for analysis
+            known_assets: List of available assets to match against
+            reasoning_details: Reasoning dictionary to update with results
+
+        Returns:
+            Dictionary mapping asset_id to confidence score
+
+        Raises:
+            RuntimeError: If semantic memory operations fail
+        """
+        self.logger.debug("Getting semantic memory asset matches")
+
+        semantic_matches: dict[str, float] = {}
+
+        try:
+            if not self.semantic_memory:
+                self.logger.warning("Semantic memory not available")
+                reasoning_details["memory_contributions"]["semantic"].update(
+                    {
+                        "matches": [],
+                        "confidence": 0.0,
+                        "weight": 0.0,
+                        "status": "unavailable",
+                    }
+                )
+                return semantic_matches
+
+            # Search for asset knowledge in semantic memory
+            asset_knowledge_results = await self.semantic_memory.search_asset_knowledge(
+                query_text=combined_text,
+                limit=(
+                    config.semantic_search_limit
+                    if hasattr(config, "semantic_search_limit")
+                    else 10
+                ),
+            )
+
+            human_feedback_results = []
+            # Get human feedback for assets
+            for asset in known_assets:
+                try:
+                    feedback = await self.semantic_memory.get_asset_feedback(
+                        asset_id=asset.deal_id,
+                        context={"combined_text": combined_text[:200]},
+                    )
+                    if feedback and feedback.get("results"):
+                        human_feedback_results.extend(feedback["results"])
+                except Exception as e:
+                    self.logger.debug(
+                        f"No human feedback found for asset {asset.deal_id}: {e}"
+                    )
+                    continue
+
+            # Combine results from both searches
+            all_semantic_results = (
+                asset_knowledge_results.get("results", []) + human_feedback_results
+            )
+
+            if not all_semantic_results:
+                self.logger.info("No semantic memory matches found")
+                reasoning_details["memory_contributions"]["semantic"].update(
+                    {
+                        "matches": [],
+                        "confidence": 0.0,
+                        "weight": 0.0,
+                        "status": "no_matches",
+                    }
+                )
+                return semantic_matches
+
+            self.logger.info(
+                f"Processing {len(all_semantic_results)} semantic memory results"
+            )
+
+            # Process semantic memory results
+            asset_scores: dict[str, list[float]] = {}
+
+            for result in all_semantic_results:
+                try:
+                    # Extract asset information from result
+                    asset_id = result.get("metadata", {}).get("asset_id")
+                    similarity_score = result.get("score", 0.0)
+                    knowledge_type = result.get("metadata", {}).get(
+                        "knowledge_type", "unknown"
+                    )
+
+                    if (
+                        not asset_id
+                        or similarity_score < config.semantic_similarity_threshold
+                    ):
+                        continue
+
+                    # Apply knowledge type weighting
+                    weighted_score = similarity_score
+
+                    if knowledge_type == "human_feedback":
+                        weighted_score *= 1.3  # Boost human feedback
+                    elif knowledge_type == "asset_knowledge":
+                        weighted_score *= 1.1  # Slight boost for asset knowledge
+                    elif knowledge_type == "classification_feedback":
+                        weighted_score *= 1.2  # Boost classification feedback
+
+                    # Apply recency weighting if available
+                    timestamp = result.get("metadata", {}).get("timestamp")
+                    if timestamp:
+                        # # Standard library imports
+                        from datetime import UTC, datetime
+
+                        try:
+                            # Calculate recency boost (more recent = higher score)
+                            if isinstance(timestamp, str):
+                                result_time = datetime.fromisoformat(
+                                    timestamp.replace("Z", "+00:00")
+                                )
+                            else:
+                                result_time = datetime.fromtimestamp(timestamp, UTC)
+
+                            days_old = (datetime.now(UTC) - result_time).days
+                            recency_boost = max(
+                                0.1, 1.0 - (days_old / 365.0)
+                            )  # Decay over a year
+                            weighted_score *= recency_boost
+                        except (ValueError, TypeError) as e:
+                            self.logger.debug(
+                                f"Could not parse timestamp {timestamp}: {e}"
+                            )
+
+                    # Store score for this asset
+                    if asset_id not in asset_scores:
+                        asset_scores[asset_id] = []
+                    asset_scores[asset_id].append(min(weighted_score, 1.0))
+
+                except Exception as e:
+                    self.logger.debug(f"Error processing semantic result: {e}")
+                    continue
+
+            # Calculate final scores for each asset (use max score)
+            for asset_id, scores in asset_scores.items():
+                if scores:
+                    max_score = max(scores)
+                    avg_score = sum(scores) / len(scores)
+                    # Use weighted combination of max and average
+                    final_score = (max_score * 0.7) + (avg_score * 0.3)
+
+                    if final_score >= config.low_confidence_threshold:
+                        semantic_matches[asset_id] = final_score
+
+                        asset_name = next(
+                            (
+                                a.deal_name
+                                for a in known_assets
+                                if a.deal_id == asset_id
+                            ),
+                            "Unknown",
+                        )
+                        self.logger.debug(
+                            f"Semantic match: {asset_name} -> {final_score:.3f} "
+                            f"(from {len(scores)} signals)"
+                        )
+
+            # Update reasoning details
+            semantic_confidence = (
+                sum(semantic_matches.values()) / len(semantic_matches)
+                if semantic_matches
+                else 0.0
+            )
+
+            reasoning_details["memory_contributions"]["semantic"].update(
+                {
+                    "matches": [
+                        {
+                            "asset_id": asset_id,
+                            "confidence": confidence,
+                            "asset_name": next(
+                                (
+                                    a.deal_name
+                                    for a in known_assets
+                                    if a.deal_id == asset_id
+                                ),
+                                "Unknown",
+                            ),
+                        }
+                        for asset_id, confidence in sorted(
+                            semantic_matches.items(), key=lambda x: x[1], reverse=True
+                        )[
+                            :5
+                        ]  # Top 5 matches
+                    ],
+                    "confidence": semantic_confidence,
+                    "weight": (
+                        config.semantic_memory_weight
+                        if hasattr(config, "semantic_memory_weight")
+                        else 0.3
+                    ),
+                    "knowledge_signals": len(
+                        asset_knowledge_results.get("results", [])
+                    ),
+                    "feedback_signals": len(human_feedback_results),
+                    "status": "success",
+                }
+            )
+
+            self.logger.info(
+                f"Semantic memory found {len(semantic_matches)} asset matches "
+                f"with average confidence {semantic_confidence:.3f}"
+            )
+
+            return semantic_matches
+
+        except Exception as e:
+            self.logger.error(f"Semantic memory asset matching failed: {e}")
+            reasoning_details["memory_contributions"]["semantic"].update(
+                {
+                    "matches": [],
+                    "confidence": 0.0,
+                    "weight": 0.0,
+                    "status": f"error: {str(e)}",
+                }
+            )
+            raise RuntimeError(f"Semantic memory matching failed: {e}") from e
+
+    @log_function()
+    async def _get_episodic_asset_matches(
+        self,
+        email_subject: str,
+        email_body: str,
+        filename: str,
+        sender_email: str,
+        known_assets: list[Asset],
+        reasoning_details: dict[str, Any],
+    ) -> dict[str, float]:
+        """
+        Get asset matches using episodic memory past experiences.
+
+        Uses past experiences and successful patterns from episodic memory
+        to identify potential asset matches based on similar contexts.
+
+        Args:
+            email_subject: Email subject line for context matching
+            email_body: Email body content for context matching
+            filename: Attachment filename for pattern matching
+            sender_email: Sender email for pattern matching
+            known_assets: List of available assets to match against
+            reasoning_details: Reasoning dictionary to update with results
+
+        Returns:
+            Dictionary mapping asset_id to confidence score
+
+        Raises:
+            RuntimeError: If episodic memory operations fail
+        """
+        self.logger.debug("Getting episodic memory asset matches")
+
+        episodic_matches: dict[str, float] = {}
+
+        try:
+            if not self.episodic_memory:
+                self.logger.warning("Episodic memory not available")
+                reasoning_details["memory_contributions"]["episodic"].update(
+                    {
+                        "matches": [],
+                        "confidence": 0.0,
+                        "weight": 0.0,
+                        "status": "unavailable",
+                    }
+                )
+                return episodic_matches
+
+            # Search for similar past experiences
+            search_queries = [
+                f"asset identification {email_subject}",
+                f"document processing {filename}",
+                f"sender {sender_email}",
+                f"email attachment {email_body[:100]}",
+            ]
+
+            all_episodic_results = []
+
+            for query in search_queries:
+                if not query.strip():
+                    continue
+
+                try:
+                    results = await self.episodic_memory.search(
+                        query_text=query,
+                        limit=(
+                            config.episodic_search_limit
+                            if hasattr(config, "episodic_search_limit")
+                            else 5
+                        ),
+                        memory_type="decision",  # Focus on decision memories
+                    )
+
+                    if results and results.get("results"):
+                        all_episodic_results.extend(results["results"])
+
+                except Exception as e:
+                    self.logger.debug(
+                        f"Episodic search failed for query '{query}': {e}"
+                    )
+                    continue
+
+            if not all_episodic_results:
+                self.logger.info("No episodic memory matches found")
+                reasoning_details["memory_contributions"]["episodic"].update(
+                    {
+                        "matches": [],
+                        "confidence": 0.0,
+                        "weight": 0.0,
+                        "status": "no_experiences",
+                    }
+                )
+                return episodic_matches
+
+            self.logger.info(
+                f"Processing {len(all_episodic_results)} episodic memory results"
+            )
+
+            # Process episodic memory results
+            asset_experience_scores: dict[str, list[float]] = {}
+
+            for result in all_episodic_results:
+                try:
+                    # Extract experience information
+                    metadata = result.get("metadata", {})
+                    similarity_score = result.get("score", 0.0)
+
+                    # Look for asset ID in the experience
+                    asset_id = metadata.get("asset_id") or metadata.get(
+                        "result_asset_id"
+                    )
+                    decision_outcome = metadata.get("outcome", "unknown")
+                    decision_confidence = metadata.get("confidence", 0.0)
+
+                    if (
+                        not asset_id
+                        or similarity_score < config.episodic_similarity_threshold
+                    ):
+                        continue
+
+                    # Weight by decision outcome success
+                    outcome_weight = 1.0
+                    if decision_outcome == "success":
+                        outcome_weight = 1.2
+                    elif decision_outcome == "partial_success":
+                        outcome_weight = 1.0
+                    elif decision_outcome == "failure":
+                        outcome_weight = 0.5
+
+                    # Weight by original decision confidence
+                    confidence_weight = max(0.3, min(1.0, decision_confidence))
+
+                    # Apply temporal decay (recent experiences more valuable)
+                    timestamp = metadata.get("timestamp")
+                    temporal_weight = 1.0
+
+                    if timestamp:
+                        # # Standard library imports
+                        from datetime import UTC, datetime
+
+                        try:
+                            if isinstance(timestamp, str):
+                                experience_time = datetime.fromisoformat(
+                                    timestamp.replace("Z", "+00:00")
+                                )
+                            else:
+                                experience_time = datetime.fromtimestamp(timestamp, UTC)
+
+                            days_old = (datetime.now(UTC) - experience_time).days
+                            # More aggressive decay for episodic memories (decay over 6 months)
+                            temporal_weight = max(0.2, 1.0 - (days_old / 180.0))
+                        except (ValueError, TypeError) as e:
+                            self.logger.debug(
+                                f"Could not parse timestamp {timestamp}: {e}"
+                            )
+
+                    # Calculate final episodic score
+                    episodic_score = (
+                        similarity_score
+                        * outcome_weight
+                        * confidence_weight
+                        * temporal_weight
+                    )
+
+                    # Store score for this asset
+                    if asset_id not in asset_experience_scores:
+                        asset_experience_scores[asset_id] = []
+                    asset_experience_scores[asset_id].append(min(episodic_score, 1.0))
+
+                except Exception as e:
+                    self.logger.debug(f"Error processing episodic result: {e}")
+                    continue
+
+            # Calculate final scores for each asset
+            for asset_id, scores in asset_experience_scores.items():
+                if scores and asset_id in [a.deal_id for a in known_assets]:
+                    # Use weighted average of experiences, giving more weight to higher scores
+                    sorted_scores = sorted(scores, reverse=True)
+                    if len(sorted_scores) >= 3:
+                        # Weight: 50% best, 30% second best, 20% third best
+                        final_score = (
+                            sorted_scores[0] * 0.5
+                            + sorted_scores[1] * 0.3
+                            + sorted_scores[2] * 0.2
+                        )
+                    elif len(sorted_scores) == 2:
+                        final_score = sorted_scores[0] * 0.7 + sorted_scores[1] * 0.3
+                    else:
+                        final_score = sorted_scores[0]
+
+                    if final_score >= config.low_confidence_threshold:
+                        episodic_matches[asset_id] = final_score
+
+                        asset_name = next(
+                            (
+                                a.deal_name
+                                for a in known_assets
+                                if a.deal_id == asset_id
+                            ),
+                            "Unknown",
+                        )
+                        self.logger.debug(
+                            f"Episodic match: {asset_name} -> {final_score:.3f} "
+                            f"(from {len(scores)} experiences)"
+                        )
+
+            # Update reasoning details
+            episodic_confidence = (
+                sum(episodic_matches.values()) / len(episodic_matches)
+                if episodic_matches
+                else 0.0
+            )
+
+            reasoning_details["memory_contributions"]["episodic"].update(
+                {
+                    "matches": [
+                        {
+                            "asset_id": asset_id,
+                            "confidence": confidence,
+                            "asset_name": next(
+                                (
+                                    a.deal_name
+                                    for a in known_assets
+                                    if a.deal_id == asset_id
+                                ),
+                                "Unknown",
+                            ),
+                        }
+                        for asset_id, confidence in sorted(
+                            episodic_matches.items(), key=lambda x: x[1], reverse=True
+                        )[
+                            :5
+                        ]  # Top 5 matches
+                    ],
+                    "confidence": episodic_confidence,
+                    "weight": (
+                        config.episodic_memory_weight
+                        if hasattr(config, "episodic_memory_weight")
+                        else 0.2
+                    ),
+                    "experiences_found": len(all_episodic_results),
+                    "relevant_experiences": sum(
+                        len(scores) for scores in asset_experience_scores.values()
+                    ),
+                    "status": "success",
+                }
+            )
+
+            self.logger.info(
+                f"Episodic memory found {len(episodic_matches)} asset matches "
+                f"with average confidence {episodic_confidence:.3f}"
+            )
+
+            return episodic_matches
+
+        except Exception as e:
+            self.logger.error(f"Episodic memory asset matching failed: {e}")
+            reasoning_details["memory_contributions"]["episodic"].update(
+                {
+                    "matches": [],
+                    "confidence": 0.0,
+                    "weight": 0.0,
+                    "status": f"error: {str(e)}",
+                }
+            )
+            raise RuntimeError(f"Episodic memory matching failed: {e}") from e
+
+    @log_function()
+    async def _get_contact_asset_matches(
+        self,
+        sender_email: str,
+        known_assets: list[Asset],
+        reasoning_details: dict[str, Any],
+    ) -> dict[str, float]:
+        """
+        Get asset matches using contact memory sender trust and patterns.
+
+        Uses sender trust level and historical patterns from contact memory
+        to identify potential asset matches based on sender relationships.
+
+        Args:
+            sender_email: Sender email address for contact analysis
+            known_assets: List of available assets to match against
+            reasoning_details: Reasoning dictionary to update with results
+
+        Returns:
+            Dictionary mapping asset_id to confidence score
+
+        Raises:
+            RuntimeError: If contact memory operations fail
+        """
+        self.logger.debug("Getting contact memory asset matches")
+
+        contact_matches: dict[str, float] = {}
+
+        try:
+            if not self.contact_memory:
+                self.logger.warning("Contact memory not available")
+                reasoning_details["memory_contributions"]["contact"].update(
+                    {
+                        "matches": [],
+                        "confidence": 0.0,
+                        "weight": 0.0,
+                        "status": "unavailable",
+                    }
+                )
+                return contact_matches
+
+            # Find contact information for sender
+            sender_contact = await self.contact_memory.find_contact_by_email(
+                sender_email
+            )
+
+            if not sender_contact:
+                self.logger.info(f"No contact information found for {sender_email}")
+                reasoning_details["memory_contributions"]["contact"].update(
+                    {
+                        "matches": [],
+                        "confidence": 0.0,
+                        "weight": 0.0,
+                        "status": "unknown_sender",
+                    }
+                )
+                return contact_matches
+
+            self.logger.info(f"Found contact information for {sender_email}")
+
+            # Extract sender organization and trust level
+            sender_org = getattr(sender_contact, "organization", "") or ""
+            sender_trust = getattr(sender_contact, "trust_level", "unknown")
+            sender_tags = getattr(sender_contact, "tags", []) or []
+
+            # Base trust score
+            trust_scores = {
+                "high": 0.8,
+                "medium": 0.6,
+                "low": 0.3,
+                "verified": 0.9,
+                "trusted": 0.8,
+                "unknown": 0.1,
+            }
+
+            base_trust_score = trust_scores.get(sender_trust.lower(), 0.1)
+
+            # Search for historical interactions with this sender
+            interaction_results = await self.contact_memory.search_contacts(
+                query=f"email interactions {sender_email}",
+                limit=(
+                    config.contact_search_limit
+                    if hasattr(config, "contact_search_limit")
+                    else 10
+                ),
+            )
+
+            # Analyze asset patterns for this sender/organization
+            sender_asset_patterns: dict[str, list[float]] = {}
+
+            # Check each asset for sender/organization matches
+            for asset in known_assets:
+                asset_confidence = 0.0
+                matching_factors = []
+
+                # Direct email mapping check (if asset has sender mappings)
+                if (
+                    hasattr(asset, "sender_emails")
+                    and asset.sender_emails
+                    and sender_email.lower()
+                    in [email.lower() for email in asset.sender_emails]
+                ):
+                    asset_confidence += 0.7
+                    matching_factors.append("direct_email_mapping")
+
+                # Organization matching
+                if (
+                    sender_org
+                    and hasattr(asset, "organization")
+                    and asset.organization
+                    and sender_org.lower() in asset.organization.lower()
+                ):
+                    asset_confidence += 0.5
+                    matching_factors.append("organization_match")
+
+                # Tags matching (if asset has related tags)
+                if sender_tags and hasattr(asset, "tags") and asset.tags:
+                    common_tags = {tag.lower() for tag in sender_tags} & {
+                        tag.lower() for tag in asset.tags
+                    }
+                    if common_tags:
+                        tag_boost = min(0.3, len(common_tags) * 0.1)
+                        asset_confidence += tag_boost
+                        matching_factors.append(f"tag_match:{','.join(common_tags)}")
+
+                # Apply trust level weighting
+                weighted_confidence = asset_confidence * base_trust_score
+
+                # Boost based on sender interaction frequency
+                if interaction_results and interaction_results.get("results"):
+                    interaction_count = len(interaction_results["results"])
+                    frequency_boost = min(0.2, interaction_count * 0.02)
+                    weighted_confidence += frequency_boost
+                    matching_factors.append(
+                        f"interaction_frequency:{interaction_count}"
+                    )
+
+                # Store if above threshold
+                if weighted_confidence >= config.low_confidence_threshold:
+                    if asset.deal_id not in sender_asset_patterns:
+                        sender_asset_patterns[asset.deal_id] = []
+                    sender_asset_patterns[asset.deal_id].append(weighted_confidence)
+
+                    self.logger.debug(
+                        f"Contact match: {asset.deal_name} -> {weighted_confidence:.3f} "
+                        f"(factors: {', '.join(matching_factors)})"
+                    )
+
+            # Calculate final contact scores
+            for asset_id, scores in sender_asset_patterns.items():
+                if scores:
+                    # Use maximum score for contact memory (direct mappings are strong)
+                    final_score = max(scores)
+                    contact_matches[asset_id] = final_score
+
+            # Update reasoning details
+            contact_confidence = (
+                sum(contact_matches.values()) / len(contact_matches)
+                if contact_matches
+                else 0.0
+            )
+
+            reasoning_details["memory_contributions"]["contact"].update(
+                {
+                    "matches": [
+                        {
+                            "asset_id": asset_id,
+                            "confidence": confidence,
+                            "asset_name": next(
+                                (
+                                    a.deal_name
+                                    for a in known_assets
+                                    if a.deal_id == asset_id
+                                ),
+                                "Unknown",
+                            ),
+                        }
+                        for asset_id, confidence in sorted(
+                            contact_matches.items(), key=lambda x: x[1], reverse=True
+                        )[
+                            :5
+                        ]  # Top 5 matches
+                    ],
+                    "confidence": contact_confidence,
+                    "weight": (
+                        config.contact_memory_weight
+                        if hasattr(config, "contact_memory_weight")
+                        else 0.25
+                    ),
+                    "sender_trust": sender_trust,
+                    "sender_organization": sender_org,
+                    "interaction_count": (
+                        len(interaction_results.get("results", []))
+                        if interaction_results
+                        else 0
+                    ),
+                    "status": "success",
+                }
+            )
+
+            self.logger.info(
+                f"Contact memory found {len(contact_matches)} asset matches "
+                f"with average confidence {contact_confidence:.3f} "
+                f"(sender trust: {sender_trust})"
+            )
+
+            return contact_matches
+
+        except Exception as e:
+            self.logger.error(f"Contact memory asset matching failed: {e}")
+            reasoning_details["memory_contributions"]["contact"].update(
+                {
+                    "matches": [],
+                    "confidence": 0.0,
+                    "weight": 0.0,
+                    "status": f"error: {str(e)}",
+                }
+            )
+            raise RuntimeError(f"Contact memory matching failed: {e}") from e
+
+    @log_function()
+    async def _combine_memory_sources(
+        self,
+        procedural_results: dict[str, float],
+        semantic_results: dict[str, float],
+        episodic_results: dict[str, float],
+        contact_results: dict[str, float],
+        known_assets: list[Asset],
+        reasoning_details: dict[str, Any],
+    ) -> list[tuple[str, float]]:
+        """
+        Combine results from all memory sources with weighted scoring.
+
+        Phase 2.1: Implements source combination logic that weights different
+        memory sources appropriately and handles conflicting signals.
+
+        Args:
+            procedural_results: Asset matches from procedural memory
+            semantic_results: Asset matches from semantic memory
+            episodic_results: Asset matches from episodic memory
+            contact_results: Asset matches from contact memory
+            known_assets: List of available assets
+            reasoning_details: Reasoning dictionary to update
+
+        Returns:
+            List of (asset_id, final_confidence) tuples sorted by confidence
+
+        Raises:
+            RuntimeError: If source combination fails
+        """
+        self.logger.info("Combining memory source results with weighted scoring")
+
+        try:
+            # Get all unique asset IDs from all sources
+            all_asset_ids = set()
+            all_asset_ids.update(procedural_results.keys())
+            all_asset_ids.update(semantic_results.keys())
+            all_asset_ids.update(episodic_results.keys())
+            all_asset_ids.update(contact_results.keys())
+
+            if not all_asset_ids:
+                self.logger.warning("No asset matches found in any memory source")
+                reasoning_details["decision_flow"].append(
+                    "No matches found in any memory source"
+                )
+                reasoning_details["final_scores"] = {}
+                return []
+
+            # Extract memory weights from reasoning details
+            weights = {
+                "procedural": reasoning_details["memory_contributions"]["procedural"][
+                    "weight"
+                ],
+                "semantic": reasoning_details["memory_contributions"]["semantic"][
+                    "weight"
+                ],
+                "episodic": reasoning_details["memory_contributions"]["episodic"][
+                    "weight"
+                ],
+                "contact": reasoning_details["memory_contributions"]["contact"][
+                    "weight"
+                ],
+            }
+
+            # Normalize weights to sum to 1.0
+            total_weight = sum(weights.values())
+            if total_weight > 0:
+                weights = {k: v / total_weight for k, v in weights.items()}
+            else:
+                # Fallback to equal weights
+                weights = dict.fromkeys(weights, 0.25)
+
+            self.logger.info(f"Using memory weights: {weights}")
+            reasoning_details["decision_flow"].append(
+                f"Applied memory weights: {weights}"
+            )
+
+            # Calculate combined scores
+            combined_scores: dict[str, float] = {}
+            asset_details: dict[str, dict] = {}
+
+            for asset_id in all_asset_ids:
+                # Get scores from each memory source
+                scores = {
+                    "procedural": procedural_results.get(asset_id, 0.0),
+                    "semantic": semantic_results.get(asset_id, 0.0),
+                    "episodic": episodic_results.get(asset_id, 0.0),
+                    "contact": contact_results.get(asset_id, 0.0),
+                }
+
+                # Calculate weighted average
+                weighted_score = sum(
+                    scores[source] * weights[source] for source in scores
+                )
+
+                # Apply source agreement boost
+                active_sources = sum(1 for score in scores.values() if score > 0)
+                if active_sources >= 2:
+                    # Multiple sources agree - boost confidence
+                    agreement_boost = min(0.2, (active_sources - 1) * 0.1)
+                    weighted_score += agreement_boost
+
+                # Apply conflict penalty for highly disagreeing sources
+                if active_sources >= 2:
+                    score_variance = (
+                        sum(
+                            (scores[source] - weighted_score) ** 2
+                            for source in scores
+                            if scores[source] > 0
+                        )
+                        / active_sources
+                    )
+
+                    if score_variance > 0.2:  # High disagreement
+                        conflict_penalty = min(0.15, score_variance * 0.3)
+                        weighted_score -= conflict_penalty
+
+                # Ensure score is within bounds
+                final_score = max(0.0, min(1.0, weighted_score))
+
+                # Store if above minimum threshold
+                if final_score >= config.minimum_combined_confidence:
+                    combined_scores[asset_id] = final_score
+
+                    asset_details[asset_id] = {
+                        "scores": scores,
+                        "weighted_score": weighted_score,
+                        "active_sources": active_sources,
+                        "final_score": final_score,
+                        "asset_name": next(
+                            (
+                                a.deal_name
+                                for a in known_assets
+                                if a.deal_id == asset_id
+                            ),
+                            "Unknown",
+                        ),
+                    }
+
+            # Sort by final score (descending)
+            sorted_matches = sorted(
+                combined_scores.items(), key=lambda x: x[1], reverse=True
+            )
+
+            # Update reasoning details with final results
+            reasoning_details["final_scores"] = {
+                asset_id: asset_details[asset_id] for asset_id, _ in sorted_matches
+            }
+
+            # Determine primary driver (memory source with highest total contribution)
+            source_contributions = {
+                "procedural": sum(procedural_results.values()),
+                "semantic": sum(semantic_results.values()),
+                "episodic": sum(episodic_results.values()),
+                "contact": sum(contact_results.values()),
+            }
+
+            primary_driver = max(source_contributions.items(), key=lambda x: x[1])[0]
+            reasoning_details["primary_driver"] = primary_driver
+
+            reasoning_details["decision_flow"].append(
+                f"Combined {len(all_asset_ids)} candidate assets, "
+                f"produced {len(sorted_matches)} final matches, "
+                f"primary driver: {primary_driver}"
+            )
+
+            self.logger.info(
+                f"Source combination complete: {len(sorted_matches)} final matches, "
+                f"primary driver: {primary_driver}, "
+                f"top match: {sorted_matches[0] if sorted_matches else 'none'}"
+            )
+
+            return sorted_matches
+
+        except Exception as e:
+            self.logger.error(f"Memory source combination failed: {e}")
+            reasoning_details["decision_flow"].append(
+                f"ERROR in source combination: {str(e)}"
+            )
+            raise RuntimeError(f"Source combination failed: {e}") from e
+
+    def _analyze_decision_confidence(
+        self,
+        final_matches: list[tuple[str, float]],
+        reasoning_details: dict[str, Any],
+    ) -> None:
+        """
+        Analyze overall decision confidence and update reasoning.
+
+        Determines confidence level based on match quality and agreement.
+
+        Args:
+            final_matches: List of (asset_id, confidence) tuples
+            reasoning_details: Reasoning dictionary to update
+        """
+        if not final_matches:
+            reasoning_details["confidence_level"] = "very_low"
+            reasoning_details["decision_flow"].append(
+                "No matches found - very low confidence"
+            )
+            return
+
+        top_score = final_matches[0][1]
+        active_memory_sources = sum(
+            1
+            for contrib in reasoning_details["memory_contributions"].values()
+            if contrib["confidence"] > 0
+        )
+
+        # Determine confidence level
+        if top_score >= 0.8 and active_memory_sources >= 3:
+            confidence_level = "very_high"
+        elif top_score >= 0.7 and active_memory_sources >= 2:
+            confidence_level = "high"
+        elif top_score >= 0.5:
+            confidence_level = "medium"
+        elif top_score >= 0.3:
+            confidence_level = "low"
+        else:
+            confidence_level = "very_low"
+
+        reasoning_details["confidence_level"] = confidence_level
+        reasoning_details["decision_flow"].append(
+            f"Decision confidence: {confidence_level} "
+            f"(top score: {top_score:.3f}, active sources: {active_memory_sources})"
+        )
+
+    @log_function()
+    async def classify_document_combined(
+        self,
+        filename: str,
+        subject: str,
+        body: str,
+        asset_type: str,
+        asset_id: str | None = None,
+    ) -> tuple[str, float, dict[str, Any]]:
+        """
+        Enhanced document classification using all four memory types.
+
+        Phase 2.2: Combined Decision Logic implementation that integrates:
+        - Procedural memory (stable business rules with asset type filtering)
+        - Semantic memory (human feedback + allowed categories for asset type)
+        - Episodic memory (past classification experiences)
+        - Contact memory (sender patterns and document types)
+
+        Args:
+            filename: Document filename for classification
+            subject: Email subject line for context
+            body: Email body content for analysis
+            asset_type: Asset type for constraint filtering
+            asset_id: Optional asset ID for enhanced context
+
+        Returns:
+            Tuple containing:
+            - Predicted document category (string)
+            - Classification confidence score (0.0-1.0)
+            - Detailed reasoning dictionary with all memory type contributions
+
+        Raises:
+            ValueError: If required parameters are missing or invalid
+            RuntimeError: If memory systems are not properly initialized
+        """
+        self.logger.info(
+            "Starting combined document classification using all memory types"
+        )
+
+        # Validate inputs
+        if not filename and not subject:
+            raise ValueError("At least one of filename or subject must be provided")
+
+        if not asset_type:
+            raise ValueError("asset_type is required for constraint filtering")
+
+        # Initialize reasoning capture with comprehensive structure
+        reasoning_details = {
+            "method_used": "combined_memory_classification",
+            "input_context": {
+                "filename": filename,
+                "subject": subject,
+                "body": body[:100] + "..." if len(body) > 100 else body,
+                "asset_type": asset_type,
+                "asset_id": asset_id,
+                "document_length": len(body) if body else 0,
+            },
+            "memory_contributions": {
+                "procedural": {
+                    "category": "",
+                    "confidence": 0.0,
+                    "weight": 0.0,
+                    "rules_applied": [],
+                },
+                "semantic": {
+                    "category": "",
+                    "confidence": 0.0,
+                    "weight": 0.0,
+                    "hints_found": [],
+                },
+                "episodic": {
+                    "category": "",
+                    "confidence": 0.0,
+                    "weight": 0.0,
+                    "experiences": [],
+                },
+                "contact": {
+                    "category": "",
+                    "confidence": 0.0,
+                    "weight": 0.0,
+                    "patterns": [],
+                },
+            },
+            "asset_type_constraints": {
+                "allowed_categories": [],
+                "constraint_applied": False,
+                "filtered_out": [],
+            },
+            "decision_flow": [],
+            "category_scores": {},
+            "final_category": "",
+            "final_confidence": 0.0,
+            "primary_driver": "none",
+            "confidence_level": "very_low",
+        }
+
+        try:
+            # Phase 2.2: Get allowed categories for asset type from semantic memory
+            allowed_categories = await self._get_asset_type_categories(
+                asset_type, reasoning_details
+            )
+
+            combined_text = f"{filename} {subject} {body}".lower()
+            reasoning_details["decision_flow"].append(
+                "Starting multi-memory document classification"
+            )
+
+            # 1. Procedural Memory: Apply business rules with asset type filtering
+            procedural_result = await self._get_procedural_classification(
+                combined_text, asset_type, allowed_categories, reasoning_details
+            )
+
+            # 2. Semantic Memory: Get human feedback and hints for this asset type
+            semantic_result = await self._get_semantic_classification(
+                combined_text,
+                asset_type,
+                asset_id,
+                allowed_categories,
+                reasoning_details,
+            )
+
+            # 3. Episodic Memory: Find similar classification experiences
+            episodic_result = await self._get_episodic_classification(
+                filename,
+                subject,
+                body,
+                asset_type,
+                allowed_categories,
+                reasoning_details,
+            )
+
+            # 4. Contact Memory: Apply sender document patterns (if available)
+            contact_result = await self._get_contact_classification(
+                subject, body, asset_type, allowed_categories, reasoning_details
+            )
+
+            # Phase 2.2: Combine results with asset type constraint filtering
+            (
+                final_category,
+                final_confidence,
+            ) = await self._combine_classification_results(
+                procedural_result,
+                semantic_result,
+                episodic_result,
+                contact_result,
+                allowed_categories,
+                reasoning_details,
+            )
+
+            # Determine confidence level and primary driver
+            self._analyze_classification_confidence(
+                final_category, final_confidence, reasoning_details
+            )
+
+            self.logger.info(
+                f"Combined classification complete: {final_category} "
+                f"(confidence: {final_confidence:.3f}, "
+                f"primary driver: {reasoning_details['primary_driver']})"
+            )
+
+            return final_category, final_confidence, reasoning_details
+
+        except Exception as e:
+            self.logger.error(f"Combined document classification failed: {e}")
+            reasoning_details["decision_flow"].append(f"ERROR: {str(e)}")
+            reasoning_details["primary_driver"] = "error"
+            raise RuntimeError(f"Document classification failed: {e}") from e
+
+    @log_function()
+    async def _get_asset_type_categories(
+        self,
+        asset_type: str,
+        reasoning_details: dict[str, Any],
+    ) -> list[str]:
+        """
+        Get allowed document categories for the specified asset type.
+
+        Uses semantic memory to retrieve the categories that are valid
+        for documents of this asset type, enabling constraint filtering.
+
+        Args:
+            asset_type: Asset type to get categories for
+            reasoning_details: Reasoning dictionary to update
+
+        Returns:
+            List of allowed category strings for this asset type
+
+        Raises:
+            RuntimeError: If semantic memory operations fail
+        """
+        self.logger.debug(f"Getting allowed categories for asset type: {asset_type}")
+
+        try:
+            if not self.semantic_memory:
+                self.logger.warning(
+                    "Semantic memory not available for category constraints"
+                )
+                reasoning_details["asset_type_constraints"].update(
+                    {
+                        "allowed_categories": [],
+                        "constraint_applied": False,
+                        "status": "no_semantic_memory",
+                    }
+                )
+                return []
+
+            # Search for asset type category information in semantic memory
+            category_results = await self.semantic_memory.search(
+                query_text=f"asset type {asset_type} allowed categories document types",
+                limit=config.semantic_search_limit,
+                filter_metadata={"knowledge_type": "asset_configuration"},
+            )
+
+            allowed_categories = []
+
+            if category_results and category_results.get("results"):
+                for result in category_results["results"]:
+                    metadata = result.get("metadata", {})
+                    if metadata.get("asset_type") == asset_type:
+                        categories = metadata.get("allowed_categories", [])
+                        if isinstance(categories, list):
+                            allowed_categories.extend(categories)
+                        elif isinstance(categories, str):
+                            allowed_categories.append(categories)
+
+            # Remove duplicates and sort
+            allowed_categories = sorted(set(allowed_categories))
+
+            # Fallback to default categories if none found
+            if not allowed_categories:
+                self.logger.info(
+                    f"No specific categories found for {asset_type}, using defaults"
+                )
+                # Use common document categories as fallback
+                allowed_categories = [
+                    "contract",
+                    "invoice",
+                    "report",
+                    "correspondence",
+                    "proposal",
+                    "statement",
+                    "agreement",
+                    "other",
+                ]
+
+            reasoning_details["asset_type_constraints"].update(
+                {
+                    "allowed_categories": allowed_categories,
+                    "constraint_applied": True,
+                    "status": "success",
+                }
+            )
+
+            self.logger.info(
+                f"Found {len(allowed_categories)} allowed categories for {asset_type}: "
+                f"{', '.join(allowed_categories[:5])}{'...' if len(allowed_categories) > 5 else ''}"
+            )
+
+            return allowed_categories
+
+        except Exception as e:
+            self.logger.error(f"Failed to get asset type categories: {e}")
+            reasoning_details["asset_type_constraints"].update(
+                {
+                    "allowed_categories": [],
+                    "constraint_applied": False,
+                    "status": f"error: {str(e)}",
+                }
+            )
+            # Return empty list to disable constraint filtering on error
+            return []
+
+    @log_function()
+    async def _get_procedural_classification(
+        self,
+        combined_text: str,
+        asset_type: str,
+        allowed_categories: list[str],
+        reasoning_details: dict[str, Any],
+    ) -> tuple[str, float]:
+        """
+        Get document classification using procedural memory business rules.
+
+        Applies stable business rules with asset type filtering to boost
+        matching patterns and reduce non-matching ones.
+
+        Args:
+            combined_text: Combined document text for analysis
+            asset_type: Asset type for rule filtering
+            allowed_categories: List of allowed categories for constraint filtering
+            reasoning_details: Reasoning dictionary to update
+
+        Returns:
+            Tuple of (predicted_category, confidence_score)
+
+        Raises:
+            RuntimeError: If procedural memory operations fail
+        """
+        self.logger.debug("Getting procedural memory classification")
+
+        try:
+            if not self.procedural_memory:
+                self.logger.warning("Procedural memory not available")
+                reasoning_details["memory_contributions"]["procedural"].update(
+                    {
+                        "category": "",
+                        "confidence": 0.0,
+                        "weight": 0.0,
+                        "status": "unavailable",
+                    }
+                )
+                return "", 0.0
+
+            # Get classification rules for this asset type
+            classification_rules = (
+                await self.procedural_memory.get_classification_rules(
+                    asset_type=asset_type
+                )
+            )
+
+            if not classification_rules or not classification_rules.get("rules"):
+                self.logger.info("No classification rules found in procedural memory")
+                reasoning_details["memory_contributions"]["procedural"].update(
+                    {
+                        "category": "",
+                        "confidence": 0.0,
+                        "weight": config.procedural_memory_weight,
+                        "rules_applied": [],
+                        "status": "no_rules",
+                    }
+                )
+                return "", 0.0
+
+            self.logger.info(
+                f"Applying {len(classification_rules['rules'])} procedural classification rules"
+            )
+
+            # Score each category based on rule matches
+            category_scores: dict[str, float] = {}
+            applied_rules = []
+
+            for rule in classification_rules["rules"]:
+                try:
+                    rule_category = rule.get("category", "").lower()
+                    rule_confidence = 0.0
+                    matched_patterns = []
+
+                    # Skip if category not in allowed list
+                    if allowed_categories and rule_category not in [
+                        c.lower() for c in allowed_categories
+                    ]:
+                        continue
+
+                    # Apply keyword patterns
+                    keywords = rule.get("keywords", [])
+                    for keyword in keywords:
+                        if keyword.lower() in combined_text:
+                            rule_confidence += 0.3
+                            matched_patterns.append(f"keyword:{keyword}")
+
+                    # Apply regex patterns
+                    regex_patterns = rule.get("regex_patterns", [])
+                    for pattern in regex_patterns:
+                        try:
+                            # # Standard library imports
+                            import re
+
+                            if re.search(pattern, combined_text, re.IGNORECASE):
+                                rule_confidence += 0.4
+                                matched_patterns.append(f"regex:{pattern[:20]}...")
+                        except re.error:
+                            self.logger.warning(f"Invalid regex pattern: {pattern}")
+                            continue
+
+                    # Asset type boost for matching rules
+                    rule_asset_type = rule.get("asset_type", "").lower()
+                    if rule_asset_type == asset_type.lower():
+                        rule_confidence *= 1.3  # 30% boost for matching asset type
+                        matched_patterns.append("asset_type_match")
+                    elif rule_asset_type and rule_asset_type != asset_type.lower():
+                        rule_confidence *= (
+                            0.7  # 30% penalty for non-matching asset type
+                        )
+
+                    # Record significant rule applications
+                    if rule_confidence > config.low_confidence_threshold:
+                        if rule_category not in category_scores:
+                            category_scores[rule_category] = 0.0
+                        category_scores[rule_category] += rule_confidence
+
+                        applied_rules.append(
+                            {
+                                "rule_id": rule.get("rule_id", "unknown"),
+                                "category": rule_category,
+                                "confidence": min(rule_confidence, 1.0),
+                                "patterns": matched_patterns,
+                                "asset_type_boost": rule_asset_type
+                                == asset_type.lower(),
+                            }
+                        )
+
+                except Exception as e:
+                    self.logger.debug(f"Error applying procedural rule: {e}")
+                    continue
+
+            # Determine best category
+            best_category = ""
+            best_confidence = 0.0
+
+            if category_scores:
+                # Normalize scores and find maximum
+                max_score = max(category_scores.values())
+                if max_score > 0:
+                    for category, score in category_scores.items():
+                        normalized_score = min(score / max_score, 1.0)
+                        if normalized_score > best_confidence:
+                            best_category = category
+                            best_confidence = normalized_score
+
+            # Update reasoning details
+            reasoning_details["memory_contributions"]["procedural"].update(
+                {
+                    "category": best_category,
+                    "confidence": best_confidence,
+                    "weight": config.procedural_memory_weight,
+                    "rules_applied": applied_rules[:5],  # Top 5 rules
+                    "category_scores": dict(
+                        sorted(
+                            category_scores.items(), key=lambda x: x[1], reverse=True
+                        )[:5]
+                    ),
+                    "status": "success",
+                }
+            )
+
+            self.logger.info(
+                f"Procedural classification: {best_category} "
+                f"(confidence: {best_confidence:.3f}, rules: {len(applied_rules)})"
+            )
+
+            return best_category, best_confidence
+
+        except Exception as e:
+            self.logger.error(f"Procedural classification failed: {e}")
+            reasoning_details["memory_contributions"]["procedural"].update(
+                {
+                    "category": "",
+                    "confidence": 0.0,
+                    "weight": 0.0,
+                    "status": f"error: {str(e)}",
+                }
+            )
+            raise RuntimeError(f"Procedural classification failed: {e}") from e
+
+    @log_function()
+    async def _get_semantic_classification(
+        self,
+        combined_text: str,
+        asset_type: str,
+        asset_id: str | None,
+        allowed_categories: list[str],
+        reasoning_details: dict[str, Any],
+    ) -> tuple[str, float]:
+        """
+        Get document classification using semantic memory hints and feedback.
+
+        Uses human feedback and classification hints from semantic memory
+        to predict document category based on similar cases.
+
+        Args:
+            combined_text: Combined document text for analysis
+            asset_type: Asset type for context filtering
+            asset_id: Optional asset ID for enhanced context
+            allowed_categories: List of allowed categories for constraint filtering
+            reasoning_details: Reasoning dictionary to update
+
+        Returns:
+            Tuple of (predicted_category, confidence_score)
+
+        Raises:
+            RuntimeError: If semantic memory operations fail
+        """
+        self.logger.debug("Getting semantic memory classification")
+
+        try:
+            if not self.semantic_memory:
+                self.logger.warning("Semantic memory not available")
+                reasoning_details["memory_contributions"]["semantic"].update(
+                    {
+                        "category": "",
+                        "confidence": 0.0,
+                        "weight": 0.0,
+                        "status": "unavailable",
+                    }
+                )
+                return "", 0.0
+
+            # Get classification hints for this asset type
+            hints_result = await self.semantic_memory.get_classification_hints(
+                asset_type=asset_type,
+                document_context={"text": combined_text[:500], "asset_id": asset_id},
+            )
+
+            category_scores: dict[str, float] = {}
+            hints_found = []
+
+            if hints_result and hints_result.get("hints"):
+                for hint in hints_result["hints"]:
+                    hint_category = hint.get("category", "").lower()
+                    hint_confidence = hint.get("confidence", 0.0)
+                    hint_similarity = hint.get("similarity", 0.0)
+
+                    # Apply constraint filtering
+                    if allowed_categories and hint_category not in [
+                        c.lower() for c in allowed_categories
+                    ]:
+                        continue
+
+                    # Weight by similarity and human feedback strength
+                    weighted_score = hint_confidence * hint_similarity
+
+                    # Boost human feedback over automatic hints
+                    if hint.get("source") == "human_feedback":
+                        weighted_score *= 1.4
+
+                    # Boost recent feedback
+                    timestamp = hint.get("timestamp")
+                    if timestamp:
+                        # # Standard library imports
+                        from datetime import UTC, datetime
+
+                        try:
+                            if isinstance(timestamp, str):
+                                hint_time = datetime.fromisoformat(
+                                    timestamp.replace("Z", "+00:00")
+                                )
+                            else:
+                                hint_time = datetime.fromtimestamp(timestamp, UTC)
+
+                            days_old = (datetime.now(UTC) - hint_time).days
+                            recency_boost = max(
+                                0.5, 1.0 - (days_old / 180.0)
+                            )  # 6 month decay
+                            weighted_score *= recency_boost
+                        except (ValueError, TypeError):
+                            pass  # Use original score if timestamp parsing fails
+
+                    if hint_category not in category_scores:
+                        category_scores[hint_category] = 0.0
+                    category_scores[hint_category] += weighted_score
+
+                    hints_found.append(
+                        {
+                            "category": hint_category,
+                            "confidence": hint_confidence,
+                            "similarity": hint_similarity,
+                            "source": hint.get("source", "unknown"),
+                            "weighted_score": weighted_score,
+                        }
+                    )
+
+            # Search for similar document classification experiences
+            similar_docs = await self.semantic_memory.search(
+                query_text=f"document classification {asset_type} {combined_text[:200]}",
+                limit=config.semantic_search_limit,
+                filter_metadata={"knowledge_type": "classification_feedback"},
+            )
+
+            if similar_docs and similar_docs.get("results"):
+                for result in similar_docs["results"]:
+                    metadata = result.get("metadata", {})
+                    doc_category = metadata.get("category", "").lower()
+                    similarity_score = result.get("score", 0.0)
+
+                    # Apply constraint filtering
+                    if allowed_categories and doc_category not in [
+                        c.lower() for c in allowed_categories
+                    ]:
+                        continue
+
+                    # Weight by similarity and feedback quality
+                    feedback_confidence = metadata.get("confidence", 0.5)
+                    weighted_score = (
+                        similarity_score * feedback_confidence * 0.8
+                    )  # Lower weight than direct hints
+
+                    if doc_category not in category_scores:
+                        category_scores[doc_category] = 0.0
+                    category_scores[doc_category] += weighted_score
+
+            # Determine best category
+            best_category = ""
+            best_confidence = 0.0
+
+            if category_scores:
+                max_score = max(category_scores.values())
+                if max_score > 0:
+                    for category, score in category_scores.items():
+                        normalized_score = min(score / max_score, 1.0)
+                        if normalized_score > best_confidence:
+                            best_category = category
+                            best_confidence = normalized_score
+
+            # Update reasoning details
+            reasoning_details["memory_contributions"]["semantic"].update(
+                {
+                    "category": best_category,
+                    "confidence": best_confidence,
+                    "weight": config.semantic_memory_weight,
+                    "hints_found": hints_found[:5],  # Top 5 hints
+                    "category_scores": dict(
+                        sorted(
+                            category_scores.items(), key=lambda x: x[1], reverse=True
+                        )[:5]
+                    ),
+                    "total_hints": len(hints_found),
+                    "status": "success",
+                }
+            )
+
+            self.logger.info(
+                f"Semantic classification: {best_category} "
+                f"(confidence: {best_confidence:.3f}, hints: {len(hints_found)})"
+            )
+
+            return best_category, best_confidence
+
+        except Exception as e:
+            self.logger.error(f"Semantic classification failed: {e}")
+            reasoning_details["memory_contributions"]["semantic"].update(
+                {
+                    "category": "",
+                    "confidence": 0.0,
+                    "weight": 0.0,
+                    "status": f"error: {str(e)}",
+                }
+            )
+            raise RuntimeError(f"Semantic classification failed: {e}") from e
+
+    @log_function()
+    async def _get_episodic_classification(
+        self,
+        filename: str,
+        subject: str,
+        body: str,
+        asset_type: str,
+        allowed_categories: list[str],
+        reasoning_details: dict[str, Any],
+    ) -> tuple[str, float]:
+        """
+        Get document classification using episodic memory experiences.
+
+        Uses past classification experiences and successful patterns
+        from episodic memory to predict document category.
+
+        Args:
+            filename: Document filename for pattern matching
+            subject: Email subject for context matching
+            body: Email body for content matching
+            asset_type: Asset type for context filtering
+            allowed_categories: List of allowed categories for constraint filtering
+            reasoning_details: Reasoning dictionary to update
+
+        Returns:
+            Tuple of (predicted_category, confidence_score)
+
+        Raises:
+            RuntimeError: If episodic memory operations fail
+        """
+        self.logger.debug("Getting episodic memory classification")
+
+        try:
+            if not self.episodic_memory:
+                self.logger.warning("Episodic memory not available")
+                reasoning_details["memory_contributions"]["episodic"].update(
+                    {
+                        "category": "",
+                        "confidence": 0.0,
+                        "weight": 0.0,
+                        "status": "unavailable",
+                    }
+                )
+                return "", 0.0
+
+            # Search for similar classification experiences
+            search_queries = [
+                f"document classification {asset_type} {filename}",
+                f"category decision {subject}",
+                f"classification result {body[:100]}",
+            ]
+
+            all_experiences = []
+
+            for query in search_queries:
+                if not query.strip():
+                    continue
+
+                try:
+                    results = await self.episodic_memory.search(
+                        query_text=query,
+                        limit=config.episodic_search_limit,
+                        memory_type="decision",
+                    )
+
+                    if results and results.get("results"):
+                        all_experiences.extend(results["results"])
+
+                except Exception as e:
+                    self.logger.debug(
+                        f"Episodic search failed for query '{query}': {e}"
+                    )
+                    continue
+
+            if not all_experiences:
+                self.logger.info("No episodic classification experiences found")
+                reasoning_details["memory_contributions"]["episodic"].update(
+                    {
+                        "category": "",
+                        "confidence": 0.0,
+                        "weight": config.episodic_memory_weight,
+                        "experiences": [],
+                        "status": "no_experiences",
+                    }
+                )
+                return "", 0.0
+
+            self.logger.info(
+                f"Processing {len(all_experiences)} episodic classification experiences"
+            )
+
+            category_scores: dict[str, list[float]] = {}
+            relevant_experiences = []
+
+            for experience in all_experiences:
+                try:
+                    metadata = experience.get("metadata", {})
+                    similarity_score = experience.get("score", 0.0)
+
+                    # Extract classification information
+                    result_category = metadata.get("result_category") or metadata.get(
+                        "category", ""
+                    )
+                    result_category = result_category.lower()
+
+                    decision_outcome = metadata.get("outcome", "unknown")
+                    decision_confidence = metadata.get("confidence", 0.0)
+                    experience_asset_type = metadata.get("asset_type", "")
+
+                    if (
+                        not result_category
+                        or similarity_score < config.episodic_similarity_threshold
+                    ):
+                        continue
+
+                    # Apply constraint filtering
+                    if allowed_categories and result_category not in [
+                        c.lower() for c in allowed_categories
+                    ]:
+                        continue
+
+                    # Weight by outcome success
+                    outcome_weights = {
+                        "success": 1.2,
+                        "partial_success": 1.0,
+                        "human_corrected": 0.8,
+                        "failure": 0.3,
+                        "unknown": 0.5,
+                    }
+                    outcome_weight = outcome_weights.get(decision_outcome, 0.5)
+
+                    # Asset type relevance boost
+                    asset_relevance = 1.0
+                    if experience_asset_type.lower() == asset_type.lower():
+                        asset_relevance = 1.3
+                    elif (
+                        experience_asset_type
+                        and experience_asset_type.lower() != asset_type.lower()
+                    ):
+                        asset_relevance = 0.7
+
+                    # Apply temporal decay
+                    timestamp = metadata.get("timestamp")
+                    temporal_weight = 1.0
+
+                    if timestamp:
+                        # # Standard library imports
+                        from datetime import UTC, datetime
+
+                        try:
+                            if isinstance(timestamp, str):
+                                exp_time = datetime.fromisoformat(
+                                    timestamp.replace("Z", "+00:00")
+                                )
+                            else:
+                                exp_time = datetime.fromtimestamp(timestamp, UTC)
+
+                            days_old = (datetime.now(UTC) - exp_time).days
+                            temporal_weight = max(
+                                0.3, 1.0 - (days_old / 365.0)
+                            )  # Decay over 1 year
+                        except (ValueError, TypeError):
+                            pass
+
+                    # Calculate final experience score
+                    experience_score = (
+                        similarity_score
+                        * outcome_weight
+                        * asset_relevance
+                        * temporal_weight
+                        * decision_confidence
+                    )
+
+                    if result_category not in category_scores:
+                        category_scores[result_category] = []
+                    category_scores[result_category].append(experience_score)
+
+                    relevant_experiences.append(
+                        {
+                            "category": result_category,
+                            "outcome": decision_outcome,
+                            "confidence": decision_confidence,
+                            "similarity": similarity_score,
+                            "experience_score": experience_score,
+                            "asset_type_match": experience_asset_type.lower()
+                            == asset_type.lower(),
+                        }
+                    )
+
+                except Exception as e:
+                    self.logger.debug(f"Error processing episodic experience: {e}")
+                    continue
+
+            # Calculate final category scores
+            best_category = ""
+            best_confidence = 0.0
+
+            for category, scores in category_scores.items():
+                if scores:
+                    # Use weighted average with bias toward higher scores
+                    sorted_scores = sorted(scores, reverse=True)
+                    if len(sorted_scores) >= 3:
+                        weighted_avg = (
+                            sorted_scores[0] * 0.5
+                            + sorted_scores[1] * 0.3
+                            + sorted_scores[2] * 0.2
+                        )
+                    elif len(sorted_scores) == 2:
+                        weighted_avg = sorted_scores[0] * 0.7 + sorted_scores[1] * 0.3
+                    else:
+                        weighted_avg = sorted_scores[0]
+
+                    normalized_score = min(weighted_avg, 1.0)
+                    if normalized_score > best_confidence:
+                        best_category = category
+                        best_confidence = normalized_score
+
+            # Update reasoning details
+            reasoning_details["memory_contributions"]["episodic"].update(
+                {
+                    "category": best_category,
+                    "confidence": best_confidence,
+                    "weight": config.episodic_memory_weight,
+                    "experiences": relevant_experiences[:5],  # Top 5 experiences
+                    "category_scores": {
+                        cat: max(scores)
+                        for cat, scores in sorted(
+                            category_scores.items(),
+                            key=lambda x: max(x[1]),
+                            reverse=True,
+                        )[:5]
+                    },
+                    "total_experiences": len(relevant_experiences),
+                    "status": "success",
+                }
+            )
+
+            self.logger.info(
+                f"Episodic classification: {best_category} "
+                f"(confidence: {best_confidence:.3f}, experiences: {len(relevant_experiences)})"
+            )
+
+            return best_category, best_confidence
+
+        except Exception as e:
+            self.logger.error(f"Episodic classification failed: {e}")
+            reasoning_details["memory_contributions"]["episodic"].update(
+                {
+                    "category": "",
+                    "confidence": 0.0,
+                    "weight": 0.0,
+                    "status": f"error: {str(e)}",
+                }
+            )
+            raise RuntimeError(f"Episodic classification failed: {e}") from e
+
+    @log_function()
+    async def _get_contact_classification(
+        self,
+        subject: str,
+        body: str,
+        asset_type: str,
+        allowed_categories: list[str],
+        reasoning_details: dict[str, Any],
+    ) -> tuple[str, float]:
+        """
+        Get document classification using contact memory patterns.
+
+        Uses sender patterns and document type associations from contact
+        memory to predict document category based on organizational patterns.
+
+        Args:
+            subject: Email subject for sender pattern matching
+            body: Email body for content pattern matching
+            asset_type: Asset type for context filtering
+            allowed_categories: List of allowed categories for constraint filtering
+            reasoning_details: Reasoning dictionary to update
+
+        Returns:
+            Tuple of (predicted_category, confidence_score)
+
+        Raises:
+            RuntimeError: If contact memory operations fail
+        """
+        self.logger.debug("Getting contact memory classification")
+
+        try:
+            if not self.contact_memory:
+                self.logger.warning("Contact memory not available")
+                reasoning_details["memory_contributions"]["contact"].update(
+                    {
+                        "category": "",
+                        "confidence": 0.0,
+                        "weight": 0.0,
+                        "status": "unavailable",
+                    }
+                )
+                return "", 0.0
+
+            # Extract sender email from subject/body if available
+            sender_email = ""
+            # # Standard library imports
+            import re
+
+            # Look for email patterns in subject and body
+            email_pattern = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
+            email_matches = re.findall(email_pattern, f"{subject} {body}")
+
+            if email_matches:
+                sender_email = email_matches[0]  # Use first found email
+
+            category_scores: dict[str, float] = {}
+            contact_patterns = []
+
+            if sender_email:
+                # Find contact information for sender
+                contact_info = await self.contact_memory.find_contact_by_email(
+                    sender_email
+                )
+
+                if contact_info:
+                    # Use contact organization patterns
+                    org = getattr(contact_info, "organization", "") or ""
+                    tags = getattr(contact_info, "tags", []) or []
+
+                    # Organizational document patterns
+                    org_patterns = {
+                        "legal": ["contract", "agreement"],
+                        "accounting": ["invoice", "statement"],
+                        "consulting": ["report", "proposal"],
+                        "vendor": ["invoice", "proposal"],
+                        "client": ["correspondence", "report"],
+                    }
+
+                    for pattern_type, categories in org_patterns.items():
+                        if pattern_type in org.lower() or pattern_type in [
+                            tag.lower() for tag in tags
+                        ]:
+                            for category in categories:
+                                if not allowed_categories or category in [
+                                    c.lower() for c in allowed_categories
+                                ]:
+                                    if category not in category_scores:
+                                        category_scores[category] = 0.0
+                                    category_scores[category] += 0.6
+
+                                    contact_patterns.append(
+                                        {
+                                            "pattern_type": pattern_type,
+                                            "category": category,
+                                            "confidence": 0.6,
+                                            "source": "organization_pattern",
+                                        }
+                                    )
+
+            # Subject line document type indicators
+            subject_patterns = {
+                "invoice": ["invoice", "bill", "payment", "charge"],
+                "contract": ["contract", "agreement", "terms", "signed"],
+                "report": ["report", "analysis", "summary", "findings"],
+                "correspondence": ["re:", "fwd:", "regarding", "follow up"],
+                "proposal": ["proposal", "quote", "estimate", "bid"],
+                "statement": ["statement", "summary", "account"],
+            }
+
+            subject_lower = subject.lower()
+            for category, keywords in subject_patterns.items():
+                if not allowed_categories or category in [
+                    c.lower() for c in allowed_categories
+                ]:
+                    for keyword in keywords:
+                        if keyword in subject_lower:
+                            if category not in category_scores:
+                                category_scores[category] = 0.0
+                            category_scores[category] += 0.4
+
+                            contact_patterns.append(
+                                {
+                                    "pattern_type": "subject_indicator",
+                                    "category": category,
+                                    "confidence": 0.4,
+                                    "keyword": keyword,
+                                    "source": "subject_pattern",
+                                }
+                            )
+
+            # Body content document type indicators
+            body_patterns = {
+                "contract": ["hereby agree", "terms and conditions", "legal binding"],
+                "invoice": ["amount due", "payment terms", "invoice number"],
+                "report": ["executive summary", "findings", "recommendations"],
+                "correspondence": ["thank you", "please find", "attached"],
+            }
+
+            body_lower = body.lower()
+            for category, phrases in body_patterns.items():
+                if not allowed_categories or category in [
+                    c.lower() for c in allowed_categories
+                ]:
+                    for phrase in phrases:
+                        if phrase in body_lower:
+                            if category not in category_scores:
+                                category_scores[category] = 0.0
+                            category_scores[category] += 0.3
+
+                            contact_patterns.append(
+                                {
+                                    "pattern_type": "body_indicator",
+                                    "category": category,
+                                    "confidence": 0.3,
+                                    "phrase": phrase,
+                                    "source": "body_pattern",
+                                }
+                            )
+
+            # Determine best category
+            best_category = ""
+            best_confidence = 0.0
+
+            if category_scores:
+                max_score = max(category_scores.values())
+                if max_score > 0:
+                    for category, score in category_scores.items():
+                        normalized_score = min(score / max_score, 1.0)
+                        if normalized_score > best_confidence:
+                            best_category = category
+                            best_confidence = normalized_score
+
+            # Update reasoning details
+            reasoning_details["memory_contributions"]["contact"].update(
+                {
+                    "category": best_category,
+                    "confidence": best_confidence,
+                    "weight": config.contact_memory_weight,
+                    "patterns": contact_patterns[:5],  # Top 5 patterns
+                    "category_scores": dict(
+                        sorted(
+                            category_scores.items(), key=lambda x: x[1], reverse=True
+                        )[:5]
+                    ),
+                    "sender_found": bool(sender_email),
+                    "total_patterns": len(contact_patterns),
+                    "status": "success",
+                }
+            )
+
+            self.logger.info(
+                f"Contact classification: {best_category} "
+                f"(confidence: {best_confidence:.3f}, patterns: {len(contact_patterns)})"
+            )
+
+            return best_category, best_confidence
+
+        except Exception as e:
+            self.logger.error(f"Contact classification failed: {e}")
+            reasoning_details["memory_contributions"]["contact"].update(
+                {
+                    "category": "",
+                    "confidence": 0.0,
+                    "weight": 0.0,
+                    "status": f"error: {str(e)}",
+                }
+            )
+            raise RuntimeError(f"Contact classification failed: {e}") from e
+
+    @log_function()
+    async def _combine_classification_results(
+        self,
+        procedural_result: tuple[str, float],
+        semantic_result: tuple[str, float],
+        episodic_result: tuple[str, float],
+        contact_result: tuple[str, float],
+        allowed_categories: list[str],
+        reasoning_details: dict[str, Any],
+    ) -> tuple[str, float]:
+        """
+        Combine classification results from all memory sources.
+
+        Phase 2.2: Implements advanced result combination with asset type
+        constraint filtering and weighted scoring across all memory types.
+
+        Args:
+            procedural_result: Tuple of (category, confidence) from procedural memory
+            semantic_result: Tuple of (category, confidence) from semantic memory
+            episodic_result: Tuple of (category, confidence) from episodic memory
+            contact_result: Tuple of (category, confidence) from contact memory
+            allowed_categories: List of allowed categories for constraint filtering
+            reasoning_details: Reasoning dictionary to update
+
+        Returns:
+            Tuple of (final_category, final_confidence)
+
+        Raises:
+            RuntimeError: If result combination fails
+        """
+        self.logger.info("Combining classification results with weighted scoring")
+
+        try:
+            # Extract individual results
+            proc_category, proc_confidence = procedural_result
+            sem_category, sem_confidence = semantic_result
+            epi_category, epi_confidence = episodic_result
+            contact_category, contact_confidence = contact_result
+
+            # Get memory weights from reasoning details
+            weights = {
+                "procedural": reasoning_details["memory_contributions"]["procedural"][
+                    "weight"
+                ],
+                "semantic": reasoning_details["memory_contributions"]["semantic"][
+                    "weight"
+                ],
+                "episodic": reasoning_details["memory_contributions"]["episodic"][
+                    "weight"
+                ],
+                "contact": reasoning_details["memory_contributions"]["contact"][
+                    "weight"
+                ],
+            }
+
+            # Normalize weights to sum to 1.0
+            total_weight = sum(weights.values())
+            if total_weight > 0:
+                weights = {k: v / total_weight for k, v in weights.items()}
+            else:
+                weights = dict.fromkeys(weights, 0.25)
+
+            self.logger.info(f"Using classification weights: {weights}")
+            reasoning_details["decision_flow"].append(
+                f"Applied classification weights: {weights}"
+            )
+
+            # Collect all unique categories
+            all_categories = set()
+            category_votes = {}
+
+            # Add categories with their weighted confidence scores
+            if proc_category and proc_confidence > 0:
+                all_categories.add(proc_category)
+                category_votes[proc_category] = category_votes.get(proc_category, 0) + (
+                    proc_confidence * weights["procedural"]
+                )
+
+            if sem_category and sem_confidence > 0:
+                all_categories.add(sem_category)
+                category_votes[sem_category] = category_votes.get(sem_category, 0) + (
+                    sem_confidence * weights["semantic"]
+                )
+
+            if epi_category and epi_confidence > 0:
+                all_categories.add(epi_category)
+                category_votes[epi_category] = category_votes.get(epi_category, 0) + (
+                    epi_confidence * weights["episodic"]
+                )
+
+            if contact_category and contact_confidence > 0:
+                all_categories.add(contact_category)
+                category_votes[contact_category] = category_votes.get(
+                    contact_category, 0
+                ) + (contact_confidence * weights["contact"])
+
+            if not category_votes:
+                self.logger.warning("No classification results from any memory source")
+                reasoning_details["decision_flow"].append(
+                    "No categories predicted by any memory source"
+                )
+                reasoning_details["final_category"] = "other"
+                reasoning_details["final_confidence"] = 0.0
+                return "other", 0.0
+
+            # Apply asset type constraint filtering
+            filtered_out = []
+            if allowed_categories:
+                for category in list(category_votes):
+                    if category not in [c.lower() for c in allowed_categories]:
+                        score = category_votes.pop(category)
+                        filtered_out.append({"category": category, "score": score})
+
+                reasoning_details["asset_type_constraints"][
+                    "filtered_out"
+                ] = filtered_out
+
+                if not category_votes:
+                    self.logger.warning(
+                        "All predicted categories filtered out by asset type constraints"
+                    )
+                    reasoning_details["decision_flow"].append(
+                        "All categories filtered by asset type constraints"
+                    )
+                    # Fallback to most common allowed category or "other"
+                    fallback_category = (
+                        allowed_categories[0] if allowed_categories else "other"
+                    )
+                    reasoning_details["final_category"] = fallback_category
+                    reasoning_details["final_confidence"] = 0.1
+                    return fallback_category, 0.1
+
+            # Apply source agreement boost
+            source_agreement = {}
+            for category in category_votes:
+                agreement_count = 0
+                if category == proc_category and proc_confidence > 0:
+                    agreement_count += 1
+                if category == sem_category and sem_confidence > 0:
+                    agreement_count += 1
+                if category == epi_category and epi_confidence > 0:
+                    agreement_count += 1
+                if category == contact_category and contact_confidence > 0:
+                    agreement_count += 1
+
+                source_agreement[category] = agreement_count
+
+                # Boost for multiple source agreement
+                if agreement_count >= 2:
+                    agreement_boost = min(0.3, (agreement_count - 1) * 0.15)
+                    category_votes[category] += agreement_boost
+
+            # Find the best category
+            best_category = max(category_votes.items(), key=lambda x: x[1])
+            final_category = best_category[0]
+            final_confidence = min(best_category[1], 1.0)
+
+            # Determine primary driver
+            source_contributions = {
+                "procedural": (
+                    proc_confidence * weights["procedural"]
+                    if proc_category == final_category
+                    else 0
+                ),
+                "semantic": (
+                    sem_confidence * weights["semantic"]
+                    if sem_category == final_category
+                    else 0
+                ),
+                "episodic": (
+                    epi_confidence * weights["episodic"]
+                    if epi_category == final_category
+                    else 0
+                ),
+                "contact": (
+                    contact_confidence * weights["contact"]
+                    if contact_category == final_category
+                    else 0
+                ),
+            }
+
+            primary_driver = max(source_contributions.items(), key=lambda x: x[1])[0]
+            reasoning_details["primary_driver"] = primary_driver
+
+            # Update final reasoning details
+            reasoning_details.update(
+                {
+                    "category_scores": dict(
+                        sorted(category_votes.items(), key=lambda x: x[1], reverse=True)
+                    ),
+                    "source_agreement": source_agreement,
+                    "final_category": final_category,
+                    "final_confidence": final_confidence,
+                }
+            )
+
+            reasoning_details["decision_flow"].append(
+                f"Combined {len(all_categories)} candidate categories, "
+                f"final decision: {final_category} (confidence: {final_confidence:.3f}), "
+                f"primary driver: {primary_driver}, "
+                f"source agreement: {source_agreement.get(final_category, 0)} sources"
+            )
+
+            self.logger.info(
+                f"Classification combination complete: {final_category} "
+                f"(confidence: {final_confidence:.3f}, primary driver: {primary_driver})"
+            )
+
+            return final_category, final_confidence
+
+        except Exception as e:
+            self.logger.error(f"Classification result combination failed: {e}")
+            reasoning_details["decision_flow"].append(
+                f"ERROR in result combination: {str(e)}"
+            )
+            raise RuntimeError(f"Result combination failed: {e}") from e
+
+    def _analyze_classification_confidence(
+        self,
+        final_category: str,
+        final_confidence: float,
+        reasoning_details: dict[str, Any],
+    ) -> None:
+        """
+        Analyze overall classification confidence and update reasoning.
+
+        Determines confidence level based on score quality and source agreement.
+
+        Args:
+            final_category: Final predicted category
+            final_confidence: Final confidence score
+            reasoning_details: Reasoning dictionary to update
+        """
+        if not final_category or final_category == "other":
+            reasoning_details["confidence_level"] = "very_low"
+            reasoning_details["decision_flow"].append(
+                "Unknown category - very low confidence"
+            )
+            return
+
+        # Count active memory sources that contributed
+        active_sources = sum(
+            1
+            for contrib in reasoning_details["memory_contributions"].values()
+            if contrib["confidence"] > 0
+        )
+
+        # Check source agreement
+        source_agreement = reasoning_details.get("source_agreement", {}).get(
+            final_category, 0
+        )
+
+        # Determine confidence level
+        if final_confidence >= 0.8 and source_agreement >= 3:
+            confidence_level = "very_high"
+        elif final_confidence >= 0.7 and source_agreement >= 2:
+            confidence_level = "high"
+        elif final_confidence >= 0.5 and active_sources >= 2:
+            confidence_level = "medium"
+        elif final_confidence >= 0.3:
+            confidence_level = "low"
+        else:
+            confidence_level = "very_low"
+
+        reasoning_details["confidence_level"] = confidence_level
+        reasoning_details["decision_flow"].append(
+            f"Classification confidence: {confidence_level} "
+            f"(score: {final_confidence:.3f}, agreement: {source_agreement} sources, "
+            f"active sources: {active_sources})"
+        )

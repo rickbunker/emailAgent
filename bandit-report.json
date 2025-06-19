@@ -1,6 +1,6 @@
 {
   "errors": [],
-  "generated_at": "2025-06-19T15:16:50Z",
+  "generated_at": "2025-06-19T18:15:45Z",
   "metrics": {
     "_totals": {
       "CONFIDENCE.HIGH": 19,
@@ -11,7 +11,7 @@
       "SEVERITY.LOW": 20,
       "SEVERITY.MEDIUM": 1,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 21461,
+      "loc": 23623,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -37,7 +37,7 @@
       "SEVERITY.LOW": 4,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 1759,
+      "loc": 3893,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -297,7 +297,7 @@
       "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 1,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 244,
+      "loc": 272,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -773,7 +773,7 @@
       "test_name": "subprocess_without_shell_equals_true"
     },
     {
-      "code": "174             ),\n175             flask_host=os.getenv(\"FLASK_HOST\", \"0.0.0.0\"),\n176             flask_port=int(os.getenv(\"FLASK_PORT\", \"5001\")),\n",
+      "code": "211             ),\n212             flask_host=os.getenv(\"FLASK_HOST\", \"0.0.0.0\"),\n213             flask_port=int(os.getenv(\"FLASK_PORT\", \"5001\")),\n",
       "col_offset": 47,
       "end_col_offset": 56,
       "filename": "src/utils/config.py",
@@ -784,9 +784,9 @@
       },
       "issue_severity": "MEDIUM",
       "issue_text": "Possible binding to all interfaces.",
-      "line_number": 175,
+      "line_number": 212,
       "line_range": [
-        175
+        212
       ],
       "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b104_hardcoded_bind_all_interfaces.html",
       "test_id": "B104",

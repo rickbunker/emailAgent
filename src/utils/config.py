@@ -58,6 +58,22 @@ class EmailAgentConfig:
     contact_memory_max_items: int
     embedding_model: str
 
+    # Memory weights for combined decision logic (Phase 2.1)
+    procedural_memory_weight: float
+    semantic_memory_weight: float
+    episodic_memory_weight: float
+    contact_memory_weight: float
+
+    # Search limits for memory systems
+    semantic_search_limit: int
+    episodic_search_limit: int
+    contact_search_limit: int
+
+    # Similarity thresholds for memory matching
+    semantic_similarity_threshold: float
+    episodic_similarity_threshold: float
+    minimum_combined_confidence: float
+
     # Application Settings
     flask_env: str
     flask_secret_key: str
@@ -167,6 +183,27 @@ class EmailAgentConfig:
                 os.getenv("CONTACT_MEMORY_MAX_ITEMS", "25000")
             ),
             embedding_model=os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2"),
+            # Memory weights for combined decision logic (Phase 2.1)
+            procedural_memory_weight=float(
+                os.getenv("PROCEDURAL_MEMORY_WEIGHT", "0.25")
+            ),
+            semantic_memory_weight=float(os.getenv("SEMANTIC_MEMORY_WEIGHT", "0.3")),
+            episodic_memory_weight=float(os.getenv("EPISODIC_MEMORY_WEIGHT", "0.2")),
+            contact_memory_weight=float(os.getenv("CONTACT_MEMORY_WEIGHT", "0.25")),
+            # Search limits for memory systems
+            semantic_search_limit=int(os.getenv("SEMANTIC_SEARCH_LIMIT", "10")),
+            episodic_search_limit=int(os.getenv("EPISODIC_SEARCH_LIMIT", "5")),
+            contact_search_limit=int(os.getenv("CONTACT_SEARCH_LIMIT", "10")),
+            # Similarity thresholds for memory matching
+            semantic_similarity_threshold=float(
+                os.getenv("SEMANTIC_SIMILARITY_THRESHOLD", "0.3")
+            ),
+            episodic_similarity_threshold=float(
+                os.getenv("EPISODIC_SIMILARITY_THRESHOLD", "0.25")
+            ),
+            minimum_combined_confidence=float(
+                os.getenv("MINIMUM_COMBINED_CONFIDENCE", "0.2")
+            ),
             # Application Settings
             flask_env=os.getenv("FLASK_ENV", "development"),
             flask_secret_key=os.getenv(
