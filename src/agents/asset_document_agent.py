@@ -654,14 +654,39 @@ class AssetDocumentAgent:
             raise
 
         # Initialize memory systems (Phase 2: All four memory types)
-        self.semantic_memory = (
-            SemanticMemory(qdrant_url=config.qdrant_url) if qdrant_client else None
+        # Different memory systems have different initialization patterns:
+        # - SemanticMemory, EpisodicMemory, ContactMemory: inherit from BaseMemory, use qdrant_url
+        # - ProceduralMemory: standalone implementation, uses qdrant_client directly
+
+        if qdrant_client:
+            self.semantic_memory = SemanticMemory(qdrant_url=config.qdrant_url)
+            self.procedural_memory = ProceduralMemory(qdrant_client)
+            self.episodic_memory = EpisodicMemory(qdrant_url=config.qdrant_url)
+            self.contact_memory = ContactMemory(qdrant_url=config.qdrant_url)
+        else:
+            self.semantic_memory = None
+            self.procedural_memory = None
+            self.episodic_memory = None
+            self.contact_memory = None
+
+        # Log memory system initialization status
+        self.logger.info(
+            f"Memory system status: semantic={self.semantic_memory is not None}, "
+            f"procedural={self.procedural_memory is not None}, "
+            f"episodic={self.episodic_memory is not None}, "
+            f"contact={self.contact_memory is not None}"
         )
-        self.procedural_memory = (
-            ProceduralMemory(qdrant_client) if qdrant_client else None
-        )
-        self.episodic_memory = EpisodicMemory(qdrant_client) if qdrant_client else None
-        self.contact_memory = ContactMemory(qdrant_client) if qdrant_client else None
+
+        # Verify Qdrant connection details
+        if qdrant_client:
+            self.logger.info(f"Qdrant client provided: {type(qdrant_client).__name__}")
+            self.logger.info(
+                f"Using Qdrant URL for BaseMemory systems: {config.qdrant_url}"
+            )
+        else:
+            self.logger.warning(
+                "No Qdrant client provided - memory systems will be disabled"
+            )
 
         # Initialize services
         self.security = SecurityService(semantic_memory=self.semantic_memory)
@@ -3810,8 +3835,9 @@ class AssetDocumentAgent:
                     category_results = await self.semantic_memory.search(
                         query=query,
                         limit=config.semantic_search_limit,
-                        filter_conditions={
-                            "metadata.knowledge_type": "asset_configuration"
+                        filter={
+                            "key": "metadata.knowledge_type",
+                            "match": {"value": "asset_configuration"},
                         },
                     )
 
@@ -3873,7 +3899,10 @@ class AssetDocumentAgent:
                 asset_knowledge = await self.semantic_memory.search(
                     query=f"asset knowledge {asset_type} document types classification",
                     limit=config.semantic_search_limit * 2,
-                    filter_conditions={"metadata.asset_type": asset_type},
+                    filter={
+                        "key": "metadata.asset_type",
+                        "match": {"value": asset_type},
+                    },
                 )
 
                 if asset_knowledge:
@@ -4408,9 +4437,12 @@ class AssetDocumentAgent:
 
             # Search for similar document classification experiences
             similar_docs = await self.semantic_memory.search(
-                query_text=f"document classification {asset_type} {combined_text[:200]}",
+                query=f"document classification {asset_type} {combined_text[:200]}",
                 limit=config.semantic_search_limit,
-                filter_metadata={"knowledge_type": "classification_feedback"},
+                filter={
+                    "key": "metadata.knowledge_type",
+                    "match": {"value": "classification_feedback"},
+                },
             )
 
             if similar_docs and similar_docs.get("results"):
@@ -6102,7 +6134,9 @@ class AssetDocumentAgent:
                 weighted_confidence += avg_confidence * weight
                 total_weight += weight
 
-        base_confidence = weighted_confidence / total_weight if total_weight > 0 else 0.0
+        base_confidence = (
+            weighted_confidence / total_weight if total_weight > 0 else 0.0
+        )
 
         # Apply context agreement boost
         agreement_boost = context_agreement * 0.2  # Up to 20% boost for high agreement
