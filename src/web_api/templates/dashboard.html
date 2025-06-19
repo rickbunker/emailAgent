@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Asset Management System{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="display-5">
+                <i class="bi bi-speedometer2"></i> Dashboard
+            </h1>
+            <p class="lead text-muted">Asset Management System Overview</p>
+        </div>
+        <div class="col-auto">
+            <a href="/assets/new" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> New Asset
+            </a>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row g-4 mb-5">
+        <div class="col-md-3">
+            <div class="card stats-card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">Total Assets</h6>
+                            <h2 class="mb-0">{{ total_assets }}</h2>
+                        </div>
+                        <div class="text-primary">
+                            <i class="bi bi-folder2 fs-1"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card stats-card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">Real Estate</h6>
+                            <h2 class="mb-0">{{ by_type.get('commercial_real_estate', 0) }}</h2>
+                        </div>
+                        <div class="text-success">
+                            <i class="bi bi-building fs-1"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card stats-card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">Private Equity</h6>
+                            <h2 class="mb-0">{{ by_type.get('private_equity', 0) }}</h2>
+                        </div>
+                        <div class="text-info">
+                            <i class="bi bi-graph-up fs-1"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card stats-card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">Private Credit</h6>
+                            <h2 class="mb-0">{{ by_type.get('private_credit', 0) }}</h2>
+                        </div>
+                        <div class="text-warning">
+                            <i class="bi bi-cash-stack fs-1"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Assets -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-clock-history"></i> Recent Assets
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_assets %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Deal Name</th>
+                                    <th>Asset Name</th>
+                                    <th>Type</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for asset in recent_assets %}
+                                <tr class="asset-row">
+                                    <td>
+                                        <a href="/assets/{{ asset.deal_id }}" class="text-decoration-none">
+                                            {{ asset.deal_name }}
+                                        </a>
+                                    </td>
+                                    <td>{{ asset.asset_name }}</td>
+                                    <td>
+                                        <span class="badge bg-secondary">
+                                            {{ asset.asset_type.value.replace('_', ' ').title() }}
+                                        </span>
+                                    </td>
+                                    <td>{{ asset.created_date.strftime('%Y-%m-%d') }}</td>
+                                    <td>
+                                        <a href="/assets/{{ asset.deal_id }}" class="btn btn-sm btn-outline-primary">
+                                            <i class="bi bi-eye"></i> View
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="text-center mt-3">
+                        <a href="/assets" class="btn btn-outline-primary">
+                            View All Assets <i class="bi bi-arrow-right"></i>
+                        </a>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="bi bi-folder2 fs-1 text-muted"></i>
+                        <p class="text-muted mt-3">No assets yet</p>
+                        <a href="/assets/new" class="btn btn-primary">
+                            <i class="bi bi-plus-circle"></i> Create First Asset
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-lightning"></i> Quick Actions
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <a href="/assets/new" class="btn btn-outline-primary w-100 py-3">
+                                <i class="bi bi-plus-circle fs-4"></i><br>
+                                Create New Asset
+                            </a>
+                        </div>
+                        <div class="col-md-6">
+                            <a href="/health" class="btn btn-outline-secondary w-100 py-3">
+                                <i class="bi bi-heart-pulse fs-4"></i><br>
+                                System Health Check
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

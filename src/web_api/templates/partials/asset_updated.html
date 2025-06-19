@@ -1,0 +1,10 @@
+<div class="alert alert-success" role="alert">
+    <i class="bi bi-check-circle"></i> {{ message }}
+</div>
+
+<script>
+    // Redirect to asset detail page after short delay
+    setTimeout(function () {
+        window.location.href = '/assets/{{ asset.deal_id }}';
+    }, 1000);
+</script>

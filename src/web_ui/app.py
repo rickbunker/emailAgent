@@ -37,14 +37,19 @@ from flask import (
 try:
     # Try relative imports first (when run as module)
     # # Local application imports
-    from src.agents.asset_document_agent import (
-        AssetDocumentAgent,
+    from src.asset_management import (
+        Asset,
         AssetType,
         ConfidenceLevel,
         DocumentCategory,
         ProcessingResult,
         ProcessingStatus,
+        AssetIdentifier,
+        DocumentClassifier,
+        SenderMappingService,
     )
+    from src.asset_management.processing.document_processor import DocumentProcessor
+    from src.asset_management.utils.storage import StorageService
     from src.email_interface import (
         BaseEmailInterface,
         EmailSearchCriteria,
@@ -60,14 +65,19 @@ try:
 except ImportError:
     # Fallback to direct imports (when run from src directory)
     # # Local application imports
-    from src.agents.asset_document_agent import (
-        AssetDocumentAgent,
+    from src.asset_management import (
+        Asset,
         AssetType,
         ConfidenceLevel,
         DocumentCategory,
         ProcessingResult,
         ProcessingStatus,
+        AssetIdentifier,
+        DocumentClassifier,
+        SenderMappingService,
     )
+    from src.asset_management.processing.document_processor import DocumentProcessor
+    from src.asset_management.utils.storage import StorageService
     from src.email_interface import (
         BaseEmailInterface,
         EmailSearchCriteria,
@@ -128,8 +138,14 @@ logger = get_logger("web_ui")
 app = Flask(__name__)
 app.secret_key = config.flask_secret_key
 
-# Global asset agent instance
-asset_agent: AssetDocumentAgent | None = None
+# Global instances for the modular asset management system
+document_processor: DocumentProcessor | None = None
+asset_identifier: AssetIdentifier | None = None
+document_classifier: DocumentClassifier | None = None
+sender_mapping_service: SenderMappingService | None = None
+storage_service: StorageService | None = None
+asset_service: AssetService | None = None
+qdrant_client: QdrantClient | None = None
 
 # Email processing history to track processed emails
 PROCESSED_EMAILS_FILE = config.processed_emails_file
@@ -934,7 +950,9 @@ async def _process_single_attachment_with_semaphore(
     async with semaphore:
         # Check for cancellation at start of attachment processing
         if processing_cancelled:
-            logger.info(f"🛑 Processing cancelled for attachment: {attachment.filename}")
+            logger.info(
+                f"🛑 Processing cancelled for attachment: {attachment.filename}"
+            )
             return {"cancelled": True, "filename": attachment.filename}
 
         attachment_result = {
@@ -1119,44 +1137,73 @@ async def process_single_email(
 @log_function()
 def initialize_asset_agent() -> None:
     """
-    Initialize the AssetDocumentAgent with Qdrant vector database if available.
+    Initialize the asset management system components.
 
-    Creates a global asset_agent instance with either Qdrant integration
-    or standalone file-based operation depending on availability.
+    Creates global instances for the modular asset management system.
 
     Raises:
         Exception: If initialization fails critically
     """
-    global asset_agent
+    global document_processor, asset_identifier, document_classifier
+    global sender_mapping_service, storage_service, asset_service, qdrant_client
 
     # Guard against duplicate initialization
-    if asset_agent is not None:
-        logger.debug("AssetDocumentAgent already initialized, skipping")
+    if document_processor is not None:
+        logger.debug("Asset management system already initialized, skipping")
         return
 
-    if QDRANT_AVAILABLE:
-        try:
-            # Try to connect to local Qdrant instance
-            qdrant_client = QdrantClient(
-                host=config.qdrant_host, port=config.qdrant_port
-            )
-            asset_agent = AssetDocumentAgent(
-                qdrant_client=qdrant_client, base_assets_path=config.assets_base_path
-            )
-            # Initialize collections asynchronously
+    try:
+        # Initialize the modular components
+        logger.info("Initializing modular asset management system...")
+
+        # Initialize Qdrant client if available
+        if QDRANT_AVAILABLE:
+            try:
+                qdrant_client = QdrantClient(
+                    host=config.qdrant_host, port=config.qdrant_port
+                )
+                logger.info("Connected to Qdrant vector database")
+            except Exception as e:
+                logger.warning(f"Failed to connect to Qdrant: {e}")
+                qdrant_client = None
+        else:
+            logger.info("Qdrant not available - running without vector storage")
+            qdrant_client = None
+
+        # Import AssetService here to avoid circular imports
+        from src.asset_management.services.asset_service import AssetService
+
+        # Initialize individual services
+        asset_identifier = AssetIdentifier()
+        document_classifier = DocumentClassifier()
+        sender_mapping_service = SenderMappingService()
+        storage_service = StorageService()
+        asset_service = AssetService(
+            qdrant_client=qdrant_client, base_assets_path=config.assets_base_path
+        )
+
+        # Initialize collections if we have Qdrant
+        if qdrant_client:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            loop.run_until_complete(asset_agent.initialize_collections())
-            loop.close()
+            try:
+                loop.run_until_complete(asset_service.initialize_collection())
+            finally:
+                loop.close()
 
-            logger.info("AssetDocumentAgent initialized with Qdrant")
-        except Exception as e:
-            logger.warning(f"Failed to connect to Qdrant: {e}")
-            asset_agent = AssetDocumentAgent(base_assets_path=config.assets_base_path)
-            logger.info("AssetDocumentAgent initialized without Qdrant")
-    else:
-        asset_agent = AssetDocumentAgent(base_assets_path=config.assets_base_path)
-        logger.info("AssetDocumentAgent initialized without Qdrant (not installed)")
+        # Initialize the document processor with all components
+        document_processor = DocumentProcessor(
+            asset_identifier=asset_identifier,
+            document_classifier=document_classifier,
+            storage_service=storage_service,
+        )
+
+        logger.info("✅ Asset management system initialized successfully")
+
+    except Exception as e:
+        logger.error(f"Failed to initialize asset management system: {e}")
+        logger.warning("Running in degraded mode - some features will be limited")
+        # Don't raise - allow app to start in degraded mode
 
 
 @app.route("/")
@@ -1168,7 +1215,7 @@ def index() -> str:
     Returns:
         Rendered HTML template for the dashboard
     """
-    if not asset_agent:
+    if not asset_service:
         logger.error("Asset management system not initialized")
         return render_template(
             "error.html", error="Asset management system not initialized"
@@ -1179,7 +1226,7 @@ def index() -> str:
     asyncio.set_event_loop(loop)
 
     try:
-        assets = loop.run_until_complete(asset_agent.list_assets())
+        assets = loop.run_until_complete(asset_service.list_assets())
 
         # Calculate statistics
         stats = {

@@ -11,6 +11,7 @@ langchain>=0.1.0
 openai>=1.0.0
 python-dotenv>=1.0.0
 pydantic>=2.0.0
+email-validator>=2.2.0
 ormsgpack>=1.10.0
 xxhash>=3.5.0
 qdrant-client>=1.7.0
@@ -28,3 +29,8 @@ msgraph-core>=0.2.2
 clamd>=1.0.2
 python-Levenshtein>=0.20.9
 Flask>=2.3.0
+
+# FastAPI framework (for new API)
+fastapi>=0.104.1
+uvicorn[standard]>=0.24.0
+python-multipart>=0.0.6

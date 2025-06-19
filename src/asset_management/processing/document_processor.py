@@ -109,13 +109,10 @@ class DocumentProcessor:
 
     def _create_episodic_memory(self) -> EpisodicMemory:
         """Create episodic memory instance."""
-        from qdrant_client import QdrantClient
-
-        client = QdrantClient(host=config.qdrant_host, port=config.qdrant_port)
         return EpisodicMemory(
-            qdrant_client=client,
-            collection_name="episodic",
             max_items=getattr(config, "episodic_memory_max_items", 100000),
+            qdrant_url=getattr(config, "qdrant_url", "http://localhost:6333"),
+            embedding_model=getattr(config, "embedding_model", "all-MiniLM-L6-v2"),
         )
 
     @log_function()

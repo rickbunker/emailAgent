@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block title %}{{ asset.deal_name }} - Asset Management System{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="/assets">Assets</a></li>
+                    <li class="breadcrumb-item active">{{ asset.deal_name }}</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">
+                        <i class="bi bi-folder2"></i> {{ asset.deal_name }}
+                    </h4>
+                    <div>
+                        <a href="/assets/{{ asset.deal_id }}/edit" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-pencil"></i> Edit
+                        </a>
+                        <button class="btn btn-sm btn-outline-danger" hx-delete="/assets/{{ asset.deal_id }}"
+                            hx-confirm="Are you sure you want to delete this asset?" hx-redirect="/assets">
+                            <i class="bi bi-trash"></i> Delete
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <dl class="row">
+                        <dt class="col-sm-3">Deal ID</dt>
+                        <dd class="col-sm-9">
+                            <code>{{ asset.deal_id }}</code>
+                        </dd>
+
+                        <dt class="col-sm-3">Deal Name</dt>
+                        <dd class="col-sm-9">{{ asset.deal_name }}</dd>
+
+                        <dt class="col-sm-3">Full Name</dt>
+                        <dd class="col-sm-9">{{ asset.asset_name }}</dd>
+
+                        <dt class="col-sm-3">Asset Type</dt>
+                        <dd class="col-sm-9">
+                            <span class="badge bg-primary">
+                                {{ asset.asset_type.value.replace('_', ' ').title() }}
+                            </span>
+                        </dd>
+
+                        <dt class="col-sm-3">Folder Path</dt>
+                        <dd class="col-sm-9">
+                            <code>{{ asset.folder_path }}</code>
+                        </dd>
+
+                        <dt class="col-sm-3">Created</dt>
+                        <dd class="col-sm-9">{{ asset.created_date.strftime('%Y-%m-%d %H:%M') }}</dd>
+
+                        <dt class="col-sm-3">Last Updated</dt>
+                        <dd class="col-sm-9">{{ asset.last_updated.strftime('%Y-%m-%d %H:%M') }}</dd>
+                    </dl>
+
+                    {% if asset.identifiers %}
+                    <h6 class="mt-4 mb-3">Identifiers</h6>
+                    <div class="mb-3">
+                        {% for identifier in asset.identifiers %}
+                        <span class="badge bg-secondary me-2 mb-2">{{ identifier }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    {% if asset.metadata %}
+                    <h6 class="mt-4 mb-3">Metadata</h6>
+                    <pre class="bg-light p-3 rounded"><code>{{ asset.metadata|tojson(indent=2) }}</code></pre>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <!-- Quick Actions -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-lightning"></i> Quick Actions
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-outline-primary" disabled>
+                            <i class="bi bi-upload"></i> Upload Document
+                            <br><small class="text-muted">Coming Soon</small>
+                        </button>
+                        <button class="btn btn-outline-secondary" disabled>
+                            <i class="bi bi-person-plus"></i> Add Sender Mapping
+                            <br><small class="text-muted">Coming Soon</small>
+                        </button>
+                        <button class="btn btn-outline-info" disabled>
+                            <i class="bi bi-folder-open"></i> Browse Files
+                            <br><small class="text-muted">Coming Soon</small>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Document Categories -->
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-tags"></i> Document Categories
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small">
+                        Available document categories for {{ asset.asset_type.value.replace('_', ' ').title() }} assets:
+                    </p>
+                    <div>
+                        {% set categories = {
+                        'commercial_real_estate': ['Rent Roll', 'Financial Statements', 'Property Photos', 'Appraisal',
+                        'Lease Documents'],
+                        'private_equity': ['Portfolio Reports', 'Investor Updates', 'Board Materials', 'Deal Documents',
+                        'Valuation Reports'],
+                        'private_credit': ['Loan Documents', 'Borrower Financials', 'Covenant Compliance', 'Credit
+                        Memo', 'Loan Monitoring'],
+                        'infrastructure': ['Engineering Reports', 'Construction Updates', 'Regulatory Documents',
+                        'Operations Reports']
+                        } %}
+
+                        {% for category in categories.get(asset.asset_type.value, ['General Documents']) %}
+                        <span class="badge bg-light text-dark me-2 mb-2">{{ category }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

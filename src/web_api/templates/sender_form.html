@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Edit' if is_edit else 'New' }} Sender Mapping - Asset Management System{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white">
+                    <h4 class="mb-0">
+                        <i class="bi bi-{{ 'pencil' if is_edit else 'plus-circle' }}"></i>
+                        {{ 'Edit' if is_edit else 'New' }} Sender Mapping
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <form {% if is_edit %} hx-post="/senders/{{ mapping.mapping_id }}/edit" {% else %}
+                        hx-post="/senders/new" {% endif %} hx-target="#form-result" hx-swap="innerHTML">
+
+                        <div class="mb-3">
+                            <label for="sender_email" class="form-label">Sender Email <span
+                                    class="text-danger">*</span></label>
+                            <input type="email" class="form-control" id="sender_email" name="sender_email"
+                                value="{{ mapping.sender_email if is_edit else '' }}" placeholder="sender@example.com"
+                                {% if is_edit %}readonly{% endif %} required>
+                            <div class="form-text">
+                                {% if is_edit %}
+                                Email address cannot be changed after creation
+                                {% else %}
+                                The email address to map to an asset
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="default_asset_id" class="form-label">Default Asset <span
+                                    class="text-danger">*</span></label>
+                            <select class="form-select" id="default_asset_id" name="default_asset_id" required>
+                                <option value="">Select default asset...</option>
+                                {% for asset in assets %}
+                                <option value="{{ asset.deal_id }}" {% if is_edit and mapping.asset_id==asset.deal_id
+                                    %}selected{% endif %}>
+                                    {{ asset.deal_name }} - {{ asset.asset_type.value.replace('_', ' ').title() }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">Emails from this sender will be automatically mapped to this asset
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="sender_name" class="form-label">Sender Name</label>
+                            <input type="text" class="form-control" id="sender_name" name="sender_name"
+                                value="{{ mapping.metadata.get('sender_name', '') if is_edit and mapping.metadata else '' }}"
+                                placeholder="John Doe">
+                            <div class="form-text">Human-readable name of the sender (optional)</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="organization" class="form-label">Organization</label>
+                            <input type="text" class="form-control" id="organization" name="organization"
+                                value="{{ mapping.metadata.get('organization', '') if is_edit and mapping.metadata else '' }}"
+                                placeholder="Acme Corporation">
+                            <div class="form-text">Sender's organization (optional)</div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="notes" class="form-label">Notes</label>
+                            <textarea class="form-control" id="notes" name="notes" rows="3"
+                                placeholder="Any additional notes about this sender mapping...">{{ mapping.metadata.get('notes', '') if is_edit and mapping.metadata else '' }}</textarea>
+                            <div class="form-text">Additional notes or comments (optional)</div>
+                        </div>
+
+                        {% if is_edit %}
+                        <div class="mb-4">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="active" name="active" value="true"
+                                    checked>
+                                <label class="form-check-label" for="active">
+                                    Active
+                                </label>
+                            </div>
+                            <div class="form-text">Inactive mappings will not be used for email processing</div>
+                        </div>
+                        {% endif %}
+
+                        <div id="form-result"></div>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="/senders" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-left"></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-circle"></i>
+                                {{ 'Update' if is_edit else 'Create' }} Mapping
+                                <span class="htmx-indicator spinner-border spinner-border-sm ms-2"></span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

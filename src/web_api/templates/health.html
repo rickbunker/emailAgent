@@ -1,0 +1,249 @@
+{% extends "base.html" %}
+
+{% block title %}System Health - Asset Management System{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="display-5">
+                <i class="bi bi-heart-pulse"></i> System Health Check
+            </h1>
+            <p class="lead text-muted">Real-time system status and service monitoring</p>
+        </div>
+        <div class="col-auto">
+            <button class="btn btn-primary" onclick="location.reload()">
+                <i class="bi bi-arrow-clockwise"></i> Refresh
+            </button>
+        </div>
+    </div>
+
+    <!-- Overall Status -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col">
+                    <h5 class="mb-0">Overall System Status</h5>
+                </div>
+                <div class="col-auto">
+                    {% if detailed.status == 'healthy' %}
+                    <span class="badge bg-success fs-6">
+                        <i class="bi bi-check-circle"></i> Healthy
+                    </span>
+                    {% elif detailed.status == 'degraded' %}
+                    <span class="badge bg-warning fs-6">
+                        <i class="bi bi-exclamation-triangle"></i> Degraded
+                    </span>
+                    {% else %}
+                    <span class="badge bg-danger fs-6">
+                        <i class="bi bi-x-circle"></i> Unhealthy
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if health.uptime_seconds %}
+            <div class="mt-3">
+                <small class="text-muted">
+                    <i class="bi bi-clock"></i> Uptime:
+                    {% set hours = (health.uptime_seconds / 3600)|int %}
+                    {% set minutes = ((health.uptime_seconds % 3600) / 60)|int %}
+                    {% set seconds = (health.uptime_seconds % 60)|int %}
+                    {{ hours }}h {{ minutes }}m {{ seconds }}s
+                </small>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Services Status -->
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-gear"></i> Service Status
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if detailed.services %}
+                    <div class="list-group">
+                        <!-- Asset Service -->
+                        {% if detailed.services.asset_service %}
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-1">Asset Service</h6>
+                                    <small class="text-muted">Core asset management functionality</small>
+                                    {% if detailed.services.asset_service.asset_count is defined %}
+                                    <br><small>{{ detailed.services.asset_service.asset_count }} assets managed</small>
+                                    {% endif %}
+                                </div>
+                                <div>
+                                    {% if detailed.services.asset_service.status == 'healthy' %}
+                                    <span class="badge bg-success">
+                                        <i class="bi bi-check-circle"></i> Healthy
+                                    </span>
+                                    {% else %}
+                                    <span class="badge bg-danger">
+                                        <i class="bi bi-x-circle"></i> Error
+                                    </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- Qdrant -->
+                        {% if detailed.services.qdrant %}
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-1">Qdrant Vector Database</h6>
+                                    <small class="text-muted">Vector storage for semantic search</small>
+                                    {% if detailed.services.qdrant.collections is defined %}
+                                    <br><small>{{ detailed.services.qdrant.collections }} collections</small>
+                                    {% endif %}
+                                </div>
+                                <div>
+                                    {% if detailed.services.qdrant.status == 'healthy' %}
+                                    <span class="badge bg-success">
+                                        <i class="bi bi-check-circle"></i> Connected
+                                    </span>
+                                    {% elif detailed.services.qdrant.status == 'not_configured' %}
+                                    <span class="badge bg-secondary">
+                                        <i class="bi bi-dash-circle"></i> Not Configured
+                                    </span>
+                                    {% else %}
+                                    <span class="badge bg-danger">
+                                        <i class="bi bi-x-circle"></i> Error
+                                    </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- Storage -->
+                        {% if detailed.services.storage %}
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-1">File Storage</h6>
+                                    <small class="text-muted">Document storage system</small>
+                                    {% if detailed.services.storage.path %}
+                                    <br><small><code>{{ detailed.services.storage.path }}</code></small>
+                                    {% endif %}
+                                </div>
+                                <div>
+                                    {% if detailed.services.storage.status == 'healthy' %}
+                                    <span class="badge bg-success">
+                                        <i class="bi bi-check-circle"></i> Accessible
+                                    </span>
+                                    {% elif detailed.services.storage.status == 'warning' %}
+                                    <span class="badge bg-warning">
+                                        <i class="bi bi-exclamation-triangle"></i> Warning
+                                    </span>
+                                    {% else %}
+                                    <span class="badge bg-danger">
+                                        <i class="bi bi-x-circle"></i> Error
+                                    </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted">No service status available</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <!-- System Info -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-info-circle"></i> System Information
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if info %}
+                    <dl class="mb-0">
+                        <dt>Version</dt>
+                        <dd>{{ info.version }}</dd>
+
+                        <dt>Environment</dt>
+                        <dd>
+                            <span class="badge bg-{{ 'success' if info.environment == 'production' else 'info' }}">
+                                {{ info.environment|title }}
+                            </span>
+                        </dd>
+
+                        {% if info.config %}
+                        <dt class="mt-3">Qdrant Configuration</dt>
+                        <dd>
+                            <small>
+                                Host: {{ info.config.qdrant_host }}<br>
+                                Port: {{ info.config.qdrant_port }}
+                            </small>
+                        </dd>
+
+                        {% if info.config.memory_limits %}
+                        <dt class="mt-3">Memory Limits</dt>
+                        <dd>
+                            <small>
+                                Semantic: {{ "{:,}".format(info.config.memory_limits.semantic) }}<br>
+                                Episodic: {{ "{:,}".format(info.config.memory_limits.episodic) }}<br>
+                                Procedural: {{ "{:,}".format(info.config.memory_limits.procedural) }}<br>
+                                Contact: {{ "{:,}".format(info.config.memory_limits.contact) }}
+                            </small>
+                        </dd>
+                        {% endif %}
+                        {% endif %}
+                    </dl>
+                    {% else %}
+                    <p class="text-muted mb-0">No system info available</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Features -->
+            {% if info.features %}
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-toggles"></i> Features
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group list-group-flush">
+                        {% for feature, enabled in info.features.items() %}
+                        <div class="list-group-item px-0">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span>{{ feature.replace('_', ' ').title() }}</span>
+                                {% if enabled %}
+                                <i class="bi bi-check-circle text-success"></i>
+                                {% else %}
+                                <i class="bi bi-x-circle text-muted"></i>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Auto-refresh every 30 seconds -->
+<script>
+    setTimeout(function () {
+        location.reload();
+    }, 30000);
+</script>
+{% endblock %}

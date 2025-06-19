@@ -18,6 +18,9 @@ Key components:
 __version__ = "2.0.0"
 __author__ = "Email Agent Team"
 
+# Import AssetService
+from src.asset_management.services.asset_service import AssetService
+
 # # Local application imports
 from src.asset_management.classification.document_classifier import DocumentClassifier
 
@@ -91,4 +94,5 @@ __all__ = [
     "EpisodicLearner",
     "Decision",
     "Outcome",
+    "AssetService",
 ]
