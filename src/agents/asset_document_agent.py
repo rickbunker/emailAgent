@@ -47,6 +47,8 @@ from qdrant_client.http.models import (
 )
 
 # Local imports
+from ..memory.contact import ContactMemory
+from ..memory.episodic import EpisodicMemory
 from ..memory.procedural import ProceduralMemory
 from ..memory.semantic import SemanticMemory
 from ..utils.config import config
@@ -196,6 +198,74 @@ class Asset:
     created_date: datetime
     last_updated: datetime
     metadata: dict[str, Any] | None = None
+
+
+@dataclass
+class ContextClue:
+    """
+    Represents a single context clue extracted from a source.
+
+    Contains information about what was found, where it came from,
+    and how confident we are in the interpretation.
+    """
+
+    source: str  # "sender", "subject", "body", "filename"
+    clue_type: str  # "asset_identifier", "document_type", "organization", "domain"
+    value: str  # The actual clue value
+    confidence: float  # 0.0 to 1.0
+    metadata: dict[str, Any] | None = None
+
+
+@dataclass
+class UnifiedContext:
+    """
+    Unified context object combining all context sources for document processing.
+
+    Phase 3.2 implementation that aggregates context clues from sender,
+    subject, body, and filename sources with confidence scoring and
+    decision auditing capabilities.
+
+    Attributes:
+        sender_context: Context clues from email sender
+        subject_context: Context clues from email subject line
+        body_context: Context clues from email body text
+        filename_context: Context clues from attachment filename
+        combined_confidence: Overall confidence in context interpretation
+        context_agreement: Measure of agreement between sources (0.0-1.0)
+        context_conflicts: List of conflicting interpretations
+        primary_asset_hints: Most likely asset identifiers across all sources
+        primary_document_hints: Most likely document type hints across all sources
+        reasoning_details: Detailed breakdown of context analysis
+    """
+
+    sender_context: list[ContextClue]
+    subject_context: list[ContextClue]
+    body_context: list[ContextClue]
+    filename_context: list[ContextClue]
+    combined_confidence: float
+    context_agreement: float
+    context_conflicts: list[dict[str, Any]]
+    primary_asset_hints: list[str]
+    primary_document_hints: list[str]
+    reasoning_details: dict[str, Any]
+
+    def get_all_clues(self) -> list[ContextClue]:
+        """Get all context clues from all sources."""
+        return (
+            self.sender_context
+            + self.subject_context
+            + self.body_context
+            + self.filename_context
+        )
+
+    def get_clues_by_type(self, clue_type: str) -> list[ContextClue]:
+        """Get all context clues of a specific type."""
+        return [clue for clue in self.get_all_clues() if clue.clue_type == clue_type]
+
+    def get_clues_by_source(self, source: str) -> list[ContextClue]:
+        """Get all context clues from a specific source."""
+        all_clues = self.get_all_clues()
+        return [clue for clue in all_clues if clue.source == source]
 
 
 class SecurityService:
@@ -583,15 +653,15 @@ class AssetDocumentAgent:
             self.logger.error("Failed to create assets directory: %s", e)
             raise
 
-        # Initialize memory systems
+        # Initialize memory systems (Phase 2: All four memory types)
         self.semantic_memory = (
-            SemanticMemory(qdrant_url="http://localhost:6333")
-            if qdrant_client
-            else None
+            SemanticMemory(qdrant_url=config.qdrant_url) if qdrant_client else None
         )
         self.procedural_memory = (
             ProceduralMemory(qdrant_client) if qdrant_client else None
         )
+        self.episodic_memory = EpisodicMemory(qdrant_client) if qdrant_client else None
+        self.contact_memory = ContactMemory(qdrant_client) if qdrant_client else None
 
         # Initialize services
         self.security = SecurityService(semantic_memory=self.semantic_memory)
@@ -682,6 +752,22 @@ class AssetDocumentAgent:
                     self.logger.warning(
                         f"Failed to bootstrap semantic memory from knowledge base: {e}"
                     )
+
+            # Initialize episodic memory collections (Phase 2: Experience tracking)
+            if self.episodic_memory:
+                try:
+                    await self.episodic_memory.initialize_collections()
+                    self.logger.info("Episodic memory collections initialized")
+                except Exception as e:
+                    self.logger.warning(f"Failed to initialize episodic memory: {e}")
+
+            # Initialize contact memory collections (Phase 2: Contact management)
+            if self.contact_memory:
+                try:
+                    await self.contact_memory.initialize_collections()
+                    self.logger.info("Contact memory collections initialized")
+                except Exception as e:
+                    self.logger.warning(f"Failed to initialize contact memory: {e}")
 
             # Initialize other collections as needed
             for collection_name in self.COLLECTIONS.values():
@@ -3675,12 +3761,13 @@ class AssetDocumentAgent:
         """
         Get allowed document categories for the specified asset type.
 
-        Uses semantic memory to retrieve the categories that are valid
-        for documents of this asset type, enabling constraint filtering.
+        Enhanced Phase 3.1 implementation that uses multiple semantic memory queries,
+        intelligent fallback logic, and better constraint validation to determine
+        proper document categories for asset types.
 
         Args:
             asset_type: Asset type to get categories for
-            reasoning_details: Reasoning dictionary to update
+            reasoning_details: Reasoning dictionary to update with enhanced details
 
         Returns:
             List of allowed category strings for this asset type
@@ -3688,7 +3775,7 @@ class AssetDocumentAgent:
         Raises:
             RuntimeError: If semantic memory operations fail
         """
-        self.logger.debug(f"Getting allowed categories for asset type: {asset_type}")
+        self.logger.debug(f"🎯 Enhanced asset type category lookup: {asset_type}")
 
         try:
             if not self.semantic_memory:
@@ -3700,71 +3787,237 @@ class AssetDocumentAgent:
                         "allowed_categories": [],
                         "constraint_applied": False,
                         "status": "no_semantic_memory",
+                        "fallback_used": "none",
+                        "sources": [],
                     }
                 )
                 return []
 
-            # Search for asset type category information in semantic memory
-            category_results = await self.semantic_memory.search(
-                query_text=f"asset type {asset_type} allowed categories document types",
-                limit=config.semantic_search_limit,
-                filter_metadata={"knowledge_type": "asset_configuration"},
-            )
+            # Enhanced multi-query approach for better category discovery
+            search_queries = [
+                f"asset type {asset_type} document categories allowed types",
+                f"{asset_type} investment documents classification categories",
+                f"document types {asset_type} portfolio management filing",
+                f"categories valid {asset_type} asset document classification",
+            ]
 
-            allowed_categories = []
+            all_categories = set()
+            source_details = []
 
-            if category_results and category_results.get("results"):
-                for result in category_results["results"]:
-                    metadata = result.get("metadata", {})
-                    if metadata.get("asset_type") == asset_type:
-                        categories = metadata.get("allowed_categories", [])
-                        if isinstance(categories, list):
-                            allowed_categories.extend(categories)
-                        elif isinstance(categories, str):
-                            allowed_categories.append(categories)
+            # Query 1: Direct asset configuration search
+            for query in search_queries:
+                try:
+                    category_results = await self.semantic_memory.search(
+                        query=query,
+                        limit=config.semantic_search_limit,
+                        filter_conditions={
+                            "metadata.knowledge_type": "asset_configuration"
+                        },
+                    )
 
-            # Remove duplicates and sort
-            allowed_categories = sorted(set(allowed_categories))
+                    if category_results:
+                        for result in category_results:
+                            metadata = (
+                                result.metadata if hasattr(result, "metadata") else {}
+                            )
+                            result_asset_type = metadata.get("asset_type", "").lower()
 
-            # Fallback to default categories if none found
+                            # Asset type match with confidence weighting
+                            if result_asset_type == asset_type.lower():
+                                categories = metadata.get("allowed_categories", [])
+                                confidence_boost = 1.0
+                            elif (
+                                result_asset_type
+                                and asset_type.lower() in result_asset_type
+                            ):
+                                categories = metadata.get("allowed_categories", [])
+                                confidence_boost = 0.8
+                            else:
+                                categories = metadata.get("document_categories", [])
+                                confidence_boost = 0.6
+
+                            if isinstance(categories, list):
+                                weighted_categories = [
+                                    (cat, confidence_boost) for cat in categories
+                                ]
+                                all_categories.update(
+                                    cat for cat, _ in weighted_categories
+                                )
+                                source_details.append(
+                                    {
+                                        "query": query[:50] + "...",
+                                        "categories": categories,
+                                        "asset_type_match": result_asset_type
+                                        == asset_type.lower(),
+                                        "confidence_boost": confidence_boost,
+                                    }
+                                )
+                            elif isinstance(categories, str):
+                                all_categories.add(categories)
+                                source_details.append(
+                                    {
+                                        "query": query[:50] + "...",
+                                        "categories": [categories],
+                                        "asset_type_match": result_asset_type
+                                        == asset_type.lower(),
+                                        "confidence_boost": confidence_boost,
+                                    }
+                                )
+
+                except Exception as e:
+                    self.logger.debug(f"Query failed for '{query[:30]}...': {e}")
+                    continue
+
+            # Query 2: Look for asset-specific knowledge with categories
+            try:
+                asset_knowledge = await self.semantic_memory.search(
+                    query=f"asset knowledge {asset_type} document types classification",
+                    limit=config.semantic_search_limit * 2,
+                    filter_conditions={"metadata.asset_type": asset_type},
+                )
+
+                if asset_knowledge:
+                    for result in asset_knowledge:
+                        metadata = (
+                            result.metadata if hasattr(result, "metadata") else {}
+                        )
+                        doc_categories = metadata.get("document_categories", [])
+                        business_context = metadata.get("business_context", {})
+
+                        if doc_categories:
+                            if isinstance(doc_categories, list):
+                                all_categories.update(doc_categories)
+                            else:
+                                all_categories.add(doc_categories)
+
+                        # Extract categories from business context
+                        if isinstance(business_context, dict):
+                            context_categories = business_context.get(
+                                "typical_documents", []
+                            )
+                            if context_categories:
+                                all_categories.update(context_categories)
+
+                        source_details.append(
+                            {
+                                "source": "asset_knowledge",
+                                "categories": doc_categories,
+                                "confidence": "high",
+                            }
+                        )
+
+            except Exception as e:
+                self.logger.debug(f"Asset knowledge query failed: {e}")
+
+            # Convert to sorted list and apply intelligent fallback
+            allowed_categories = sorted(all_categories)
+
+            # Enhanced fallback logic based on asset type
             if not allowed_categories:
                 self.logger.info(
-                    f"No specific categories found for {asset_type}, using defaults"
+                    f"No categories found in semantic memory for {asset_type}, using intelligent fallback"
                 )
-                # Use common document categories as fallback
-                allowed_categories = [
-                    "contract",
-                    "invoice",
-                    "report",
-                    "correspondence",
-                    "proposal",
-                    "statement",
-                    "agreement",
-                    "other",
-                ]
 
+                # Asset type-specific fallback categories
+                asset_type_categories = {
+                    "commercial_real_estate": [
+                        "rent_roll",
+                        "financial_statements",
+                        "property_photos",
+                        "appraisal",
+                        "lease_documents",
+                        "property_management",
+                        "legal_documents",
+                        "insurance",
+                        "correspondence",
+                    ],
+                    "private_credit": [
+                        "loan_documents",
+                        "borrower_financials",
+                        "covenant_compliance",
+                        "credit_memo",
+                        "loan_monitoring",
+                        "legal_documents",
+                        "tax_documents",
+                        "correspondence",
+                    ],
+                    "private_equity": [
+                        "portfolio_reports",
+                        "investor_updates",
+                        "board_materials",
+                        "deal_documents",
+                        "valuation_reports",
+                        "legal_documents",
+                        "tax_documents",
+                        "correspondence",
+                    ],
+                    "infrastructure": [
+                        "engineering_reports",
+                        "construction_updates",
+                        "regulatory_documents",
+                        "operations_reports",
+                        "legal_documents",
+                        "insurance",
+                        "correspondence",
+                    ],
+                }
+
+                allowed_categories = asset_type_categories.get(
+                    asset_type.lower(),
+                    [
+                        "financial_statements",
+                        "legal_documents",
+                        "tax_documents",
+                        "insurance",
+                        "correspondence",
+                        "unknown",
+                    ],
+                )
+
+                fallback_used = "asset_type_specific"
+                constraint_strength = (
+                    config.category_constraint_strength * 0.8
+                )  # Reduce strength for fallback
+            else:
+                fallback_used = "none"
+                constraint_strength = config.category_constraint_strength
+
+            # Apply constraint strength weighting
             reasoning_details["asset_type_constraints"].update(
                 {
                     "allowed_categories": allowed_categories,
                     "constraint_applied": True,
+                    "constraint_strength": constraint_strength,
                     "status": "success",
+                    "fallback_used": fallback_used,
+                    "sources": source_details[:3],  # Top 3 sources for reasoning
+                    "total_sources": len(source_details),
+                    "semantic_matches": len(
+                        [s for s in source_details if s.get("confidence") == "high"]
+                    ),
                 }
             )
 
             self.logger.info(
-                f"Found {len(allowed_categories)} allowed categories for {asset_type}: "
-                f"{', '.join(allowed_categories[:5])}{'...' if len(allowed_categories) > 5 else ''}"
+                f"📋 Asset type categories for {asset_type}: {len(allowed_categories)} categories "
+                f"(sources: {len(source_details)}, fallback: {fallback_used})"
+            )
+            self.logger.debug(
+                f"Categories: {', '.join(allowed_categories[:5])}{'...' if len(allowed_categories) > 5 else ''}"
             )
 
             return allowed_categories
 
         except Exception as e:
-            self.logger.error(f"Failed to get asset type categories: {e}")
+            self.logger.error(f"Failed to get enhanced asset type categories: {e}")
             reasoning_details["asset_type_constraints"].update(
                 {
                     "allowed_categories": [],
                     "constraint_applied": False,
+                    "constraint_strength": 0.0,
                     "status": f"error: {str(e)}",
+                    "fallback_used": "error",
+                    "sources": [],
                 }
             )
             # Return empty list to disable constraint filtering on error
@@ -3845,11 +4098,52 @@ class AssetDocumentAgent:
                     rule_confidence = 0.0
                     matched_patterns = []
 
-                    # Skip if category not in allowed list
-                    if allowed_categories and rule_category not in [
-                        c.lower() for c in allowed_categories
-                    ]:
-                        continue
+                    # Enhanced constraint filtering (Phase 3.1)
+                    constraint_applied = False
+                    if allowed_categories:
+                        category_allowed = rule_category in [
+                            c.lower() for c in allowed_categories
+                        ]
+                        if not category_allowed:
+                            # Apply constraint strength to determine if rule should be completely filtered
+                            constraint_strength = reasoning_details[
+                                "asset_type_constraints"
+                            ].get(
+                                "constraint_strength",
+                                config.category_constraint_strength,
+                            )
+                            if (
+                                constraint_strength
+                                >= config.context_confidence_threshold
+                            ):
+                                # Strong constraint - skip this rule entirely
+                                continue
+                            else:
+                                # Weak constraint - apply penalty but don't skip
+                                rule_confidence *= 1.0 - constraint_strength
+                                matched_patterns.append(
+                                    f"constraint_penalty(x{1.0 - constraint_strength:.2f})"
+                                )
+                                constraint_applied = True
+                        else:
+                            # Category is allowed - potential boost for strong constraints
+                            constraint_strength = reasoning_details[
+                                "asset_type_constraints"
+                            ].get(
+                                "constraint_strength",
+                                config.category_constraint_strength,
+                            )
+                            if (
+                                constraint_strength
+                                >= config.context_confidence_threshold
+                            ):
+                                rule_confidence *= 1.0 + (
+                                    constraint_strength * 0.1
+                                )  # Small boost for allowed categories
+                                matched_patterns.append(
+                                    f"constraint_boost(x{1.0 + (constraint_strength * 0.1):.2f})"
+                                )
+                                constraint_applied = True
 
                     # Apply keyword patterns
                     keywords = rule.get("keywords", [])
@@ -3872,15 +4166,31 @@ class AssetDocumentAgent:
                             self.logger.warning(f"Invalid regex pattern: {pattern}")
                             continue
 
-                    # Asset type boost for matching rules
+                    # Enhanced asset type context filtering (Phase 3.1)
                     rule_asset_type = rule.get("asset_type", "").lower()
+                    asset_context_applied = False
+
                     if rule_asset_type == asset_type.lower():
-                        rule_confidence *= 1.3  # 30% boost for matching asset type
-                        matched_patterns.append("asset_type_match")
-                    elif rule_asset_type and rule_asset_type != asset_type.lower():
-                        rule_confidence *= (
-                            0.7  # 30% penalty for non-matching asset type
+                        # Use config-driven boost factor for matching asset types
+                        rule_confidence *= config.asset_type_boost_factor
+                        matched_patterns.append(
+                            f"asset_type_match(x{config.asset_type_boost_factor})"
                         )
+                        asset_context_applied = True
+                    elif rule_asset_type and rule_asset_type != asset_type.lower():
+                        # Use config-driven penalty factor for non-matching asset types
+                        rule_confidence *= config.asset_type_penalty_factor
+                        matched_patterns.append(
+                            f"asset_type_penalty(x{config.asset_type_penalty_factor})"
+                        )
+                        asset_context_applied = True
+                    elif not rule_asset_type:
+                        # Apply general asset context weight for generic rules
+                        rule_confidence *= 1.0 + config.asset_context_weight
+                        matched_patterns.append(
+                            f"general_context(x{1.0 + config.asset_context_weight})"
+                        )
+                        asset_context_applied = True
 
                     # Record significant rule applications
                     if rule_confidence > config.low_confidence_threshold:
@@ -3894,8 +4204,16 @@ class AssetDocumentAgent:
                                 "category": rule_category,
                                 "confidence": min(rule_confidence, 1.0),
                                 "patterns": matched_patterns,
-                                "asset_type_boost": rule_asset_type
+                                "asset_type_match": rule_asset_type
                                 == asset_type.lower(),
+                                "asset_context_applied": asset_context_applied,
+                                "constraint_applied": constraint_applied,
+                                "rule_asset_type": rule_asset_type or "generic",
+                                "context_enhancements": {
+                                    "asset_type_filtering": asset_context_applied,
+                                    "constraint_filtering": constraint_applied,
+                                    "pattern_count": len(matched_patterns),
+                                },
                             }
                         )
 
@@ -3917,7 +4235,25 @@ class AssetDocumentAgent:
                             best_category = category
                             best_confidence = normalized_score
 
-            # Update reasoning details
+            # Enhanced reasoning details with Phase 3.1 context information
+            context_metrics = {
+                "asset_type_matches": len(
+                    [r for r in applied_rules if r.get("asset_type_match", False)]
+                ),
+                "constraint_applications": len(
+                    [r for r in applied_rules if r.get("constraint_applied", False)]
+                ),
+                "asset_context_enhancements": len(
+                    [r for r in applied_rules if r.get("asset_context_applied", False)]
+                ),
+                "total_rules_evaluated": len(applied_rules),
+                "avg_confidence": (
+                    sum(r["confidence"] for r in applied_rules) / len(applied_rules)
+                    if applied_rules
+                    else 0.0
+                ),
+            }
+
             reasoning_details["memory_contributions"]["procedural"].update(
                 {
                     "category": best_category,
@@ -3929,7 +4265,18 @@ class AssetDocumentAgent:
                             category_scores.items(), key=lambda x: x[1], reverse=True
                         )[:5]
                     ),
-                    "status": "success",
+                    "context_metrics": context_metrics,
+                    "enhancement_factors": {
+                        "asset_type_boost": config.asset_type_boost_factor,
+                        "asset_type_penalty": config.asset_type_penalty_factor,
+                        "constraint_strength": reasoning_details[
+                            "asset_type_constraints"
+                        ].get(
+                            "constraint_strength", config.category_constraint_strength
+                        ),
+                        "context_confidence_threshold": config.context_confidence_threshold,
+                    },
+                    "status": "enhanced_phase_3_1",
                 }
             )
 
@@ -4872,3 +5219,967 @@ class AssetDocumentAgent:
             f"(score: {final_confidence:.3f}, agreement: {source_agreement} sources, "
             f"active sources: {active_sources})"
         )
+
+    # ========================================================================================
+    # Phase 3.2: Multi-Source Context Clues Implementation
+    # ========================================================================================
+
+    @log_function()
+    async def create_unified_context(
+        self,
+        sender_email: str,
+        email_subject: str,
+        email_body: str,
+        filename: str,
+    ) -> UnifiedContext:
+        """
+        Create unified context object from all available sources.
+
+        Phase 3.2 implementation that extracts and combines context clues from
+        sender, subject, body, and filename sources with confidence scoring
+        and decision auditing capabilities.
+
+        Args:
+            sender_email: Email sender address for contact context
+            email_subject: Email subject line for parsing
+            email_body: Email body text for analysis
+            filename: Attachment filename for parsing
+
+        Returns:
+            UnifiedContext object with all context sources combined
+
+        Raises:
+            RuntimeError: If context creation fails
+        """
+        self.logger.info("🔍 Creating unified context from all sources")
+
+        try:
+            # Extract context from each source
+            sender_context = await self._extract_sender_context(sender_email)
+            subject_context = await self._extract_subject_context(email_subject)
+            body_context = await self._extract_body_context(email_body)
+            filename_context = await self._extract_filename_context(filename)
+
+            # Combine and analyze all context clues
+            all_clues = (
+                sender_context + subject_context + body_context + filename_context
+            )
+
+            # Calculate context agreement and conflicts
+            context_agreement, context_conflicts = self._analyze_context_agreement(
+                all_clues
+            )
+
+            # Extract primary hints
+            primary_asset_hints = self._extract_primary_asset_hints(all_clues)
+            primary_document_hints = self._extract_primary_document_hints(all_clues)
+
+            # Calculate combined confidence
+            combined_confidence = self._calculate_combined_confidence(
+                all_clues, context_agreement
+            )
+
+            # Create detailed reasoning
+            reasoning_details = {
+                "source_counts": {
+                    "sender": len(sender_context),
+                    "subject": len(subject_context),
+                    "body": len(body_context),
+                    "filename": len(filename_context),
+                },
+                "total_clues": len(all_clues),
+                "confidence_distribution": self._analyze_confidence_distribution(
+                    all_clues
+                ),
+                "context_weights": {
+                    "sender": config.sender_context_weight,
+                    "subject": config.subject_context_weight,
+                    "body": config.body_context_weight,
+                    "filename": config.filename_context_weight,
+                },
+                "extraction_status": "phase_3_2_complete",
+            }
+
+            unified_context = UnifiedContext(
+                sender_context=sender_context,
+                subject_context=subject_context,
+                body_context=body_context,
+                filename_context=filename_context,
+                combined_confidence=combined_confidence,
+                context_agreement=context_agreement,
+                context_conflicts=context_conflicts,
+                primary_asset_hints=primary_asset_hints,
+                primary_document_hints=primary_document_hints,
+                reasoning_details=reasoning_details,
+            )
+
+            self.logger.info(
+                f"📊 Unified context created: {len(all_clues)} total clues, "
+                f"agreement: {context_agreement:.3f}, confidence: {combined_confidence:.3f}"
+            )
+
+            return unified_context
+
+        except Exception as e:
+            self.logger.error(f"Failed to create unified context: {e}")
+            raise RuntimeError(f"Unified context creation failed: {e}") from e
+
+    @log_function()
+    async def _extract_sender_context(self, sender_email: str) -> list[ContextClue]:
+        """
+        Extract context clues from email sender information.
+
+        Uses contact memory integration to extract organizational patterns,
+        sender trust, and historical document patterns.
+
+        Args:
+            sender_email: Email address of the sender
+
+        Returns:
+            List of context clues from sender analysis
+
+        Raises:
+            RuntimeError: If sender context extraction fails
+        """
+        self.logger.debug(f"Extracting sender context from: {sender_email}")
+
+        context_clues = []
+
+        try:
+            if not sender_email or not sender_email.strip():
+                return context_clues
+
+            sender_email = sender_email.strip().lower()
+
+            # Extract domain information
+            if "@" in sender_email:
+                domain = sender_email.split("@")[1]
+
+                # Common organizational domain patterns
+                org_patterns = {
+                    "law": ["law", "legal", "attorney", "counsel"],
+                    "accounting": ["cpa", "accounting", "audit", "tax"],
+                    "consulting": ["consulting", "advisory", "strategy"],
+                    "investment": ["capital", "investment", "partners", "fund"],
+                    "property": ["property", "real", "estate", "realty"],
+                    "construction": ["construction", "building", "development"],
+                }
+
+                for org_type, keywords in org_patterns.items():
+                    if any(keyword in domain for keyword in keywords):
+                        context_clues.append(
+                            ContextClue(
+                                source="sender",
+                                clue_type="organization",
+                                value=org_type,
+                                confidence=config.sender_context_weight * 0.8,
+                                metadata={"domain": domain, "pattern_match": keywords},
+                            )
+                        )
+
+                # Extract organization name from domain
+                if "." in domain:
+                    org_name = domain.split(".")[0]
+                    context_clues.append(
+                        ContextClue(
+                            source="sender",
+                            clue_type="organization",
+                            value=org_name,
+                            confidence=config.sender_context_weight * 0.6,
+                            metadata={"domain": domain, "extracted_name": org_name},
+                        )
+                    )
+
+            # Contact memory integration
+            if self.contact_memory:
+                try:
+                    contact_info = await self.contact_memory.find_contact_by_email(
+                        sender_email
+                    )
+                    if contact_info:
+                        # Organization context
+                        if (
+                            hasattr(contact_info, "organization")
+                            and contact_info.organization
+                        ):
+                            context_clues.append(
+                                ContextClue(
+                                    source="sender",
+                                    clue_type="organization",
+                                    value=contact_info.organization,
+                                    confidence=config.sender_context_weight * 1.0,
+                                    metadata={
+                                        "source": "contact_memory",
+                                        "verified": True,
+                                    },
+                                )
+                            )
+
+                        # Tags and categories
+                        if hasattr(contact_info, "tags") and contact_info.tags:
+                            for tag in contact_info.tags[:3]:  # Top 3 tags
+                                context_clues.append(
+                                    ContextClue(
+                                        source="sender",
+                                        clue_type="document_type",
+                                        value=tag,
+                                        confidence=config.sender_context_weight * 0.7,
+                                        metadata={"source": "contact_tags", "tag": tag},
+                                    )
+                                )
+
+                except Exception as e:
+                    self.logger.debug(
+                        f"Contact memory lookup failed for {sender_email}: {e}"
+                    )
+
+            self.logger.debug(f"Extracted {len(context_clues)} sender context clues")
+            return context_clues
+
+        except Exception as e:
+            self.logger.error(f"Sender context extraction failed: {e}")
+            raise RuntimeError(f"Sender context extraction failed: {e}") from e
+
+    @log_function()
+    async def _extract_subject_context(self, email_subject: str) -> list[ContextClue]:
+        """
+        Extract context clues from email subject line.
+
+        Parses subject for asset identifiers, document type hints,
+        and contextual descriptions using pattern matching.
+
+        Args:
+            email_subject: Email subject line text
+
+        Returns:
+            List of context clues from subject analysis
+
+        Raises:
+            RuntimeError: If subject context extraction fails
+        """
+        self.logger.debug(f"Extracting subject context from: {email_subject[:50]}...")
+
+        context_clues = []
+
+        try:
+            if not email_subject or not email_subject.strip():
+                return context_clues
+
+            subject_lower = email_subject.strip().lower()
+
+            # Asset identifier patterns
+            # # Standard library imports
+            import re
+
+            asset_patterns = {
+                "property_address": r"\b\d+\s+\w+\s+(street|st|avenue|ave|road|rd|drive|dr|boulevard|blvd)\b",
+                "fund_name": r"\b\w+\s+(fund|capital|partners|investment)\s+(i{1,3}|iv|v|vi{1,3}|[1-9])\b",
+                "deal_code": r"\b[A-Z]{2,4}-?\d{2,4}\b",
+                "project_name": r"\b(project|development|property)\s+\w+\b",
+            }
+
+            for pattern_type, regex in asset_patterns.items():
+                matches = re.findall(regex, subject_lower, re.IGNORECASE)
+                for match in matches[:2]:  # Limit to first 2 matches per type
+                    match_text = " ".join(match) if isinstance(match, tuple) else match
+                    context_clues.append(
+                        ContextClue(
+                            source="subject",
+                            clue_type="asset_identifier",
+                            value=match_text,
+                            confidence=config.subject_context_weight * 0.9,
+                            metadata={
+                                "pattern_type": pattern_type,
+                                "regex_match": True,
+                            },
+                        )
+                    )
+
+            # Document type indicators
+            doc_type_patterns = {
+                "financial_statements": [
+                    "financial",
+                    "statement",
+                    "financials",
+                    "p&l",
+                    "income",
+                ],
+                "rent_roll": ["rent", "roll", "rental", "tenant"],
+                "legal_documents": ["contract", "agreement", "legal", "amendment"],
+                "appraisal": ["appraisal", "valuation", "assessed", "value"],
+                "correspondence": ["re:", "fwd:", "follow up", "update", "regarding"],
+                "report": ["report", "analysis", "summary", "findings"],
+                "invoice": ["invoice", "bill", "payment", "charge"],
+                "proposal": ["proposal", "quote", "estimate", "bid"],
+            }
+
+            for doc_type, keywords in doc_type_patterns.items():
+                for keyword in keywords:
+                    if keyword in subject_lower:
+                        context_clues.append(
+                            ContextClue(
+                                source="subject",
+                                clue_type="document_type",
+                                value=doc_type,
+                                confidence=config.subject_context_weight * 0.8,
+                                metadata={
+                                    "keyword_match": keyword,
+                                    "pattern_based": True,
+                                },
+                            )
+                        )
+                        break  # Only add one clue per document type
+
+            # Month/quarter indicators
+            time_patterns = {
+                "monthly": [
+                    "january",
+                    "february",
+                    "march",
+                    "april",
+                    "may",
+                    "june",
+                    "july",
+                    "august",
+                    "september",
+                    "october",
+                    "november",
+                    "december",
+                ],
+                "quarterly": ["q1", "q2", "q3", "q4", "quarter"],
+                "annual": ["annual", "yearly", "year end", "2023", "2024", "2025"],
+            }
+
+            for time_type, indicators in time_patterns.items():
+                for indicator in indicators:
+                    if indicator in subject_lower:
+                        context_clues.append(
+                            ContextClue(
+                                source="subject",
+                                clue_type="document_type",
+                                value=f"{time_type}_report",
+                                confidence=config.subject_context_weight * 0.6,
+                                metadata={
+                                    "time_indicator": indicator,
+                                    "frequency": time_type,
+                                },
+                            )
+                        )
+                        break
+
+            self.logger.debug(f"Extracted {len(context_clues)} subject context clues")
+            return context_clues
+
+        except Exception as e:
+            self.logger.error(f"Subject context extraction failed: {e}")
+            raise RuntimeError(f"Subject context extraction failed: {e}") from e
+
+    @log_function()
+    async def _extract_body_context(self, email_body: str) -> list[ContextClue]:
+        """
+        Extract context clues from email body text.
+
+        Analyzes body content for contextual descriptions, asset references,
+        and document type indicators using text analysis.
+
+        Args:
+            email_body: Email body text content
+
+        Returns:
+            List of context clues from body analysis
+
+        Raises:
+            RuntimeError: If body context extraction fails
+        """
+        self.logger.debug(f"Extracting body context from {len(email_body)} characters")
+
+        context_clues = []
+
+        try:
+            if not email_body or not email_body.strip():
+                return context_clues
+
+            body_lower = email_body.strip().lower()
+
+            # Limit analysis to first 1000 characters for performance
+            analysis_text = body_lower[:1000]
+
+            # Asset type indicators
+            asset_type_patterns = {
+                "commercial_real_estate": [
+                    "property",
+                    "real estate",
+                    "commercial",
+                    "retail",
+                    "office",
+                    "warehouse",
+                ],
+                "private_credit": ["loan", "credit", "debt", "lending", "borrower"],
+                "private_equity": ["portfolio", "investment", "equity", "acquisition"],
+                "infrastructure": [
+                    "infrastructure",
+                    "utilities",
+                    "transportation",
+                    "energy",
+                ],
+            }
+
+            for asset_type, keywords in asset_type_patterns.items():
+                for keyword in keywords:
+                    if keyword in analysis_text:
+                        context_clues.append(
+                            ContextClue(
+                                source="body",
+                                clue_type="asset_identifier",
+                                value=asset_type,
+                                confidence=config.body_context_weight * 0.7,
+                                metadata={
+                                    "keyword_match": keyword,
+                                    "asset_type_hint": True,
+                                },
+                            )
+                        )
+                        break  # One clue per asset type
+
+            # Document content indicators
+            content_patterns = {
+                "financial_statements": [
+                    "revenue",
+                    "expenses",
+                    "profit",
+                    "loss",
+                    "ebitda",
+                    "cash flow",
+                ],
+                "legal_documents": [
+                    "hereby",
+                    "agreement",
+                    "parties",
+                    "terms",
+                    "conditions",
+                ],
+                "correspondence": [
+                    "please",
+                    "thank you",
+                    "attached",
+                    "find",
+                    "regards",
+                ],
+                "report": [
+                    "executive summary",
+                    "conclusion",
+                    "recommendations",
+                    "findings",
+                ],
+                "invoice": ["amount due", "payment terms", "invoice number", "total"],
+            }
+
+            for doc_type, indicators in content_patterns.items():
+                matches = sum(
+                    1 for indicator in indicators if indicator in analysis_text
+                )
+                if matches >= 2:  # Require at least 2 indicators
+                    context_clues.append(
+                        ContextClue(
+                            source="body",
+                            clue_type="document_type",
+                            value=doc_type,
+                            confidence=config.body_context_weight
+                            * min(matches * 0.3, 0.9),
+                            metadata={
+                                "indicator_count": matches,
+                                "content_analysis": True,
+                            },
+                        )
+                    )
+
+            # Attachment references
+            attachment_refs = ["attached", "attachment", "please find", "enclosed"]
+            attachment_mentions = sum(
+                1 for ref in attachment_refs if ref in analysis_text
+            )
+
+            if attachment_mentions > 0:
+                context_clues.append(
+                    ContextClue(
+                        source="body",
+                        clue_type="document_type",
+                        value="attachment_referenced",
+                        confidence=config.body_context_weight * 0.5,
+                        metadata={
+                            "reference_count": attachment_mentions,
+                            "has_attachments": True,
+                        },
+                    )
+                )
+
+            self.logger.debug(f"Extracted {len(context_clues)} body context clues")
+            return context_clues
+
+        except Exception as e:
+            self.logger.error(f"Body context extraction failed: {e}")
+            raise RuntimeError(f"Body context extraction failed: {e}") from e
+
+    @log_function()
+    async def _extract_filename_context(self, filename: str) -> list[ContextClue]:
+        """
+        Extract context clues from attachment filename.
+
+        Parses filename for naming conventions, document type hints,
+        and structural patterns common in business documents.
+
+        Args:
+            filename: Attachment filename with extension
+
+        Returns:
+            List of context clues from filename analysis
+
+        Raises:
+            RuntimeError: If filename context extraction fails
+        """
+        self.logger.debug(f"Extracting filename context from: {filename}")
+
+        context_clues = []
+
+        try:
+            if not filename or not filename.strip():
+                return context_clues
+
+            filename_clean = filename.strip().lower()
+
+            # Remove file extension for analysis
+            name_without_ext = filename_clean
+            if "." in filename_clean:
+                name_without_ext = filename_clean.rsplit(".", 1)[0]
+
+            # Document type from filename patterns
+            filename_patterns = {
+                "financial_statements": [
+                    "financial",
+                    "p&l",
+                    "income",
+                    "statement",
+                    "balance",
+                ],
+                "rent_roll": ["rent", "roll", "rental", "tenant"],
+                "appraisal": ["appraisal", "valuation", "bpo", "assessment"],
+                "legal_documents": ["contract", "agreement", "lease", "amendment"],
+                "invoice": ["invoice", "bill", "receipt"],
+                "report": ["report", "analysis", "summary"],
+                "correspondence": ["letter", "email", "memo"],
+                "property_photos": ["photo", "image", "picture", "jpg", "jpeg", "png"],
+            }
+
+            for doc_type, patterns in filename_patterns.items():
+                for pattern in patterns:
+                    if pattern in name_without_ext:
+                        context_clues.append(
+                            ContextClue(
+                                source="filename",
+                                clue_type="document_type",
+                                value=doc_type,
+                                confidence=config.filename_context_weight * 0.9,
+                                metadata={
+                                    "pattern_match": pattern,
+                                    "filename_based": True,
+                                },
+                            )
+                        )
+                        break  # One clue per document type
+
+            # Date patterns in filename
+            # # Standard library imports
+            import re
+
+            date_patterns = [
+                r"\d{4}[-_]\d{1,2}[-_]\d{1,2}",  # YYYY-MM-DD
+                r"\d{1,2}[-_]\d{1,2}[-_]\d{4}",  # MM-DD-YYYY
+                r"(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)",  # Month names
+                r"q[1-4]",  # Quarter indicators
+            ]
+
+            for pattern in date_patterns:
+                if re.search(pattern, name_without_ext):
+                    context_clues.append(
+                        ContextClue(
+                            source="filename",
+                            clue_type="document_type",
+                            value="dated_document",
+                            confidence=config.filename_context_weight * 0.6,
+                            metadata={
+                                "date_pattern": pattern,
+                                "temporal_reference": True,
+                            },
+                        )
+                    )
+                    break  # One date clue per filename
+
+            # Version indicators
+            version_patterns = [
+                "v1",
+                "v2",
+                "v3",
+                "version",
+                "draft",
+                "final",
+                "revised",
+            ]
+            for version in version_patterns:
+                if version in name_without_ext:
+                    context_clues.append(
+                        ContextClue(
+                            source="filename",
+                            clue_type="document_type",
+                            value="versioned_document",
+                            confidence=config.filename_context_weight * 0.5,
+                            metadata={
+                                "version_indicator": version,
+                                "document_revision": True,
+                            },
+                        )
+                    )
+                    break
+
+            # File extension context
+            if "." in filename_clean:
+                extension = filename_clean.rsplit(".", 1)[1]
+                ext_types = {
+                    "pdf": "document",
+                    "xlsx": "spreadsheet",
+                    "docx": "word_document",
+                    "jpg": "image",
+                    "png": "image",
+                    "txt": "text",
+                }
+
+                if extension in ext_types:
+                    context_clues.append(
+                        ContextClue(
+                            source="filename",
+                            clue_type="document_type",
+                            value=ext_types[extension],
+                            confidence=config.filename_context_weight * 0.7,
+                            metadata={"file_extension": extension, "format_hint": True},
+                        )
+                    )
+
+            self.logger.debug(f"Extracted {len(context_clues)} filename context clues")
+            return context_clues
+
+        except Exception as e:
+            self.logger.error(f"Filename context extraction failed: {e}")
+            raise RuntimeError(f"Filename context extraction failed: {e}") from e
+
+    # ========================================================================================
+    # Phase 3.2: Context Analysis and Combination Helper Methods
+    # ========================================================================================
+
+    def _analyze_context_agreement(
+        self, all_clues: list[ContextClue]
+    ) -> tuple[float, list[dict[str, Any]]]:
+        """
+        Analyze agreement between context sources and identify conflicts.
+
+        Calculates how well different context sources agree with each other
+        and identifies areas of conflict for decision auditing.
+
+        Args:
+            all_clues: List of all context clues from all sources
+
+        Returns:
+            Tuple of (agreement_score, conflict_list)
+        """
+        if not all_clues:
+            return 0.0, []
+
+        # Group clues by type
+        clues_by_type = {}
+        for clue in all_clues:
+            if clue.clue_type not in clues_by_type:
+                clues_by_type[clue.clue_type] = []
+            clues_by_type[clue.clue_type].append(clue)
+
+        total_agreements = 0
+        total_comparisons = 0
+        conflicts = []
+
+        # Analyze agreement within each clue type
+        for clue_type, clues in clues_by_type.items():
+            if len(clues) < 2:
+                continue
+
+            # Count value agreements
+            value_counts = {}
+            sources_per_value = {}
+
+            for clue in clues:
+                value = clue.value.lower()
+                if value not in value_counts:
+                    value_counts[value] = 0
+                    sources_per_value[value] = set()
+                value_counts[value] += 1
+                sources_per_value[value].add(clue.source)
+
+            # Calculate agreements and conflicts
+            for i, clue1 in enumerate(clues):
+                for clue2 in clues[i + 1 :]:
+                    total_comparisons += 1
+
+                    if clue1.value.lower() == clue2.value.lower():
+                        # Agreement - weight by confidence
+                        agreement_strength = (clue1.confidence + clue2.confidence) / 2
+                        total_agreements += agreement_strength
+                    else:
+                        # Conflict - record for analysis
+                        conflict_strength = abs(clue1.confidence - clue2.confidence)
+                        if conflict_strength > config.context_conflict_penalty:
+                            conflicts.append(
+                                {
+                                    "clue_type": clue_type,
+                                    "conflicting_values": [clue1.value, clue2.value],
+                                    "sources": [clue1.source, clue2.source],
+                                    "confidences": [clue1.confidence, clue2.confidence],
+                                    "conflict_strength": conflict_strength,
+                                }
+                            )
+
+        # Calculate overall agreement score
+        if total_comparisons > 0:
+            agreement_score = total_agreements / total_comparisons
+
+            # Apply agreement bonus
+            if agreement_score > config.unified_context_threshold:
+                agreement_score = min(
+                    1.0, agreement_score + config.context_agreement_bonus
+                )
+
+            # Apply conflict penalty
+            if conflicts:
+                penalty = min(len(conflicts) * config.context_conflict_penalty, 0.5)
+                agreement_score = max(0.0, agreement_score - penalty)
+        else:
+            agreement_score = 0.5  # Neutral score when no comparisons possible
+
+        return agreement_score, conflicts
+
+    def _extract_primary_asset_hints(self, all_clues: list[ContextClue]) -> list[str]:
+        """
+        Extract primary asset hints from all context clues.
+
+        Identifies the most likely asset identifiers across all sources
+        based on confidence and source agreement.
+
+        Args:
+            all_clues: List of all context clues from all sources
+
+        Returns:
+            List of primary asset hint strings
+        """
+        asset_clues = [
+            clue for clue in all_clues if clue.clue_type == "asset_identifier"
+        ]
+
+        if not asset_clues:
+            return []
+
+        # Score asset hints by confidence and source diversity
+        hint_scores = {}
+        hint_sources = {}
+
+        for clue in asset_clues:
+            hint = clue.value.lower()
+            if hint not in hint_scores:
+                hint_scores[hint] = 0.0
+                hint_sources[hint] = set()
+
+            hint_scores[hint] += clue.confidence
+            hint_sources[hint].add(clue.source)
+
+        # Boost hints that appear in multiple sources
+        for hint in hint_scores:
+            source_count = len(hint_sources[hint])
+            if source_count > 1:
+                hint_scores[hint] *= (
+                    1.0 + (source_count - 1) * 0.2
+                )  # 20% boost per additional source
+
+        # Return top asset hints sorted by score
+        sorted_hints = sorted(hint_scores.items(), key=lambda x: x[1], reverse=True)
+        return [hint for hint, _ in sorted_hints[:3]]  # Top 3 asset hints
+
+    def _extract_primary_document_hints(
+        self, all_clues: list[ContextClue]
+    ) -> list[str]:
+        """
+        Extract primary document type hints from all context clues.
+
+        Identifies the most likely document types across all sources
+        based on confidence and source agreement.
+
+        Args:
+            all_clues: List of all context clues from all sources
+
+        Returns:
+            List of primary document hint strings
+        """
+        doc_clues = [clue for clue in all_clues if clue.clue_type == "document_type"]
+
+        if not doc_clues:
+            return []
+
+        # Score document hints by confidence and source diversity
+        hint_scores = {}
+        hint_sources = {}
+
+        for clue in doc_clues:
+            hint = clue.value.lower()
+            if hint not in hint_scores:
+                hint_scores[hint] = 0.0
+                hint_sources[hint] = set()
+
+            hint_scores[hint] += clue.confidence
+            hint_sources[hint].add(clue.source)
+
+        # Boost hints that appear in multiple sources
+        for hint in hint_scores:
+            source_count = len(hint_sources[hint])
+            if source_count > 1:
+                hint_scores[hint] *= (
+                    1.0 + (source_count - 1) * 0.3
+                )  # 30% boost per additional source
+
+        # Return top document hints sorted by score
+        sorted_hints = sorted(hint_scores.items(), key=lambda x: x[1], reverse=True)
+        return [hint for hint, _ in sorted_hints[:3]]  # Top 3 document hints
+
+    def _calculate_combined_confidence(
+        self, all_clues: list[ContextClue], context_agreement: float
+    ) -> float:
+        """
+        Calculate combined confidence score for unified context.
+
+        Combines individual clue confidences with context agreement
+        and source diversity to produce overall context confidence.
+
+        Args:
+            all_clues: List of all context clues from all sources
+            context_agreement: Agreement score between sources
+
+        Returns:
+            Combined confidence score (0.0 to 1.0)
+        """
+        if not all_clues:
+            return 0.0
+
+        # Calculate weighted average confidence by source
+        source_confidences = {}
+        source_counts = {}
+
+        for clue in all_clues:
+            source = clue.source
+            if source not in source_confidences:
+                source_confidences[source] = 0.0
+                source_counts[source] = 0
+
+            source_confidences[source] += clue.confidence
+            source_counts[source] += 1
+
+        # Get average confidence per source
+        source_weights = {
+            "sender": config.sender_context_weight,
+            "subject": config.subject_context_weight,
+            "body": config.body_context_weight,
+            "filename": config.filename_context_weight,
+        }
+
+        weighted_confidence = 0.0
+        total_weight = 0.0
+
+        for source, total_confidence in source_confidences.items():
+            if source_counts[source] > 0:
+                avg_confidence = total_confidence / source_counts[source]
+                weight = source_weights.get(source, 0.25)
+                weighted_confidence += avg_confidence * weight
+                total_weight += weight
+
+        base_confidence = weighted_confidence / total_weight if total_weight > 0 else 0.0
+
+        # Apply context agreement boost
+        agreement_boost = context_agreement * 0.2  # Up to 20% boost for high agreement
+        base_confidence += agreement_boost
+
+        # Apply source diversity boost
+        unique_sources = len({clue.source for clue in all_clues})
+        diversity_boost = min(
+            unique_sources * 0.05, 0.15
+        )  # Up to 15% boost for all 4 sources
+        base_confidence += diversity_boost
+
+        return min(base_confidence, 1.0)
+
+    def _analyze_confidence_distribution(
+        self, all_clues: list[ContextClue]
+    ) -> dict[str, Any]:
+        """
+        Analyze confidence distribution across context clues.
+
+        Provides statistical analysis of confidence scores for
+        reasoning and decision auditing.
+
+        Args:
+            all_clues: List of all context clues from all sources
+
+        Returns:
+            Dictionary with confidence distribution statistics
+        """
+        if not all_clues:
+            return {
+                "total_clues": 0,
+                "avg_confidence": 0.0,
+                "min_confidence": 0.0,
+                "max_confidence": 0.0,
+                "confidence_ranges": {},
+            }
+
+        confidences = [clue.confidence for clue in all_clues]
+
+        # Basic statistics
+        avg_confidence = sum(confidences) / len(confidences)
+        min_confidence = min(confidences)
+        max_confidence = max(confidences)
+
+        # Confidence ranges
+        ranges = {
+            "very_high": sum(1 for c in confidences if c >= 0.8),
+            "high": sum(1 for c in confidences if 0.6 <= c < 0.8),
+            "medium": sum(1 for c in confidences if 0.4 <= c < 0.6),
+            "low": sum(1 for c in confidences if 0.2 <= c < 0.4),
+            "very_low": sum(1 for c in confidences if c < 0.2),
+        }
+
+        # Per-source analysis
+        source_stats = {}
+        for source in ["sender", "subject", "body", "filename"]:
+            source_clues = [clue for clue in all_clues if clue.source == source]
+            if source_clues:
+                source_confidences = [clue.confidence for clue in source_clues]
+                source_stats[source] = {
+                    "count": len(source_clues),
+                    "avg_confidence": sum(source_confidences) / len(source_confidences),
+                    "max_confidence": max(source_confidences),
+                }
+            else:
+                source_stats[source] = {
+                    "count": 0,
+                    "avg_confidence": 0.0,
+                    "max_confidence": 0.0,
+                }
+
+        return {
+            "total_clues": len(all_clues),
+            "avg_confidence": avg_confidence,
+            "min_confidence": min_confidence,
+            "max_confidence": max_confidence,
+            "confidence_ranges": ranges,
+            "source_statistics": source_stats,
+        }

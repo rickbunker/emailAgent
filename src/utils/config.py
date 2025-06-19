@@ -74,6 +74,23 @@ class EmailAgentConfig:
     episodic_similarity_threshold: float
     minimum_combined_confidence: float
 
+    # Phase 3: Enhanced Context Integration
+    # Asset type context filtering (Phase 3.1)
+    asset_type_boost_factor: float
+    asset_type_penalty_factor: float
+    context_confidence_threshold: float
+    category_constraint_strength: float
+    asset_context_weight: float
+
+    # Multi-source context clues (Phase 3.2)
+    sender_context_weight: float
+    subject_context_weight: float
+    body_context_weight: float
+    filename_context_weight: float
+    unified_context_threshold: float
+    context_agreement_bonus: float
+    context_conflict_penalty: float
+
     # Application Settings
     flask_env: str
     flask_secret_key: str
@@ -203,6 +220,31 @@ class EmailAgentConfig:
             ),
             minimum_combined_confidence=float(
                 os.getenv("MINIMUM_COMBINED_CONFIDENCE", "0.2")
+            ),
+            # Phase 3: Enhanced Context Integration
+            # Asset type context filtering (Phase 3.1)
+            asset_type_boost_factor=float(os.getenv("ASSET_TYPE_BOOST_FACTOR", "1.5")),
+            asset_type_penalty_factor=float(
+                os.getenv("ASSET_TYPE_PENALTY_FACTOR", "0.6")
+            ),
+            context_confidence_threshold=float(
+                os.getenv("CONTEXT_CONFIDENCE_THRESHOLD", "0.3")
+            ),
+            category_constraint_strength=float(
+                os.getenv("CATEGORY_CONSTRAINT_STRENGTH", "0.8")
+            ),
+            asset_context_weight=float(os.getenv("ASSET_CONTEXT_WEIGHT", "0.3")),
+            # Multi-source context clues (Phase 3.2)
+            sender_context_weight=float(os.getenv("SENDER_CONTEXT_WEIGHT", "0.25")),
+            subject_context_weight=float(os.getenv("SUBJECT_CONTEXT_WEIGHT", "0.35")),
+            body_context_weight=float(os.getenv("BODY_CONTEXT_WEIGHT", "0.25")),
+            filename_context_weight=float(os.getenv("FILENAME_CONTEXT_WEIGHT", "0.15")),
+            unified_context_threshold=float(
+                os.getenv("UNIFIED_CONTEXT_THRESHOLD", "0.4")
+            ),
+            context_agreement_bonus=float(os.getenv("CONTEXT_AGREEMENT_BONUS", "0.2")),
+            context_conflict_penalty=float(
+                os.getenv("CONTEXT_CONFLICT_PENALTY", "0.3")
             ),
             # Application Settings
             flask_env=os.getenv("FLASK_ENV", "development"),
