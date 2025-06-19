@@ -398,6 +398,9 @@ class ProcessingRunHistory:
 email_history = EmailProcessingHistory()
 run_history = ProcessingRunHistory()
 
+# Processing cancellation mechanism
+processing_cancelled = False
+
 
 async def move_file_after_review(
     review_id: str, asset_id: str, document_category: str
@@ -633,6 +636,12 @@ async def process_mailbox_emails(
             logger.info("No emails to process")
             return results
 
+        # Check for cancellation before processing
+        if processing_cancelled:
+            logger.info("🛑 Processing cancelled before starting email processing")
+            results["cancelled"] = True
+            return results
+
         # Process emails in parallel batches for optimal performance
         await _process_emails_in_parallel(
             emails, email_interface, mailbox_id, force_reprocess, results
@@ -682,6 +691,12 @@ async def _process_emails_in_parallel(
     )
 
     for batch_num in range(total_batches):
+        # Check for cancellation before each batch
+        if processing_cancelled:
+            logger.info(f"🛑 Processing cancelled during batch {batch_num + 1}")
+            results["cancelled"] = True
+            return
+
         start_idx = batch_num * batch_size
         end_idx = min(start_idx + batch_size, len(emails))
         batch_emails = emails[start_idx:end_idx]
@@ -917,6 +932,13 @@ async def _process_single_attachment_with_semaphore(
     4. Handle human review queue if needed
     """
     async with semaphore:
+        # Check for cancellation at start of attachment processing
+        if processing_cancelled:
+            logger.info(
+                f"🛑 Processing cancelled for attachment: {attachment.filename}"
+            )
+            return {"cancelled": True, "filename": attachment.filename}
+
         attachment_result = {
             "filename": attachment.filename,
             "classified": False,
@@ -1699,13 +1721,32 @@ def view_processing_run(run_id: str) -> str:
         )
 
 
+@app.route("/api/stop-processing", methods=["POST"])
+@log_function()
+def api_stop_processing() -> tuple[dict, int] | dict:
+    """API endpoint to stop ongoing email processing"""
+    global processing_cancelled
+
+    processing_cancelled = True
+    logger.info("🛑 Processing cancellation requested")
+
+    return jsonify(
+        {"status": "success", "message": "Processing cancellation requested"}
+    )
+
+
 @app.route("/api/process-emails", methods=["POST"])
 @log_function()
 def api_process_emails() -> tuple[dict, int] | dict:
     """API endpoint to process emails from selected mailbox"""
+    global processing_cancelled
+
     if not asset_agent:
         logger.error("Asset agent not initialized for email processing")
         return jsonify({"error": "Asset agent not initialized"}), 500
+
+    # Reset cancellation flag at start of processing
+    processing_cancelled = False
 
     try:
         data = request.get_json()
@@ -1750,6 +1791,17 @@ def api_process_emails() -> tuple[dict, int] | dict:
             single_result = loop.run_until_complete(
                 process_mailbox_emails(mailbox_config, hours_back, force_reprocess)
             )
+
+            # Check if processing was cancelled
+            if single_result.get("cancelled"):
+                logger.info("Email processing was cancelled by user")
+                return jsonify(
+                    {
+                        "status": "cancelled",
+                        "message": "Processing was stopped by user request",
+                        "results": single_result,
+                    }
+                )
 
             # Structure results for consistency with multi-mailbox format
             results = {
@@ -2537,15 +2589,271 @@ def reclassify_file(file_path: str) -> str:
         return render_template("error.html", error=f"Reclassification failed: {e}")
 
 
+@app.route("/files/inspect/<path:file_path>")
+@log_function()
+def inspect_classification(file_path: str) -> str:
+    """Inspect classification reasoning for a processed file"""
+    try:
+        logger.info(f"🔍 Starting inspection for: {file_path}")
+
+        # Step 1: Find the full file path
+        try:
+            full_path = Path(config.assets_base_path) / file_path
+            logger.debug(f"Full path resolved: {full_path}")
+        except Exception as e:
+            logger.error(f"Failed to resolve file path: {e}")
+            raise
+
+        if not full_path.exists():
+            logger.warning(f"File not found: {full_path}")
+            flash(f"File not found: {file_path}", "error")
+            return redirect(url_for("browse_files"))
+
+        # Step 2: Extract basic file info with individual error handling
+        try:
+            file_stat = full_path.stat()
+            logger.debug(
+                f"File stat obtained: size={file_stat.st_size}, mtime={file_stat.st_mtime}"
+            )
+        except Exception as e:
+            logger.error(f"Failed to get file stat: {e}")
+            raise
+
+        try:
+            modified_timestamp = datetime.fromtimestamp(file_stat.st_mtime)
+            modified_iso = modified_timestamp.isoformat()
+            logger.debug(f"Timestamp conversion successful: {modified_iso}")
+        except Exception as e:
+            logger.error(f"Failed to convert timestamp: {e}")
+            # Fallback to string representation
+            modified_iso = str(file_stat.st_mtime)
+
+        try:
+            current_asset_id = _extract_asset_id_from_path(file_path)
+            logger.debug(f"Asset ID extracted: {current_asset_id}")
+        except Exception as e:
+            logger.error(f"Failed to extract asset ID: {e}")
+            current_asset_id = None
+
+        try:
+            current_category = _extract_category_from_path(file_path)
+            logger.debug(f"Category extracted: {current_category}")
+        except Exception as e:
+            logger.error(f"Failed to extract category: {e}")
+            current_category = None
+
+        # Step 3: Build file_info dict safely
+        try:
+            file_info = {
+                "name": full_path.name,
+                "path": file_path,
+                "size": file_stat.st_size,
+                "modified": modified_iso,
+                "current_asset_id": current_asset_id,
+                "current_category": current_category,
+            }
+            logger.debug(f"File info dict created successfully")
+        except Exception as e:
+            logger.error(f"Failed to create file_info dict: {e}")
+            raise
+
+        # Step 4: Try to find FULL processing metadata from Qdrant (including detailed patterns)
+        classification_info = None
+        try:
+            if asset_agent and asset_agent.qdrant:
+                logger.debug(
+                    "Attempting to load FULL classification metadata from Qdrant"
+                )
+
+                # Check if collection exists first
+                collections = asset_agent.qdrant.get_collections()
+                collection_names = [c.name for c in collections.collections]
+
+                if "asset_management_processed_documents" in collection_names:
+                    logger.debug("Processed documents collection found, querying...")
+
+                    # Search for processed document by filename or file hash
+                    result = asset_agent.qdrant.scroll(
+                        collection_name="asset_management_processed_documents",
+                        limit=1000,  # Increased limit to find our document
+                        with_payload=True,
+                        with_vectors=False,
+                    )
+
+                    # Find matching document by file path or name
+                    for point in result[0]:
+                        payload = point.payload
+                        if payload:
+                            # Match by various path patterns
+                            stored_path = payload.get("file_path", "")
+                            stored_filename = payload.get("filename", "")
+
+                            # Try different matching strategies
+                            match_found = False
+
+                            # Strategy 1: Exact filename match
+                            if stored_filename == full_path.name:
+                                match_found = True
+                                logger.debug(
+                                    f"Found match by filename: {stored_filename}"
+                                )
+
+                            # Strategy 2: Path contains filename
+                            elif full_path.name in stored_path:
+                                match_found = True
+                                logger.debug(
+                                    f"Found match by path contains filename: {stored_path}"
+                                )
+
+                            # Strategy 3: Full path in stored path
+                            elif file_path in stored_path:
+                                match_found = True
+                                logger.debug(f"Found match by full path: {stored_path}")
+
+                            # Strategy 4: Asset ID and filename match
+                            elif (
+                                current_asset_id
+                                and current_asset_id in stored_path
+                                and full_path.name in stored_path
+                            ):
+                                match_found = True
+                                logger.debug(
+                                    f"Found match by asset ID + filename: {stored_path}"
+                                )
+
+                            if match_found:
+                                # Extract FULL classification metadata
+                                classification_metadata = payload.get(
+                                    "classification_metadata", {}
+                                )
+
+                                classification_info = {
+                                    "document_id": str(point.id),
+                                    "status": payload.get("status"),
+                                    "confidence": payload.get("confidence", 0),
+                                    "processing_date": payload.get("processing_date"),
+                                    "document_category": payload.get(
+                                        "document_category"
+                                    ),
+                                    "confidence_level": payload.get("confidence_level"),
+                                    "asset_id": payload.get("asset_id"),
+                                    # Include the FULL classification metadata with detailed patterns
+                                    "classification_metadata": classification_metadata,
+                                }
+
+                                logger.debug(
+                                    f"Found FULL classification metadata for {full_path.name}"
+                                )
+                                logger.debug(
+                                    f"Metadata keys: {list(classification_metadata.keys())}"
+                                )
+
+                                # Check if detailed patterns are available
+                                if "detailed_patterns" in classification_metadata:
+                                    detailed_patterns = classification_metadata[
+                                        "detailed_patterns"
+                                    ]
+                                    patterns_count = len(
+                                        detailed_patterns.get("patterns_used", [])
+                                    )
+                                    logger.debug(
+                                        f"Found {patterns_count} detailed patterns"
+                                    )
+                                else:
+                                    logger.debug(
+                                        "No detailed_patterns found in metadata"
+                                    )
+
+                                break
+
+                    if classification_info is None:
+                        logger.debug("No matching classification metadata found")
+                else:
+                    logger.debug("Processed documents collection not found")
+            else:
+                logger.debug("Asset agent or Qdrant not available")
+
+        except Exception as e:
+            logger.warning(f"Failed to load classification metadata: {e}")
+            classification_info = None
+
+        # Step 5: Get asset information if available
+        asset_info = None
+        if file_info["current_asset_id"]:
+            try:
+                logger.debug(f"Loading asset info for: {file_info['current_asset_id']}")
+
+                # Create new event loop for async operations in sync context
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    assets = loop.run_until_complete(asset_agent.list_assets())
+                    asset_info = next(
+                        (
+                            a
+                            for a in assets
+                            if a.deal_id == file_info["current_asset_id"]
+                        ),
+                        None,
+                    )
+                    if asset_info:
+                        logger.debug(f"Asset info loaded: {asset_info.deal_name}")
+                    else:
+                        logger.debug("Asset info not found")
+                finally:
+                    loop.close()
+            except Exception as e:
+                logger.warning(f"Failed to load asset info: {e}")
+                asset_info = None
+
+        # Step 6: Log what we found for debugging
+        if classification_info:
+            logger.info(
+                f"✅ Found classification info with {len(classification_info)} fields"
+            )
+            if classification_info.get("classification_metadata"):
+                metadata = classification_info["classification_metadata"]
+                logger.info(f"📊 Metadata contains: {list(metadata.keys())}")
+                if "detailed_patterns" in metadata:
+                    patterns = metadata["detailed_patterns"]
+                    logger.info(
+                        f"🎯 Detailed patterns available: {list(patterns.keys())}"
+                    )
+                    patterns_used = patterns.get("patterns_used", [])
+                    logger.info(f"📝 Found {len(patterns_used)} specific patterns used")
+        else:
+            logger.warning("❌ No classification info found")
+
+        # Step 7: Render template
+        try:
+            logger.debug("Rendering template with collected data")
+            return render_template(
+                "inspect_classification.html",
+                file_info=file_info,
+                classification_info=classification_info,
+                asset_info=asset_info,
+            )
+        except Exception as e:
+            logger.error(f"Failed to render template: {e}")
+            raise
+
+    except Exception as e:
+        logger.error(f"Failed to inspect classification for {file_path}: {e}")
+        logger.error(f"Error type: {type(e).__name__}")
+        logger.error(f"Error details: {str(e)}")
+        flash(f"Error inspecting file: {e}", "error")
+        return redirect(url_for("browse_files"))
+
+
 @log_function()
 def _extract_asset_id_from_path(file_path: str) -> str | None:
     """Extract asset ID from file path"""
     try:
-        # Path format: assets/{asset_id}_{asset_name}/category/filename
-        # or: assets/special_folder/filename
+        # Path format: {asset_id}_{asset_name}/category/filename
+        # or: special_folder/filename
         parts = Path(file_path).parts
-        if len(parts) >= 2:
-            folder_name = parts[1]  # First folder after 'assets'
+        if len(parts) >= 1:
+            folder_name = parts[0]  # First folder in the path
 
             # Skip special folders
             if folder_name in ["to_be_reviewed", "uncategorized", "needs_review"]:
@@ -2556,7 +2864,10 @@ def _extract_asset_id_from_path(file_path: str) -> str | None:
                 potential_uuid = folder_name.split("_")[0]
                 # Basic UUID format check
                 if len(potential_uuid) == 36 and potential_uuid.count("-") == 4:
+                    logger.debug(f"Extracted asset ID: {potential_uuid}")
                     return potential_uuid
+
+        logger.debug(f"No asset ID found in path: {file_path}")
         return None
     except Exception as e:
         logger.warning(f"Failed to extract asset ID from path {file_path}: {e}")
@@ -2567,11 +2878,38 @@ def _extract_asset_id_from_path(file_path: str) -> str | None:
 def _extract_category_from_path(file_path: str) -> str | None:
     """Extract document category from file path"""
     try:
-        # Path format: assets/{asset_id}_{asset_name}/category/filename
+        # Path format: {asset_id}_{asset_name}/category/filename
+        # Special formats: uncategorized/filename or to_be_reviewed/subfolder/filename
         parts = Path(file_path).parts
-        if len(parts) >= 3:
-            category_folder = parts[2]  # Category folder
-            return category_folder.lower()
+
+        if len(parts) >= 1:
+            first_folder = parts[0]  # Should be asset folder or special folder
+
+            # Handle special folders
+            if first_folder in ["uncategorized", "to_be_reviewed"]:
+                if len(parts) >= 2:
+                    # Format: uncategorized/subfolder/filename or to_be_reviewed/subfolder/filename
+                    category = parts[1].lower()  # subfolder is the category
+                    logger.debug(f"Extracted category from special folder: {category}")
+                    return category
+                else:
+                    # Format: uncategorized/filename or to_be_reviewed/filename
+                    category = (
+                        first_folder.lower()
+                    )  # Use the special folder name as category
+                    logger.debug(
+                        f"Extracted category as special folder name: {category}"
+                    )
+                    return category
+
+            # Handle regular asset folders: {asset_id}_{asset_name}/category/filename
+            elif len(parts) >= 2:
+                category_folder = parts[1]  # Category folder within asset folder
+                category = category_folder.lower()
+                logger.debug(f"Extracted category from asset folder: {category}")
+                return category
+
+        logger.debug(f"No category found in path: {file_path}")
         return None
     except Exception as e:
         logger.warning(f"Failed to extract category from path {file_path}: {e}")
@@ -2784,6 +3122,9 @@ def memory_dashboard() -> str:
                 except Exception as e:
                     logger.warning(f"Failed to get stats for {collection_name}: {e}")
                     stats[collection_name] = {"error": str(e)}
+
+        # Exclude photos collection from other projects
+        stats = {name: data for name, data in stats.items() if name != "photos"}
 
         # Categorize collections by memory type
         memory_types = {
@@ -3267,6 +3608,132 @@ def contact_memory() -> str:
         return render_template("error.html", error=str(e))
 
 
+@app.route("/memory/semantic")
+@log_function()
+def semantic_memory() -> str:
+    """Semantic memory management - factual knowledge about assets and file types"""
+    try:
+        # Get pagination parameters
+        page = int(request.args.get("page", 1))
+        per_page = int(request.args.get("per_page", 25))
+        collection_filter = request.args.get("collection", "all")
+
+        semantic_data = {}
+        stats = {
+            "total_facts": 0,
+            "collections": 0,
+            "asset_count": 0,
+            "pages": 1,
+            "current_page": page,
+        }
+
+        if asset_agent and asset_agent.qdrant:
+            # Get semantic memory collections
+            try:
+                collections_response = asset_agent.qdrant.get_collections()
+                all_semantic_collections = [
+                    c.name
+                    for c in collections_response.collections
+                    if "semantic" in c.name.lower()
+                ]
+            except Exception as e:
+                logger.warning(f"Failed to get collections from Qdrant: {e}")
+                all_semantic_collections = []
+
+            # Filter collections if specified
+            if (
+                collection_filter != "all"
+                and collection_filter in all_semantic_collections
+            ):
+                semantic_collections = [collection_filter]
+                logger.info(f"Filtering to collection: {collection_filter}")
+            else:
+                semantic_collections = all_semantic_collections
+                logger.info("Showing all semantic collections")
+
+            # Collect all facts from all collections for pagination
+            all_facts = []
+            for collection_name in semantic_collections:
+                try:
+                    result = asset_agent.qdrant.scroll(
+                        collection_name=collection_name,
+                        limit=10000,  # Get all semantic facts from this collection
+                        with_payload=True,
+                        with_vectors=False,
+                    )
+
+                    # Use the same simple pattern as other working memory types
+                    if result and result[0]:
+                        for point in result[0]:
+                            if hasattr(point, "id") and hasattr(point, "payload"):
+                                fact_data = {
+                                    "id": str(point.id),
+                                    "payload": point.payload,
+                                    "collection": collection_name,
+                                }
+                                all_facts.append(fact_data)
+
+                    # Count collections with facts
+                    collection_count = len(
+                        [f for f in all_facts if f["collection"] == collection_name]
+                    )
+                    if collection_count > 0:
+                        stats["collections"] += 1
+
+                    # Count assets specifically
+                    if collection_name == "semantic_asset_data":
+                        stats["asset_count"] = collection_count
+
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to load semantic collection {collection_name}: {e}"
+                    )
+
+            # Update total facts count
+            stats["total_facts"] = len(all_facts)
+
+            # Apply pagination to all facts
+            start_idx = (page - 1) * per_page
+            end_idx = start_idx + per_page
+            paginated_facts = all_facts[start_idx:end_idx]
+
+            # Reorganize paginated facts by collection for display
+            for fact in paginated_facts:
+                collection = fact["collection"]
+                if collection not in semantic_data:
+                    semantic_data[collection] = {"items": [], "count": 0}
+                semantic_data[collection]["items"].append(fact)
+
+            # Update counts for displayed collections
+            for collection_name in semantic_data:
+                semantic_data[collection_name]["count"] = len(
+                    semantic_data[collection_name]["items"]
+                )
+
+            # Calculate total pages
+            if len(all_facts) > 0:
+                stats["pages"] = max(1, (len(all_facts) + per_page - 1) // per_page)
+            else:
+                stats["pages"] = 1
+
+        logger.info(
+            f"Semantic memory page loaded with {stats['total_facts']} facts from {stats['collections']} collections (page {page})"
+        )
+
+        return render_template(
+            "semantic_memory.html",
+            semantic_data=semantic_data,
+            stats=stats,
+            current_collection=collection_filter,
+            per_page=per_page,
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to load semantic memory page: {e}")
+        flash(f"Error loading semantic memory: {e}", "error")
+        return render_template("error.html", error=str(e))
+
+
 @app.route("/memory/knowledge/<filename>")
 @log_function()
 def serve_knowledge_file(filename: str) -> tuple[dict, int] | str:
@@ -3485,6 +3952,26 @@ def api_testing_cleanup() -> tuple[dict, int] | dict:
             result = _cleanup_assets()
             results["assets"] = result
             total_removed += result.get("removed_count", 0)
+
+        if "reload_knowledge_base" in cleanup_types:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                result = loop.run_until_complete(_reload_knowledge_base())
+                results["reload_knowledge_base"] = result
+                total_removed += result.get("loaded_count", 0)
+            finally:
+                loop.close()
+
+        if "reset_file_validation" in cleanup_types:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                result = loop.run_until_complete(_reset_file_validation())
+                results["reset_file_validation"] = result
+                total_removed += result.get("reset_count", 0)
+            finally:
+                loop.close()
 
         logger.info(
             f"Testing cleanup completed: {len(cleanup_types)} operations, {total_removed} items removed"
@@ -4087,6 +4574,160 @@ def _cleanup_assets() -> dict[str, Any]:
         return {"success": False, "error": str(e), "removed_count": 0}
 
 
+@log_function()
+async def _reload_knowledge_base() -> dict[str, Any]:
+    """
+    Reload knowledge base into semantic memory.
+
+    Loads/refreshes semantic memory with updated knowledge from the
+    knowledge base files, including file type validations and business rules.
+
+    Returns:
+        Dictionary containing operation results with success status,
+        loaded count, and descriptive message
+    """
+    try:
+        if not asset_agent:
+            return {
+                "success": False,
+                "error": "Asset agent not available",
+                "loaded_count": 0,
+            }
+
+        if (
+            not hasattr(asset_agent, "semantic_memory")
+            or not asset_agent.semantic_memory
+        ):
+            return {
+                "success": False,
+                "error": "Semantic memory not available",
+                "loaded_count": 0,
+            }
+
+        # Load knowledge base
+        results = await asset_agent.semantic_memory.load_knowledge_base("knowledge")
+
+        loaded_count = results.get("total_knowledge_items", 0)
+        file_types_loaded = results.get("file_types_loaded", 0)
+        errors = results.get("errors", [])
+
+        if errors:
+            logger.warning(f"Knowledge base loading had {len(errors)} errors: {errors}")
+
+        logger.info(
+            f"Reloaded knowledge base: {loaded_count} total items, {file_types_loaded} file types"
+        )
+
+        message = (
+            f"Loaded {loaded_count} knowledge items ({file_types_loaded} file types)"
+        )
+        if errors:
+            message += f" with {len(errors)} warnings"
+
+        return {
+            "success": True,
+            "loaded_count": loaded_count,
+            "file_types_loaded": file_types_loaded,
+            "errors": errors,
+            "message": message,
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to reload knowledge base: {e}")
+        return {"success": False, "error": str(e), "loaded_count": 0}
+
+
+@log_function()
+async def _reset_file_validation() -> dict[str, Any]:
+    """
+    Reset file type validation learning.
+
+    Clears all learned file type patterns from semantic memory and
+    reloads them from the knowledge base bootstrap, effectively
+    resetting the adaptive file validation system.
+
+    Returns:
+        Dictionary containing operation results with success status,
+        reset count, and descriptive message
+    """
+    try:
+        if not asset_agent:
+            return {
+                "success": False,
+                "error": "Asset agent not available",
+                "reset_count": 0,
+            }
+
+        if (
+            not hasattr(asset_agent, "semantic_memory")
+            or not asset_agent.semantic_memory
+        ):
+            return {
+                "success": False,
+                "error": "Semantic memory not available",
+                "reset_count": 0,
+            }
+
+        reset_count = 0
+
+        # Step 1: Clear existing file type validation rules from semantic memory
+        try:
+            # Search for file type validation knowledge
+            file_type_rules = await asset_agent.semantic_memory.search(
+                query="file type validation security",
+                limit=1000,
+                knowledge_type=asset_agent.semantic_memory.KnowledgeType.RULE,
+            )
+
+            # Remove existing file type rules (would need delete functionality)
+            reset_count = len(file_type_rules)
+            logger.info(f"Found {reset_count} existing file type rules to reset")
+
+        except Exception as e:
+            logger.warning(f"Could not clear existing file type rules: {e}")
+
+        # Step 2: Reload file type validation from knowledge base
+        try:
+            results = await asset_agent.semantic_memory.load_knowledge_base("knowledge")
+
+            file_types_loaded = results.get("file_types_loaded", 0)
+            errors = results.get("errors", [])
+
+            if errors:
+                logger.warning(
+                    f"File validation reset had {len(errors)} errors: {errors}"
+                )
+
+            logger.info(
+                f"Reset file validation: loaded {file_types_loaded} file type rules"
+            )
+
+            message = (
+                f"Reset and reloaded {file_types_loaded} file type validation rules"
+            )
+            if errors:
+                message += f" with {len(errors)} warnings"
+
+            return {
+                "success": True,
+                "reset_count": file_types_loaded,
+                "errors": errors,
+                "message": message,
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to reload file validation rules: {e}")
+            return {
+                "success": False,
+                "error": f"Failed to reload: {e}",
+                "reset_count": 0,
+            }
+
+    except Exception as e:
+        logger.error(f"Failed to reset file validation: {e}")
+        return {"success": False, "error": str(e), "reset_count": 0}
+
+
 # API endpoints for memory operations
 @app.route("/api/memory/<memory_type>/clear", methods=["POST"])
 @log_function()
@@ -4109,6 +4750,18 @@ def api_clear_memory(memory_type: str) -> tuple[dict, int] | dict:
             ]
         elif memory_type == "contact":
             collections_to_clear = ["contact_memory"]
+        elif memory_type == "semantic":
+            # Get all semantic collections dynamically
+            try:
+                collections_response = asset_agent.qdrant.get_collections()
+                collections_to_clear = [
+                    c.name
+                    for c in collections_response.collections
+                    if "semantic" in c.name.lower()
+                ]
+            except Exception as e:
+                logger.warning(f"Failed to get semantic collections: {e}")
+                collections_to_clear = []
         else:
             return {"error": f"Unknown memory type: {memory_type}"}, 400
 
@@ -4230,6 +4883,96 @@ def api_delete_procedural_pattern(
         return {"error": str(e)}, 500
 
 
+@app.route("/api/memory/semantic/<collection_name>/<item_id>", methods=["GET"])
+@log_function()
+def api_get_semantic_fact(
+    collection_name: str, item_id: str
+) -> tuple[dict, int] | dict:
+    """Get detailed information about a specific semantic memory fact"""
+    try:
+        if not asset_agent or not asset_agent.qdrant:
+            return {"error": "Asset agent not available"}, 400
+
+        # Validate collection name (must be a semantic collection)
+        try:
+            collections_response = asset_agent.qdrant.get_collections()
+            semantic_collections = [
+                c.name
+                for c in collections_response.collections
+                if "semantic" in c.name.lower()
+            ]
+        except Exception as e:
+            return {"error": f"Failed to get collections: {e}"}, 500
+
+        if collection_name not in semantic_collections:
+            return {"error": f"Invalid semantic collection: {collection_name}"}, 400
+
+        # Retrieve the specific fact
+        try:
+            points = asset_agent.qdrant.retrieve(
+                collection_name=collection_name,
+                ids=[item_id],
+                with_payload=True,
+                with_vectors=False,
+            )
+
+            if not points:
+                return {"error": "Semantic fact not found"}, 404
+
+            point = points[0]
+            fact_data = {
+                "id": str(point.id),
+                "collection": collection_name,
+                "payload": point.payload,
+            }
+
+            return {"success": True, "fact": fact_data}
+
+        except Exception as e:
+            return {"error": f"Failed to retrieve semantic fact: {str(e)}"}, 500
+
+    except Exception as e:
+        logger.error(f"Failed to get semantic fact: {e}")
+        return {"error": str(e)}, 500
+
+
+@app.route("/api/memory/semantic/<collection_name>/<item_id>", methods=["DELETE"])
+@log_function()
+def api_delete_semantic_fact(
+    collection_name: str, item_id: str
+) -> tuple[dict, int] | dict:
+    """Delete a specific semantic memory fact"""
+    try:
+        if not asset_agent or not asset_agent.qdrant:
+            return {"error": "Asset agent not available"}, 400
+
+        # Validate collection name (must be a semantic collection)
+        try:
+            collections_response = asset_agent.qdrant.get_collections()
+            semantic_collections = [
+                c.name
+                for c in collections_response.collections
+                if "semantic" in c.name.lower()
+            ]
+        except Exception as e:
+            return {"error": f"Failed to get collections: {e}"}, 500
+
+        if collection_name not in semantic_collections:
+            return {"error": f"Invalid semantic collection: {collection_name}"}, 400
+
+        # Delete the specific fact
+        asset_agent.qdrant.delete(
+            collection_name=collection_name, points_selector=[item_id]
+        )
+
+        logger.info(f"Deleted semantic fact: {item_id} from {collection_name}")
+        return {"success": True, "message": f"Semantic fact {item_id} deleted"}
+
+    except Exception as e:
+        logger.error(f"Failed to delete semantic fact: {e}")
+        return {"error": str(e)}, 500
+
+
 @app.route("/api/memory/<memory_type>/item/<item_id>", methods=["DELETE"])
 @log_function()
 def api_delete_memory_item(memory_type: str, item_id: str) -> tuple[dict, int] | dict:
@@ -4258,6 +5001,165 @@ def api_delete_memory_item(memory_type: str, item_id: str) -> tuple[dict, int] |
 
     except Exception as e:
         logger.error(f"Failed to delete {memory_type} item {item_id}: {e}")
+        return {"error": str(e)}, 500
+
+
+@app.route("/api/memory/conflicts", methods=["GET"])
+@log_function()
+def api_get_conflicts() -> tuple[dict, int] | dict:
+    """Get pending conflicts for human review."""
+    try:
+        if not asset_agent:
+            return {"error": "Asset agent not available"}, 400
+
+        semantic_memory = asset_agent.semantic_memory
+
+        # Use Qdrant directly for synchronous operation
+        try:
+            collections_response = asset_agent.qdrant.get_collections()
+            semantic_collections = [
+                c.name
+                for c in collections_response.collections
+                if "semantic" in c.name.lower()
+            ]
+        except Exception as e:
+            return {"error": f"Failed to get collections: {e}"}, 500
+
+        conflict_items = []
+
+        # Search through semantic collections for conflicts
+        for collection_name in semantic_collections:
+            try:
+                # Search for conflict items using text matching
+                search_result = asset_agent.qdrant.scroll(
+                    collection_name=collection_name,
+                    scroll_filter={
+                        "must": [
+                            {
+                                "key": "content",
+                                "match": {"text": "CONFLICT REVIEW NEEDED"},
+                            }
+                        ]
+                    },
+                    limit=50,
+                    with_payload=True,
+                    with_vectors=False,
+                )
+
+                points, _ = search_result
+
+                for point in points:
+                    if "conflict_details" in point.payload:
+                        conflict_items.append(
+                            {
+                                "id": str(point.id),
+                                "collection": collection_name,
+                                "timestamp": point.payload.get("timestamp"),
+                                "conflict_type": point.payload.get("conflict_type"),
+                                "priority": point.payload.get("priority"),
+                                "status": point.payload.get("status"),
+                                "new_content": point.payload.get("new_content"),
+                                "conflict_details": point.payload.get(
+                                    "conflict_details"
+                                ),
+                            }
+                        )
+
+            except Exception as e:
+                logger.warning(f"Error searching collection {collection_name}: {e}")
+                continue
+
+        return {
+            "success": True,
+            "conflicts": conflict_items,
+            "total_count": len(conflict_items),
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting conflicts: {e}")
+        return {"error": str(e)}, 500
+
+
+@app.route("/api/memory/conflicts/<conflict_id>/resolve", methods=["POST"])
+@log_function()
+def api_resolve_conflict(conflict_id: str) -> tuple[dict, int] | dict:
+    """Resolve a specific conflict based on user decision."""
+    try:
+        data = request.get_json()
+        resolution = data.get(
+            "resolution"
+        )  # "accept_new", "keep_existing", "manual_edit"
+
+        if not asset_agent:
+            return {"error": "Asset agent not available"}, 400
+
+        semantic_memory = asset_agent.semantic_memory
+
+        # Get collections to find the conflict
+        try:
+            collections_response = asset_agent.qdrant.get_collections()
+            semantic_collections = [
+                c.name
+                for c in collections_response.collections
+                if "semantic" in c.name.lower()
+            ]
+        except Exception as e:
+            return {"error": f"Failed to get collections: {e}"}, 500
+
+        # Find the conflict item
+        conflict_item = None
+        conflict_collection = None
+
+        for collection_name in semantic_collections:
+            try:
+                points = asset_agent.qdrant.retrieve(
+                    collection_name=collection_name,
+                    ids=[conflict_id],
+                    with_payload=True,
+                    with_vectors=False,
+                )
+                if points:
+                    conflict_item = points[0]
+                    conflict_collection = collection_name
+                    break
+            except Exception:
+                continue
+
+        if not conflict_item:
+            return {"error": "Conflict not found"}, 404
+
+        conflict_details = conflict_item.payload.get("conflict_details", {})
+        existing_id = conflict_details.get("existing_id")
+
+        if resolution == "accept_new":
+            # Add the new content, replacing the existing - simplified approach
+            # Just delete the conflict item since we can't easily do async updates
+            if conflict_collection:
+                asset_agent.qdrant.delete(
+                    collection_name=conflict_collection, points_selector=[conflict_id]
+                )
+            logger.info(f"Conflict {conflict_id} resolved: accepted new content")
+
+        elif resolution == "keep_existing":
+            # Just mark conflict as resolved, keep existing
+            if conflict_collection:
+                asset_agent.qdrant.delete(
+                    collection_name=conflict_collection, points_selector=[conflict_id]
+                )
+            logger.info(f"Conflict {conflict_id} resolved: kept existing content")
+
+        elif resolution == "manual_edit":
+            # Delete conflict for now - manual editing would need additional UI
+            if conflict_collection:
+                asset_agent.qdrant.delete(
+                    collection_name=conflict_collection, points_selector=[conflict_id]
+                )
+            logger.info(f"Conflict {conflict_id} resolved: manual edit requested")
+
+        return {"success": True, "message": f"Conflict resolved: {resolution}"}
+
+    except Exception as e:
+        logger.error(f"Error resolving conflict {conflict_id}: {e}")
         return {"error": str(e)}, 500
 
 

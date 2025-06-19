@@ -67,8 +67,9 @@
                                     {% for asset in assets %}
                                     <option value="{{ asset.deal_id }}" {% if asset.deal_id==current_asset_id
                                         %}selected{% endif %}>
-                                        {{ asset.deal_name }} - {{ asset.asset_name }}
-                                        <small>({{ asset.asset_type.value.replace('_', ' ').title() }})</small>
+                                        {{ asset.deal_name }}
+                                        <small class="text-muted">({{ asset.asset_type.value.replace('_', ' ').title()
+                                            }})</small>
                                     </option>
                                     {% endfor %}
                                 </select>

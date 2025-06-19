@@ -48,6 +48,7 @@ from qdrant_client.http.models import (
 
 # Local imports
 from ..memory.procedural import ProceduralMemory
+from ..memory.semantic import SemanticMemory
 from ..utils.config import config
 from ..utils.logging_system import get_logger, log_function
 
@@ -201,14 +202,25 @@ class SecurityService:
     """
     Handles file validation and security scanning operations.
 
-    Provides virus scanning, file type validation, and hash calculation
-    services for attachment processing.
+    Now uses semantic memory for adaptive file type validation instead of
+    hardcoded rules, learning from successful processing patterns.
     """
 
-    def __init__(self) -> None:
-        """Initialize security service with ClamAV detection."""
+    def __init__(self, semantic_memory=None) -> None:
+        """Initialize security service with semantic memory for adaptive validation."""
         self.logger = get_logger(f"{__name__}.SecurityService")
         self.clamscan_path = self._find_clamscan()
+        self.semantic_memory = semantic_memory
+
+        # Safety fallback extensions for when semantic memory is unavailable
+        self.safety_fallback_extensions = {
+            ".pdf",
+            ".xlsx",
+            ".xls",
+            ".doc",
+            ".docx",
+            ".txt",
+        }
 
     def _find_clamscan(self) -> str | None:
         """
@@ -333,35 +345,167 @@ class SecurityService:
         logger.debug("Calculated SHA256 hash: %s...", file_hash[:16])
         return file_hash
 
-    def validate_file_type(self, filename: str) -> bool:
+    async def validate_file_type(
+        self, filename: str, asset_type: str = None, document_category: str = None
+    ) -> dict[str, Any]:
         """
-        Validate file type against allowed extensions.
+        Validate file type using learned knowledge from semantic memory.
+
+        Uses adaptive validation based on successful processing patterns,
+        business context, and security intelligence instead of hardcoded rules.
 
         Args:
             filename: Name of the file to validate
+            asset_type: Asset type context for business relevance
+            document_category: Document category context for validation
 
         Returns:
-            True if file type is allowed, False otherwise
+            Dictionary with validation result and metadata:
+            {
+                "is_valid": bool,
+                "confidence": float,
+                "security_level": str,
+                "learning_source": str,
+                "business_context": dict
+            }
         """
         if not filename:
-            return False
+            return {
+                "is_valid": False,
+                "confidence": 0.0,
+                "security_level": "error",
+                "learning_source": "validation_error",
+                "business_context": {},
+                "reason": "Empty filename",
+            }
 
         file_extension = Path(filename).suffix.lower()
-        allowed_extensions = {
-            ".pdf",
-            ".xlsx",
-            ".xls",
-            ".doc",
-            ".docx",
-            ".pptx",
-            ".jpg",
-            ".png",
-            ".dwg",
+
+        if not file_extension:
+            return {
+                "is_valid": False,
+                "confidence": 0.0,
+                "security_level": "unknown",
+                "learning_source": "no_extension",
+                "business_context": {},
+                "reason": "No file extension detected",
+            }
+
+        # Use semantic memory for intelligent validation
+        if self.semantic_memory:
+            try:
+                validation = await self.semantic_memory.get_file_type_validation(
+                    file_extension
+                )
+
+                # Add business context if available
+                if asset_type or document_category:
+                    business_context = validation.get("business_context", {})
+                    asset_types = business_context.get("asset_types", [])
+                    doc_categories = business_context.get("document_categories", [])
+
+                    # Boost confidence if file type matches current context
+                    context_boost = 0.0
+                    if asset_type and asset_type in asset_types:
+                        context_boost += 0.1
+                    if document_category and document_category in doc_categories:
+                        context_boost += 0.1
+
+                    validation["confidence"] = min(
+                        1.0, validation["confidence"] + context_boost
+                    )
+                    validation["business_context"]["context_match"] = context_boost > 0
+
+                validation["is_valid"] = validation["is_allowed"]
+
+                self.logger.info(
+                    "Semantic validation for %s: %s (confidence: %.3f, source: %s)",
+                    file_extension,
+                    validation["is_valid"],
+                    validation["confidence"],
+                    validation["learning_source"],
+                )
+
+                return validation
+
+            except Exception as e:
+                self.logger.warning(
+                    "Semantic memory validation failed for %s: %s", file_extension, e
+                )
+                # Fall through to safety fallback
+
+        # Safety fallback for critical file types when semantic memory unavailable
+        is_safe_fallback = file_extension in self.safety_fallback_extensions
+
+        result = {
+            "is_valid": is_safe_fallback,
+            "confidence": 0.8 if is_safe_fallback else 0.0,
+            "security_level": (
+                "safe_fallback" if is_safe_fallback else "unknown_fallback"
+            ),
+            "learning_source": "safety_fallback",
+            "business_context": {
+                "fallback_used": True,
+                "semantic_memory_available": self.semantic_memory is not None,
+            },
+            "reason": "Using safety fallback validation",
         }
 
-        is_valid = file_extension in allowed_extensions
-        logger.debug("File type validation for %s: %s", filename, is_valid)
-        return is_valid
+        self.logger.debug(
+            "Fallback validation for %s: %s (fallback: %s)",
+            filename,
+            result["is_valid"],
+            is_safe_fallback,
+        )
+
+        return result
+
+    async def learn_file_type_outcome(
+        self,
+        filename: str,
+        success: bool,
+        asset_type: str = None,
+        document_category: str = None,
+    ) -> None:
+        """
+        Learn from file processing outcomes to improve future validation.
+
+        Updates semantic memory with processing results to continuously
+        improve file type validation accuracy and business relevance.
+
+        Args:
+            filename: Name of the processed file
+            success: Whether processing was successful
+            asset_type: Asset type context of the processing
+            document_category: Document category that was identified
+        """
+        if not self.semantic_memory:
+            return
+
+        file_extension = Path(filename).suffix.lower()
+        if not file_extension:
+            return
+
+        try:
+            await self.semantic_memory.learn_file_type_success(
+                file_extension=file_extension,
+                asset_type=asset_type,
+                document_category=document_category,
+                success=success,
+            )
+
+            self.logger.info(
+                "Learned from file processing: %s -> %s (asset: %s, category: %s)",
+                file_extension,
+                "success" if success else "failure",
+                asset_type,
+                document_category,
+            )
+
+        except Exception as e:
+            self.logger.error(
+                "Failed to learn from file outcome for %s: %s", filename, e
+            )
 
     def validate_file_size(self, file_size: int) -> bool:
         """
@@ -439,11 +583,18 @@ class AssetDocumentAgent:
             self.logger.error("Failed to create assets directory: %s", e)
             raise
 
-        # Initialize services
-        self.security = SecurityService()
+        # Initialize memory systems
+        self.semantic_memory = (
+            SemanticMemory(qdrant_url="http://localhost:6333")
+            if qdrant_client
+            else None
+        )
         self.procedural_memory = (
             ProceduralMemory(qdrant_client) if qdrant_client else None
         )
+
+        # Initialize services
+        self.security = SecurityService(semantic_memory=self.semantic_memory)
 
         # Processing statistics
         self.stats: dict[str, int] = {
@@ -465,6 +616,12 @@ class AssetDocumentAgent:
 
         self.logger.info("Memory-driven agent initialized successfully")
 
+        # Bootstrap semantic memory with knowledge base (async initialization)
+        if self.semantic_memory:
+            # Note: This will be called asynchronously during first use
+            # to avoid blocking initialization
+            self._knowledge_base_loaded = False
+
     async def initialize_collections(self) -> bool:
         """
         Initialize Qdrant collections for asset management.
@@ -477,10 +634,52 @@ class AssetDocumentAgent:
             return False
 
         try:
-            # Initialize procedural memory collections
+            # Initialize procedural memory collections and load asset matching procedures
             if self.procedural_memory:
                 await self.procedural_memory.initialize_collections()
+
+                # Load asset matching procedures from knowledge base
+                try:
+                    stats = await self.procedural_memory.seed_from_knowledge_base(
+                        "knowledge"
+                    )
+                    procedures_loaded = stats.get("asset_patterns", 0)
+                    total_loaded = stats.get("total_patterns", 0)
+
+                    self.logger.info(
+                        f"Procedural memory loaded: {total_loaded} patterns ({procedures_loaded} asset procedures)"
+                    )
+                except Exception as e:
+                    self.logger.warning(
+                        f"Failed to load procedural knowledge base: {e}"
+                    )
+
                 self.logger.info("Procedural memory collections initialized")
+
+            # Initialize semantic memory and load knowledge base
+            if self.semantic_memory and not self._knowledge_base_loaded:
+                try:
+                    results = await self.semantic_memory.load_knowledge_base(
+                        "knowledge"
+                    )
+                    loaded_count = results.get("total_knowledge_items", 0)
+                    file_types_loaded = results.get("file_types_loaded", 0)
+                    errors = results.get("errors", [])
+
+                    if errors:
+                        self.logger.warning(
+                            f"Knowledge base loading had {len(errors)} warnings: {errors}"
+                        )
+
+                    self.logger.info(
+                        f"Semantic memory bootstrapped: {loaded_count} items ({file_types_loaded} file types)"
+                    )
+                    self._knowledge_base_loaded = True
+
+                except Exception as e:
+                    self.logger.warning(
+                        f"Failed to bootstrap semantic memory from knowledge base: {e}"
+                    )
 
             # Initialize other collections as needed
             for collection_name in self.COLLECTIONS.values():
@@ -553,11 +752,23 @@ class AssetDocumentAgent:
                     quarantine_reason=threat_name,
                 )
 
-            # Step 3: File validation
-            if not self.security.validate_file_type(filename):
+            # Step 3: Adaptive file type validation using semantic memory
+            validation = await self.security.validate_file_type(filename)
+            if not validation["is_valid"]:
+                # Learn from rejection if confidence is low (might be a new valid type)
+                if validation["confidence"] < 0.3:
+                    self.logger.warning(
+                        "Rejecting file type %s with low confidence %.3f - consider learning",
+                        Path(filename).suffix,
+                        validation["confidence"],
+                    )
+
                 return ProcessingResult(
                     status=ProcessingStatus.INVALID_TYPE,
-                    error_message=f"File type {Path(filename).suffix} not allowed",
+                    error_message=f"File type {Path(filename).suffix} not allowed "
+                    f"(confidence: {validation['confidence']:.3f}, "
+                    f"source: {validation['learning_source']})",
+                    metadata={"file_validation": validation},
                 )
 
             if not self.security.validate_file_size(len(content)):
@@ -623,18 +834,29 @@ class AssetDocumentAgent:
             email_body = email_data.get("body", "")
 
             try:
-                # Step 1: Memory-driven document classification
-                (
-                    category_str,
-                    classification_confidence,
-                ) = await self.procedural_memory.classify_document(
-                    filename, email_subject, email_body
+                # Step 1: Memory-driven document classification with detailed patterns
+                (category_str, classification_confidence, detailed_patterns) = (
+                    await self.procedural_memory.classify_document_with_details(
+                        filename, email_subject, email_body
+                    )
                 )
 
-                # Step 2: Memory-driven asset identification
+                # Memory-only approach: No knowledge base fallback
+                learning_source = "procedural_memory"
+
+                # Log confidence for transparency
+                if classification_confidence < 0.5:
+                    self.logger.info(
+                        f"Low procedural confidence ({classification_confidence:.3f}) - "
+                        f"trusting memory-based decision: {category_str}"
+                    )
+
+                # Step 2: Memory-driven asset identification with detailed capture
                 known_assets = await self.list_assets()
-                asset_matches = await self.identify_asset_from_content(
-                    email_subject, email_body, filename, known_assets
+                asset_matches, asset_identification_details = (
+                    await self.identify_asset_from_content_with_details(
+                        email_subject, email_body, filename, known_assets
+                    )
                 )
 
                 # Determine best asset match
@@ -643,8 +865,11 @@ class AssetDocumentAgent:
                 if asset_matches:
                     matched_asset_id, asset_confidence = asset_matches[0]
 
-                # Step 3: Learn from high-confidence results
-                if classification_confidence > 0.75:  # Auto-learning threshold
+                # Step 3: Learn from high-confidence results (but not from knowledge base overrides)
+                if (
+                    classification_confidence > 0.75
+                    and learning_source == "procedural_memory"
+                ):  # Auto-learning threshold
                     await self.procedural_memory.learn_classification_pattern(
                         filename,
                         email_subject,
@@ -662,13 +887,15 @@ class AssetDocumentAgent:
                 except ValueError:
                     document_category = DocumentCategory.UNKNOWN
 
-                # Determine overall confidence level
+                # Determine overall confidence level (lowered thresholds for adaptive learning)
                 overall_confidence = (classification_confidence + asset_confidence) / 2
-                if overall_confidence >= 0.85:
+                if overall_confidence >= 0.4:  # Reduced from 0.85
                     confidence_level = ConfidenceLevel.HIGH
-                elif overall_confidence >= 0.65:
+                elif overall_confidence >= 0.25:  # Reduced from 0.65
                     confidence_level = ConfidenceLevel.MEDIUM
-                elif overall_confidence >= config.low_confidence_threshold:
+                elif (
+                    overall_confidence >= 0.1
+                ):  # Reduced from config.low_confidence_threshold (0.7)
                     confidence_level = ConfidenceLevel.LOW
                 else:
                     confidence_level = ConfidenceLevel.VERY_LOW
@@ -682,9 +909,40 @@ class AssetDocumentAgent:
                     "classification_confidence": classification_confidence,
                     "asset_confidence": asset_confidence,
                     "overall_confidence": overall_confidence,
-                    "learning_source": "procedural_memory",
-                    "patterns_used": "memory_driven",
+                    "learning_source": learning_source,
+                    "patterns_used": "memory_driven",  # Pure procedural memory
+                    "detailed_patterns": detailed_patterns,  # Store specific patterns used
+                    "winning_patterns_count": len(
+                        detailed_patterns.get("patterns_used", [])
+                    ),
+                    "total_patterns_evaluated": detailed_patterns.get(
+                        "total_patterns", 0
+                    ),
+                    "categories_considered": detailed_patterns.get(
+                        "categories_considered", 0
+                    ),
+                    "asset_identification_details": asset_identification_details,  # Store asset matching reasoning
+                    "processing_timestamp": datetime.now(UTC).isoformat(),
                 }
+
+                # Learn from successful file processing for adaptive validation
+                if overall_confidence > 0.6:  # Learn from reasonably confident results
+                    asset_type_str = None
+                    if matched_asset_id:
+                        # Get asset type from matched asset
+                        matched_asset = next(
+                            (a for a in known_assets if a.deal_id == matched_asset_id),
+                            None,
+                        )
+                        if matched_asset and hasattr(matched_asset, "asset_type"):
+                            asset_type_str = matched_asset.asset_type.value
+
+                    await self.security.learn_file_type_outcome(
+                        filename=filename,
+                        success=True,
+                        asset_type=asset_type_str,
+                        document_category=category_str,
+                    )
 
                 self.logger.info(
                     f"Memory-driven results: {category_str} ({classification_confidence:.3f}), "
@@ -836,115 +1094,530 @@ class AssetDocumentAgent:
             combined_text = f"{email_subject} {email_body} {filename}".lower()
             self.logger.info(f"🔤 Combined text: '{combined_text[:100]}...'")
 
-            # Get asset matching patterns from procedural memory
-            scroll_result = self.procedural_memory.qdrant.scroll(
-                collection_name=self.procedural_memory.collections["asset_patterns"],
-                limit=1000,
-                with_payload=True,
-                with_vectors=False,
-            )
-
-            if not scroll_result[0]:
-                self.logger.info("❌ No asset matching patterns in procedural memory")
-                return []
-
-            asset_scores: dict[str, float] = {}
-            patterns_available = len(scroll_result[0])
-
+            # NEW APPROACH: Use semantic memory for asset data, procedural for algorithms
             self.logger.info(
-                f"📊 Checking {len(known_assets)} assets against {patterns_available} patterns"
+                "🧠 Using semantic memory for asset data with procedural matching algorithms"
             )
 
-            # Evaluate each known asset with enhanced logic
-            for asset in known_assets:
-                max_asset_confidence = 0.0
-
-                self.logger.debug(
-                    f"\n🏢 Evaluating: {asset.deal_name} ({asset.deal_id[:8]})"
+            # Query semantic memory for asset knowledge
+            if self.semantic_memory:
+                asset_knowledge_items = (
+                    await self.semantic_memory.search_asset_knowledge(
+                        query="", limit=100  # Get all assets
+                    )
                 )
 
-                # Check each stored pattern to see if it applies to this asset
-                for point in scroll_result[0]:
-                    try:
-                        pattern_data = point.payload.get("pattern_data", {})
-                        pattern_asset_id = pattern_data.get("asset_id", "")
-
-                        # Check if this pattern is specifically for this asset
-                        if pattern_asset_id and pattern_asset_id == asset.deal_id:
-                            # This is a specific asset pattern
-                            pattern_confidence = await self._evaluate_asset_pattern(
-                                pattern_data, combined_text, asset
-                            )
-                            max_asset_confidence = max(
-                                max_asset_confidence, pattern_confidence
-                            )
-
-                            self.logger.debug(
-                                f"   📋 Specific pattern match: {pattern_confidence:.3f}"
-                            )
-
-                        # Also check generic asset-type patterns
-                        elif not pattern_asset_id:
-                            pattern_asset_type = pattern_data.get("asset_type", "")
-                            if (
-                                pattern_asset_type
-                                and hasattr(asset, "asset_type")
-                                and pattern_asset_type == asset.asset_type.value
-                            ):
-                                pattern_confidence = await self._evaluate_asset_pattern(
-                                    pattern_data, combined_text, asset
-                                )
-                                # Reduce confidence for generic patterns
-                                pattern_confidence *= 0.8
-                                max_asset_confidence = max(
-                                    max_asset_confidence, pattern_confidence
-                                )
-
-                                self.logger.debug(
-                                    f"   🎯 Generic pattern match: {pattern_confidence:.3f}"
-                                )
-
-                    except Exception as e:
-                        self.logger.debug(f"Error evaluating asset pattern: {e}")
-
-                # Apply minimum confidence threshold (like old system)
-                min_confidence = 0.5
-                if max_asset_confidence >= min_confidence:
-                    asset_scores[asset.deal_id] = max_asset_confidence
+                if asset_knowledge_items:
                     self.logger.info(
-                        f"   ⭐ QUALIFIED: {asset.deal_name} -> {max_asset_confidence:.3f}"
-                    )
-                else:
-                    self.logger.debug(
-                        f"   ❌ Below threshold: {asset.deal_name} -> {max_asset_confidence:.3f}"
+                        f"📊 Found {len(asset_knowledge_items)} assets in semantic memory"
                     )
 
-            # Convert to sorted list (highest confidence first)
+                    # Use smart matching with procedural algorithms
+                    asset_scores = await self._match_assets_with_semantic_data(
+                        combined_text, asset_knowledge_items, known_assets
+                    )
+
+                    if asset_scores:
+                        self.logger.info(
+                            f"🎯 Semantic matching found {len(asset_scores)} matches!"
+                        )
+                        for i, (asset_id, confidence) in enumerate(asset_scores[:3]):
+                            asset_name = next(
+                                (
+                                    a.deal_name
+                                    for a in known_assets
+                                    if a.deal_id == asset_id
+                                ),
+                                "Unknown",
+                            )
+                            self.logger.info(
+                                f"   {i+1}. {asset_name} -> {confidence:.3f}"
+                            )
+                        return asset_scores
+                    else:
+                        self.logger.info(
+                            "❌ No semantic matches found - trying fallback"
+                        )
+                else:
+                    self.logger.warning(
+                        "❌ No asset knowledge in semantic memory - using fallback"
+                    )
+            else:
+                self.logger.warning("❌ No semantic memory available - using fallback")
+
+            # FALLBACK: Original simple identifier matching when semantic memory unavailable
+            self.logger.info("🔄 Using fallback identifier matching")
+
+            # Fallback: Simple identifier matching when no learned patterns exist
+            asset_scores: dict[str, float] = {}
+
+            self.logger.info(
+                f"🔄 Fallback: Checking {len(known_assets)} assets with simple identifier matching"
+            )
+
+            for asset in known_assets:
+                max_confidence = 0.0
+
+                # Check all identifiers for this asset
+                all_identifiers = [
+                    asset.deal_name,
+                    asset.asset_name,
+                ] + asset.identifiers
+
+                for identifier in all_identifiers:
+                    if not identifier:
+                        continue
+
+                    identifier_lower = identifier.lower()
+
+                    # Exact match gets high confidence
+                    if identifier_lower in combined_text:
+                        match_confidence = 0.9
+                        self.logger.info(
+                            f"   ✅ EXACT MATCH: '{identifier}' in {asset.deal_name}"
+                        )
+                        max_confidence = max(max_confidence, match_confidence)
+
+                    # Fuzzy matching for partial matches
+                    elif len(identifier_lower) >= 3:
+                        words = combined_text.split()
+                        for word in words:
+                            if len(word) >= 3:
+                                similarity = self._calculate_similarity(
+                                    identifier_lower, word
+                                )
+                                if similarity >= 0.8:
+                                    match_confidence = (
+                                        similarity * 0.7
+                                    )  # Lower than exact match
+                                    self.logger.info(
+                                        f"   🎯 FUZZY MATCH: '{identifier}' ~= '{word}' ({similarity:.3f}) in {asset.deal_name}"
+                                    )
+                                    max_confidence = max(
+                                        max_confidence, match_confidence
+                                    )
+
+                # Apply minimum confidence threshold
+                min_confidence = 0.15
+                if max_confidence >= min_confidence:
+                    asset_scores[asset.deal_id] = max_confidence
+                    self.logger.info(
+                        f"   ⭐ FALLBACK QUALIFIED: {asset.deal_name} -> {max_confidence:.3f}"
+                    )
+
+            # Convert to sorted list
             asset_matches = list(asset_scores.items())
             asset_matches.sort(key=lambda x: x[1], reverse=True)
 
-            # Enhanced result logging (like old system)
-            self.logger.info("🏁 Enhanced asset identification complete")
             if asset_matches:
-                self.logger.info(
-                    f"📈 Found {len(asset_matches)} qualifying asset matches:"
-                )
-                for i, (asset_id, confidence) in enumerate(
-                    asset_matches[:3]
-                ):  # Show top 3
+                self.logger.info(f"🎯 Fallback found {len(asset_matches)} matches!")
+                for i, (asset_id, confidence) in enumerate(asset_matches[:3]):
                     asset_name = next(
                         (a.deal_name for a in known_assets if a.deal_id == asset_id),
                         "Unknown",
                     )
                     self.logger.info(f"   {i+1}. {asset_name} -> {confidence:.3f}")
             else:
-                self.logger.info("❌ No qualifying asset matches found")
+                self.logger.info("❌ No fallback matches found either")
 
             return asset_matches
 
         except Exception as e:
             self.logger.error(f"Enhanced asset identification failed: {e}")
             return []
+
+    async def identify_asset_from_content_with_details(
+        self,
+        email_subject: str,
+        email_body: str = "",
+        filename: str = "",
+        known_assets: list[Asset] | None = None,
+    ) -> tuple[list[tuple[str, float]], dict[str, Any]]:
+        """
+        Enhanced asset identification with detailed reasoning capture.
+
+        Returns both the asset matches AND the detailed reasoning that led to the decision.
+
+        Args:
+            email_subject: Email subject line
+            email_body: Email body content
+            filename: Attachment filename
+            known_assets: List of known assets to match against
+
+        Returns:
+            Tuple of (asset_matches, reasoning_details)
+            - asset_matches: List of (asset_id, confidence_score) tuples
+            - reasoning_details: Complete decision breakdown for inspection
+        """
+        self.logger.info("🧠 Enhanced asset identification WITH REASONING CAPTURE")
+
+        # Initialize reasoning capture
+        reasoning_details = {
+            "method_used": "unknown",
+            "semantic_matches": [],
+            "exact_matches": [],
+            "fuzzy_matches": [],
+            "fallback_matches": [],
+            "total_assets_evaluated": len(known_assets) if known_assets else 0,
+            "combined_text": f"{email_subject} {email_body} {filename}".lower(),
+            "primary_driver": "none",
+            "decision_flow": [],
+        }
+
+        if not known_assets:
+            reasoning_details["decision_flow"].append(
+                "❌ No assets available for matching"
+            )
+            self.logger.info("❌ No assets available for matching")
+            return [], reasoning_details
+
+        if not self.procedural_memory:
+            reasoning_details["decision_flow"].append(
+                "❌ No procedural memory - cannot use learned patterns"
+            )
+            self.logger.warning("❌ No procedural memory - cannot use learned patterns")
+            return [], reasoning_details
+
+        try:
+            combined_text = reasoning_details["combined_text"]
+            self.logger.info(f"🔤 Combined text: '{combined_text[:100]}...'")
+            reasoning_details["decision_flow"].append(
+                f"🔤 Analyzing combined text: '{combined_text[:100]}...'"
+            )
+
+            # NEW APPROACH: Use semantic memory for asset data, procedural for algorithms
+            self.logger.info(
+                "🧠 Using semantic memory for asset data with procedural matching algorithms"
+            )
+            reasoning_details["decision_flow"].append(
+                "🧠 Attempting semantic memory asset lookup"
+            )
+
+            # Query semantic memory for asset knowledge
+            if self.semantic_memory:
+                asset_knowledge_items = (
+                    await self.semantic_memory.search_asset_knowledge(
+                        query="", limit=100
+                    )
+                )
+
+                if asset_knowledge_items:
+                    self.logger.info(
+                        f"📊 Found {len(asset_knowledge_items)} assets in semantic memory"
+                    )
+                    reasoning_details["decision_flow"].append(
+                        f"📊 Found {len(asset_knowledge_items)} assets in semantic memory"
+                    )
+                    reasoning_details["method_used"] = "semantic_memory"
+
+                    # Use smart matching with detailed capture
+                    asset_scores, semantic_details = (
+                        await self._match_assets_with_semantic_data_detailed(
+                            combined_text, asset_knowledge_items, known_assets
+                        )
+                    )
+
+                    # Merge semantic details into reasoning
+                    reasoning_details.update(semantic_details)
+
+                    if asset_scores:
+                        self.logger.info(
+                            f"🎯 Semantic matching found {len(asset_scores)} matches!"
+                        )
+                        reasoning_details["decision_flow"].append(
+                            f"🎯 Semantic matching found {len(asset_scores)} matches!"
+                        )
+
+                        # Log top matches with reasoning
+                        for i, (asset_id, confidence) in enumerate(asset_scores[:3]):
+                            asset_name = next(
+                                (
+                                    a.deal_name
+                                    for a in known_assets
+                                    if a.deal_id == asset_id
+                                ),
+                                "Unknown",
+                            )
+                            self.logger.info(
+                                f"   {i+1}. {asset_name} -> {confidence:.3f}"
+                            )
+                            reasoning_details["decision_flow"].append(
+                                f"   {i+1}. {asset_name} -> {confidence:.3f}"
+                            )
+
+                        return asset_scores, reasoning_details
+                    else:
+                        self.logger.info(
+                            "❌ No semantic matches found - trying fallback"
+                        )
+                        reasoning_details["decision_flow"].append(
+                            "❌ No semantic matches found - trying fallback"
+                        )
+                else:
+                    self.logger.warning(
+                        "❌ No asset knowledge in semantic memory - using fallback"
+                    )
+                    reasoning_details["decision_flow"].append(
+                        "❌ No asset knowledge in semantic memory - using fallback"
+                    )
+            else:
+                self.logger.warning("❌ No semantic memory available - using fallback")
+                reasoning_details["decision_flow"].append(
+                    "❌ No semantic memory available - using fallback"
+                )
+
+            # FALLBACK: Original simple identifier matching when semantic memory unavailable
+            self.logger.info("🔄 Using fallback identifier matching")
+            reasoning_details["decision_flow"].append(
+                "🔄 Using fallback identifier matching"
+            )
+            reasoning_details["method_used"] = "fallback_identifier_matching"
+
+            asset_scores: dict[str, float] = {}
+
+            self.logger.info(
+                f"🔄 Fallback: Checking {len(known_assets)} assets with simple identifier matching"
+            )
+            reasoning_details["decision_flow"].append(
+                f"🔄 Checking {len(known_assets)} assets with identifier matching"
+            )
+
+            for asset in known_assets:
+                max_confidence = 0.0
+                asset_matches = []
+
+                # Check all identifiers for this asset
+                all_identifiers = [
+                    asset.deal_name,
+                    asset.asset_name,
+                ] + asset.identifiers
+
+                for identifier in all_identifiers:
+                    if not identifier:
+                        continue
+
+                    identifier_lower = identifier.lower()
+
+                    # Exact match gets high confidence
+                    if identifier_lower in combined_text:
+                        match_confidence = 0.9
+                        match_info = {
+                            "type": "exact",
+                            "identifier": identifier,
+                            "confidence": match_confidence,
+                            "asset_name": asset.deal_name,
+                        }
+                        reasoning_details["exact_matches"].append(match_info)
+                        reasoning_details["fallback_matches"].append(match_info)
+                        asset_matches.append(match_info)
+
+                        self.logger.info(
+                            f"   ✅ EXACT MATCH: '{identifier}' in {asset.deal_name}"
+                        )
+                        reasoning_details["decision_flow"].append(
+                            f"   ✅ EXACT MATCH: '{identifier}' in {asset.deal_name}"
+                        )
+                        max_confidence = max(max_confidence, match_confidence)
+
+                    # Fuzzy matching for partial matches
+                    elif len(identifier_lower) >= 3:
+                        words = combined_text.split()
+                        for word in words:
+                            if len(word) >= 3:
+                                similarity = self._calculate_similarity(
+                                    identifier_lower, word
+                                )
+                                if similarity >= 0.8:
+                                    match_confidence = (
+                                        similarity * 0.7
+                                    )  # Lower than exact match
+                                    match_info = {
+                                        "type": "fuzzy",
+                                        "identifier": identifier,
+                                        "word_matched": word,
+                                        "similarity": similarity,
+                                        "confidence": match_confidence,
+                                        "asset_name": asset.deal_name,
+                                    }
+                                    reasoning_details["fuzzy_matches"].append(
+                                        match_info
+                                    )
+                                    reasoning_details["fallback_matches"].append(
+                                        match_info
+                                    )
+                                    asset_matches.append(match_info)
+
+                                    self.logger.info(
+                                        f"   🎯 FUZZY MATCH: '{identifier}' ~= '{word}' ({similarity:.3f}) in {asset.deal_name}"
+                                    )
+                                    reasoning_details["decision_flow"].append(
+                                        f"   🎯 FUZZY MATCH: '{identifier}' ~= '{word}' ({similarity:.3f}) in {asset.deal_name}"
+                                    )
+                                    max_confidence = max(
+                                        max_confidence, match_confidence
+                                    )
+
+                # Apply minimum confidence threshold
+                min_confidence = 0.15
+                if max_confidence >= min_confidence:
+                    asset_scores[asset.deal_id] = max_confidence
+                    self.logger.info(
+                        f"   ⭐ FALLBACK QUALIFIED: {asset.deal_name} -> {max_confidence:.3f}"
+                    )
+                    reasoning_details["decision_flow"].append(
+                        f"   ⭐ QUALIFIED: {asset.deal_name} -> {max_confidence:.3f}"
+                    )
+
+            # Convert to sorted list
+            asset_matches = list(asset_scores.items())
+            asset_matches.sort(key=lambda x: x[1], reverse=True)
+
+            if asset_matches:
+                self.logger.info(f"🎯 Fallback found {len(asset_matches)} matches!")
+                reasoning_details["decision_flow"].append(
+                    f"🎯 Found {len(asset_matches)} total matches!"
+                )
+                reasoning_details["primary_driver"] = "fallback_identifier_matching"
+
+                for i, (asset_id, confidence) in enumerate(asset_matches[:3]):
+                    asset_name = next(
+                        (a.deal_name for a in known_assets if a.deal_id == asset_id),
+                        "Unknown",
+                    )
+                    self.logger.info(f"   {i+1}. {asset_name} -> {confidence:.3f}")
+                    reasoning_details["decision_flow"].append(
+                        f"   {i+1}. {asset_name} -> {confidence:.3f}"
+                    )
+            else:
+                self.logger.info("❌ No fallback matches found either")
+                reasoning_details["decision_flow"].append("❌ No matches found")
+                reasoning_details["primary_driver"] = "no_matches"
+
+            return asset_matches, reasoning_details
+
+        except Exception as e:
+            self.logger.error(f"Enhanced asset identification failed: {e}")
+            reasoning_details["decision_flow"].append(f"❌ ERROR: {str(e)}")
+            reasoning_details["primary_driver"] = "error"
+            return [], reasoning_details
+
+    async def _match_assets_with_semantic_data_detailed(
+        self, combined_text: str, asset_knowledge_items: list, known_assets: list[Asset]
+    ) -> tuple[list[tuple[str, float]], dict[str, Any]]:
+        """
+        Match assets using semantic memory data with detailed reasoning capture.
+
+        Returns both the matches and detailed reasoning about what drove the decisions.
+        """
+        self.logger.info("🧠 Matching assets using semantic knowledge WITH REASONING")
+
+        semantic_details = {
+            "semantic_matches": [],
+            "exact_matches": [],
+            "fuzzy_matches": [],
+            "primary_driver": "semantic_memory",
+        }
+
+        asset_scores: dict[str, float] = {}
+
+        # Extract asset data from semantic memory items
+        for knowledge_item in asset_knowledge_items:
+            try:
+                metadata = knowledge_item.metadata
+                asset_id = metadata.get("asset_id")
+                deal_name = metadata.get("deal_name", "")
+                identifiers = metadata.get("identifiers", [])
+
+                if not asset_id:
+                    continue
+
+                max_confidence = 0.0
+                asset_matches = []
+
+                # Check all identifiers for this asset
+                all_identifiers = [deal_name] + identifiers
+
+                for identifier in all_identifiers:
+                    if not identifier:
+                        continue
+
+                    identifier_lower = identifier.lower()
+
+                    # Exact match gets high confidence
+                    if identifier_lower in combined_text:
+                        match_confidence = 0.9
+                        match_info = {
+                            "type": "semantic_exact",
+                            "identifier": identifier,
+                            "confidence": match_confidence,
+                            "asset_name": deal_name,
+                            "asset_id": asset_id,
+                            "method": "semantic_memory",
+                        }
+                        semantic_details["semantic_matches"].append(match_info)
+                        semantic_details["exact_matches"].append(match_info)
+                        asset_matches.append(match_info)
+
+                        self.logger.info(
+                            f"   ✅ SEMANTIC EXACT: '{identifier}' in {deal_name}"
+                        )
+                        max_confidence = max(max_confidence, match_confidence)
+
+                    # Fuzzy matching for partial matches
+                    elif len(identifier_lower) >= 3:
+                        words = combined_text.split()
+                        for word in words:
+                            if len(word) >= 3:
+                                similarity = self._calculate_similarity(
+                                    identifier_lower, word
+                                )
+                                if similarity >= 0.8:
+                                    match_confidence = similarity * 0.7
+                                    match_info = {
+                                        "type": "semantic_fuzzy",
+                                        "identifier": identifier,
+                                        "word_matched": word,
+                                        "similarity": similarity,
+                                        "confidence": match_confidence,
+                                        "asset_name": deal_name,
+                                        "asset_id": asset_id,
+                                        "method": "semantic_memory",
+                                    }
+                                    semantic_details["semantic_matches"].append(
+                                        match_info
+                                    )
+                                    semantic_details["fuzzy_matches"].append(match_info)
+                                    asset_matches.append(match_info)
+
+                                    self.logger.info(
+                                        f"   🎯 SEMANTIC FUZZY: '{identifier}' ~= '{word}' ({similarity:.3f}) in {deal_name}"
+                                    )
+                                    max_confidence = max(
+                                        max_confidence, match_confidence
+                                    )
+
+                # Apply minimum confidence threshold
+                min_confidence = 0.15
+                if max_confidence >= min_confidence:
+                    asset_scores[asset_id] = max_confidence
+
+            except Exception as e:
+                self.logger.debug(f"Error processing asset knowledge item: {e}")
+                continue
+
+        # Convert to sorted list
+        asset_matches = list(asset_scores.items())
+        asset_matches.sort(key=lambda x: x[1], reverse=True)
+
+        # Determine primary driver
+        if semantic_details["exact_matches"]:
+            semantic_details["primary_driver"] = "semantic_exact_match"
+        elif semantic_details["fuzzy_matches"]:
+            semantic_details["primary_driver"] = "semantic_fuzzy_match"
+        else:
+            semantic_details["primary_driver"] = "no_semantic_matches"
+
+        return asset_matches, semantic_details
 
     def _calculate_similarity(self, str1: str, str2: str) -> float:
         """
@@ -953,119 +1626,87 @@ class AssetDocumentAgent:
         """
         return SequenceMatcher(None, str1.lower(), str2.lower()).ratio()
 
-    async def _evaluate_asset_pattern(
-        self,
-        pattern_data: dict[str, Any],
-        combined_text: str,
-        asset: Asset,
-    ) -> float:
+    async def _match_assets_with_semantic_data(
+        self, combined_text: str, asset_knowledge_items: list, known_assets: list[Asset]
+    ) -> list[tuple[str, float]]:
         """
-        Enhanced asset pattern evaluation that replicates the old system's
-        sophisticated matching logic while using memory-driven patterns.
+        Match assets using semantic memory data with procedural algorithms.
+
+        Args:
+            combined_text: Combined email/filename text for matching
+            asset_knowledge_items: Asset knowledge from semantic memory
+            known_assets: Known assets from the database
+
+        Returns:
+            List of (asset_id, confidence) tuples sorted by confidence
         """
-        max_confidence = 0.0
+        self.logger.info("🧠 Matching assets using semantic knowledge")
 
-        self.logger.debug(f"🔍 Enhanced evaluation for asset: {asset.deal_name}")
+        asset_scores: dict[str, float] = {}
 
-        # Step 1: Collect all asset identifiers to check (like the old system)
-        all_identifiers = [
-            asset.deal_name,
-            asset.asset_name,
-        ] + asset.identifiers
+        # Extract asset data from semantic memory items
+        for knowledge_item in asset_knowledge_items:
+            try:
+                metadata = knowledge_item.metadata
+                asset_id = metadata.get("asset_id")
+                deal_name = metadata.get("deal_name", "")
+                identifiers = metadata.get("identifiers", [])
 
-        # Add pattern-specific identifiers if available
-        pattern_identifiers = pattern_data.get("identifiers", [])
-        if pattern_identifiers:
-            all_identifiers.extend(pattern_identifiers)
+                if not asset_id:
+                    continue
 
-        # Remove duplicates and None values
-        all_identifiers = list(set(filter(None, all_identifiers)))
+                max_confidence = 0.0
 
-        self.logger.debug(f"🏷️ Checking identifiers: {all_identifiers}")
+                # Check all identifiers for this asset
+                all_identifiers = [deal_name] + identifiers
 
-        # Step 2: Check each identifier with multiple matching strategies
-        for identifier in all_identifiers:
-            if not identifier:
-                continue
+                for identifier in all_identifiers:
+                    if not identifier:
+                        continue
 
-            identifier_lower = identifier.lower()
-            identifier_confidence = 0.0
+                    identifier_lower = identifier.lower()
 
-            # Strategy 1: Exact match (highest confidence)
-            if identifier_lower in combined_text:
-                identifier_confidence = 0.95
-                self.logger.debug(
-                    f"   ✅ EXACT: '{identifier_lower}' -> {identifier_confidence}"
-                )
-
-            # Strategy 2: Fuzzy matching if exact match not found
-            elif len(identifier_lower) >= 3:
-                words = combined_text.split()
-
-                # Check different phrase lengths (3, 2, 1 words) like old system
-                for word_group_size in [3, 2, 1]:
-                    for i in range(len(words) - word_group_size + 1):
-                        phrase = " ".join(words[i : i + word_group_size])
-
-                        if len(phrase) < 3:  # Skip very short phrases
-                            continue
-
-                        # Calculate similarity using SequenceMatcher (replaces Levenshtein)
-                        similarity = self._calculate_similarity(
-                            identifier_lower, phrase
+                    # Exact match gets high confidence
+                    if identifier_lower in combined_text:
+                        match_confidence = 0.9
+                        self.logger.info(
+                            f"   ✅ SEMANTIC EXACT: '{identifier}' in {deal_name}"
                         )
+                        max_confidence = max(max_confidence, match_confidence)
 
-                        # Fuzzy match threshold (same as old system)
-                        if similarity >= 0.8:
-                            confidence = similarity * 0.9  # Slightly lower than exact
-                            identifier_confidence = max(
-                                identifier_confidence, confidence
-                            )
+                    # Fuzzy matching for partial matches
+                    elif len(identifier_lower) >= 3:
+                        words = combined_text.split()
+                        for word in words:
+                            if len(word) >= 3:
+                                similarity = self._calculate_similarity(
+                                    identifier_lower, word
+                                )
+                                if similarity >= 0.8:
+                                    match_confidence = similarity * 0.7
+                                    self.logger.info(
+                                        f"   🎯 SEMANTIC FUZZY: '{identifier}' ~= '{word}' ({similarity:.3f}) in {deal_name}"
+                                    )
+                                    max_confidence = max(
+                                        max_confidence, match_confidence
+                                    )
 
-                            self.logger.debug(
-                                f"   🎯 FUZZY: '{identifier_lower}' ~= '{phrase}' "
-                                f"(sim: {similarity:.3f}) -> {confidence:.3f}"
-                            )
+                # Apply minimum confidence threshold
+                min_confidence = 0.15
+                if max_confidence >= min_confidence:
+                    asset_scores[asset_id] = max_confidence
+                    self.logger.info(
+                        f"   ⭐ SEMANTIC QUALIFIED: {deal_name} -> {max_confidence:.3f}"
+                    )
 
-            max_confidence = max(max_confidence, identifier_confidence)
+            except Exception as e:
+                self.logger.debug(f"Error processing semantic asset knowledge: {e}")
 
-        # Step 3: Apply asset-type keyword boosts (replicated from old system)
-        asset_keywords = pattern_data.get("keywords", [])
-        if asset_keywords:
-            keyword_matches = sum(
-                1 for keyword in asset_keywords if keyword.lower() in combined_text
-            )
+        # Convert to sorted list
+        asset_matches = list(asset_scores.items())
+        asset_matches.sort(key=lambda x: x[1], reverse=True)
 
-            if keyword_matches > 0:
-                keyword_boost = min(keyword_matches * 0.1, 0.3)  # Max 30% boost
-                old_confidence = max_confidence
-                max_confidence = min(max_confidence + keyword_boost, 1.0)
-
-                self.logger.debug(
-                    f"   🚀 KEYWORD BOOST: {keyword_matches} matches -> "
-                    f"+{keyword_boost:.3f} ({old_confidence:.3f} -> {max_confidence:.3f})"
-                )
-
-        # Step 4: Pattern source reliability boost
-        pattern_source = pattern_data.get("source", "")
-        if pattern_source == "enhanced_fix":
-            reliability_boost = 0.1
-            max_confidence = min(max_confidence + reliability_boost, 1.0)
-            self.logger.debug(f"   ⭐ ENHANCED PATTERN BOOST: +{reliability_boost:.3f}")
-
-        # Step 5: Asset type matching boost
-        pattern_asset_type = pattern_data.get("asset_type", "")
-        if (
-            pattern_asset_type
-            and hasattr(asset, "asset_type")
-            and pattern_asset_type == asset.asset_type.value
-        ):
-            type_boost = 0.05
-            max_confidence = min(max_confidence + type_boost, 1.0)
-            self.logger.debug(f"   🎯 ASSET TYPE MATCH: +{type_boost:.3f}")
-
-        self.logger.debug(f"   📊 Final confidence: {max_confidence:.3f}")
-        return max_confidence
+        return asset_matches
 
     async def save_attachment_to_asset_folder(
         self,
@@ -1234,6 +1875,18 @@ class AssetDocumentAgent:
 
             if processing_result.confidence_level:
                 payload["confidence_level"] = processing_result.confidence_level.value
+
+            # Store detailed classification metadata for inspect functionality
+            if processing_result.classification_metadata:
+                payload["classification_metadata"] = (
+                    processing_result.classification_metadata
+                )
+
+            if processing_result.asset_confidence:
+                payload["asset_confidence"] = processing_result.asset_confidence
+
+            if processing_result.matched_asset_id:
+                payload["matched_asset_id"] = processing_result.matched_asset_id
 
             point = PointStruct(id=document_id, vector=dummy_vector, payload=payload)
 

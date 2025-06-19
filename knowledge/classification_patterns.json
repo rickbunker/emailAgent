@@ -67,9 +67,12 @@
                 "loan.*papers?",
                 "loan.*file",
                 "credit.*document",
-                ".*loan.*td.*",
                 "trust.*deed",
-                "term.*document"
+                "term.*document",
+                ".*rlv.*",
+                ".*revolver.*",
+                ".*term.*loan.*",
+                ".*syndicated.*"
             ],
             "borrower_financials": [
                 "borrower.*financial",

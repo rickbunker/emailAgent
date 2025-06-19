@@ -207,6 +207,181 @@ class ProceduralMemory:
         return pattern_id
 
     @log_function()
+    async def classify_document_with_details(
+        self,
+        filename: str,
+        email_subject: str,
+        email_body: str,
+        asset_type: str | None = None,
+    ) -> tuple[str, float, dict[str, Any]]:
+        """
+        Classify document using memory-driven patterns with detailed pattern information.
+
+        Args:
+            filename: Document filename
+            email_subject: Email subject
+            email_body: Email body content
+            asset_type: Asset type context for filtering
+
+        Returns:
+            Tuple of (document_category, confidence, detailed_patterns)
+        """
+        self.logger.info("🔍 Memory-driven document classification with details")
+
+        try:
+            # Get all stored classification patterns from procedural memory
+            scroll_result = self.qdrant.scroll(
+                collection_name=self.collections["classification_patterns"],
+                limit=1000,
+                with_payload=True,
+                with_vectors=False,
+            )
+
+            if not scroll_result[0]:
+                self.logger.warning("No classification patterns in procedural memory")
+                return "unknown", 0.0, {"patterns_used": [], "total_patterns": 0}
+
+            patterns = scroll_result[0]
+            combined_text = f"{filename} {email_subject} {email_body}".lower()
+
+            # Vote-based classification using all stored patterns
+            category_votes: dict[str, list[float]] = {}
+            patterns_evaluated = 0
+            detailed_patterns = []
+
+            for point in patterns:
+                try:
+                    payload = point.payload
+                    pattern_data = payload.get("pattern_data", {})
+                    category = pattern_data.get("document_category", "unknown")
+
+                    if category == "unknown":
+                        continue
+
+                    patterns_evaluated += 1
+
+                    # Evaluate this memory pattern against current document
+                    match_score = await self._evaluate_memory_pattern(
+                        pattern_data, combined_text, filename, email_subject, email_body
+                    )
+
+                    # Apply asset type context weighting
+                    pattern_asset_type = pattern_data.get("asset_type", "")
+                    if asset_type and pattern_asset_type:
+                        if pattern_asset_type == asset_type:
+                            match_score *= 1.2  # Boost for matching asset type
+                        else:
+                            match_score *= 0.8  # Reduce for non-matching asset type
+
+                    if match_score > 0.1:  # Only consider meaningful matches
+                        if category not in category_votes:
+                            category_votes[category] = []
+                        category_votes[category].append(match_score)
+
+                        # Store detailed pattern information
+                        detailed_patterns.append(
+                            {
+                                "pattern_id": payload.get("pattern_id", "unknown"),
+                                "category": category,
+                                "match_score": match_score,
+                                "asset_type": pattern_asset_type,
+                                "source": payload.get("source", "unknown"),
+                                "pattern_type": pattern_data.get(
+                                    "pattern_type", "classification"
+                                ),
+                                "regex_patterns": pattern_data.get(
+                                    "regex_patterns", []
+                                ),
+                                "keywords": pattern_data.get("keywords", []),
+                                "filename_indicators": pattern_data.get(
+                                    "filename_indicators", []
+                                ),
+                                "subject_indicators": pattern_data.get(
+                                    "subject_indicators", []
+                                ),
+                                "created_date": payload.get("created_date", "unknown"),
+                            }
+                        )
+
+                        self.logger.debug(
+                            f"Pattern vote: {category} = {match_score:.3f} (ID: {payload.get('pattern_id', 'unknown')[:8]})"
+                        )
+
+                except Exception as e:
+                    self.logger.debug(f"Error evaluating pattern: {e}")
+                    continue
+
+            if not category_votes:
+                self.logger.info(
+                    f"No pattern matches from {patterns_evaluated} patterns"
+                )
+                return (
+                    "unknown",
+                    0.0,
+                    {
+                        "patterns_used": [],
+                        "total_patterns": patterns_evaluated,
+                        "categories_considered": 0,
+                    },
+                )
+
+            # Calculate final classification from votes
+            best_category = "unknown"
+            best_confidence = 0.0
+
+            for category, scores in category_votes.items():
+                # Use average confidence with vote count bonus
+                avg_confidence = sum(scores) / len(scores)
+                vote_bonus = min(
+                    len(scores) * 0.1, 0.3
+                )  # Max 30% bonus for multiple votes
+                final_confidence = min(avg_confidence + vote_bonus, 1.0)
+
+                if final_confidence > best_confidence:
+                    best_confidence = final_confidence
+                    best_category = category
+
+            # Sort patterns by match score and filter to winning category
+            winning_patterns = [
+                p for p in detailed_patterns if p["category"] == best_category
+            ]
+            winning_patterns.sort(key=lambda x: x["match_score"], reverse=True)
+
+            detailed_info = {
+                "patterns_used": winning_patterns[
+                    :5
+                ],  # Top 5 patterns for winning category
+                "all_matching_patterns": detailed_patterns,
+                "total_patterns": patterns_evaluated,
+                "categories_considered": len(category_votes),
+                "category_votes": {
+                    cat: len(scores) for cat, scores in category_votes.items()
+                },
+                "winning_category_votes": len(category_votes.get(best_category, [])),
+                "avg_winning_score": (
+                    sum(category_votes.get(best_category, []))
+                    / len(category_votes.get(best_category, []))
+                    if category_votes.get(best_category)
+                    else 0.0
+                ),
+            }
+
+            self.logger.info(
+                f"Memory classification: {best_category} ({best_confidence:.3f}) "
+                f"from {len(category_votes)} categories, {patterns_evaluated} patterns"
+            )
+
+            return best_category, best_confidence, detailed_info
+
+        except Exception as e:
+            self.logger.error(f"Memory-driven classification failed: {e}")
+            return (
+                "unknown",
+                0.0,
+                {"patterns_used": [], "total_patterns": 0, "error": str(e)},
+            )
+
+    @log_function()
     async def classify_document(
         self,
         filename: str,
@@ -762,6 +937,7 @@ class ProceduralMemory:
         stats = {
             "classification_patterns": 0,
             "asset_keywords": 0,
+            "asset_patterns": 0,
             "business_rules": 0,
             "asset_configs": 0,
             "total_patterns": 0,
@@ -771,9 +947,9 @@ class ProceduralMemory:
             # Load classification patterns
             patterns_file = knowledge_dir / "classification_patterns.json"
             if patterns_file.exists():
-                stats[
-                    "classification_patterns"
-                ] = await self._seed_classification_patterns(patterns_file)
+                stats["classification_patterns"] = (
+                    await self._seed_classification_patterns(patterns_file)
+                )
                 self.logger.info(
                     "✅ Loaded %d classification patterns",
                     stats["classification_patterns"],
@@ -785,6 +961,16 @@ class ProceduralMemory:
                 stats["asset_keywords"] = await self._seed_asset_keywords(keywords_file)
                 self.logger.info(
                     "✅ Loaded %d asset keyword sets", stats["asset_keywords"]
+                )
+
+            # Load asset matching procedures
+            asset_procedures_file = knowledge_dir / "asset_matching_procedures.json"
+            if asset_procedures_file.exists():
+                stats["asset_patterns"] = await self._seed_asset_procedures(
+                    asset_procedures_file
+                )
+                self.logger.info(
+                    "✅ Loaded %d asset matching procedures", stats["asset_patterns"]
                 )
 
             # Load business rules
@@ -883,6 +1069,65 @@ class ProceduralMemory:
             keywords_loaded += 1
 
         return keywords_loaded
+
+    async def _seed_asset_procedures(self, procedures_file: Path) -> int:
+        """Load asset matching procedures from JSON file into memory."""
+        with open(procedures_file) as f:
+            data = json.load(f)
+
+        procedures_loaded = 0
+
+        # Load matching procedures
+        matching_procedures = data.get("matching_procedures", [])
+        for procedure in matching_procedures:
+            procedure_dict = {
+                "pattern_type": PatternType.ASSET_MATCHING,
+                "procedure_name": procedure.get("procedure_name"),
+                "procedure_type": procedure.get("procedure_type"),
+                "description": procedure.get("description"),
+                "algorithm": procedure.get("algorithm", {}),
+                "source": "knowledge_base_seed",
+                "metadata": {
+                    "pattern_category": "asset_matching_procedure",
+                    "algorithm_type": "procedural_logic",
+                    "usage": "asset matching algorithm execution",
+                },
+            }
+
+            await self._store_procedural_pattern(procedure_dict)
+            procedures_loaded += 1
+
+            self.logger.debug(
+                "📚 Stored asset matching procedure: %s",
+                procedure.get("procedure_name"),
+            )
+
+        # Load learning procedures
+        learning_procedures = data.get("learning_procedures", [])
+        for procedure in learning_procedures:
+            procedure_dict = {
+                "pattern_type": PatternType.ASSET_MATCHING,
+                "procedure_name": procedure.get("procedure_name"),
+                "procedure_type": procedure.get("procedure_type"),
+                "description": procedure.get("description"),
+                "algorithm": procedure.get("algorithm", {}),
+                "source": "knowledge_base_seed",
+                "metadata": {
+                    "pattern_category": "learning_procedure",
+                    "algorithm_type": "learning_logic",
+                    "usage": "asset matching learning and improvement",
+                },
+            }
+
+            await self._store_procedural_pattern(procedure_dict)
+            procedures_loaded += 1
+
+            self.logger.debug(
+                "📚 Stored learning procedure: %s",
+                procedure.get("procedure_name"),
+            )
+
+        return procedures_loaded
 
     async def _seed_business_rules(self, rules_file: Path) -> int:
         """Load business rules from JSON file into memory."""

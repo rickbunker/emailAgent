@@ -211,11 +211,43 @@ class SemanticMemory(BaseMemory):
         metadata["created_at"] = datetime.now(UTC).isoformat()
         metadata["source"] = "semantic_memory"
         metadata["version"] = "1.0.0"
+        metadata["content_hash"] = await self._generate_content_hash(content)
 
         logger.info(
             f"Adding semantic knowledge: type={knowledge_type.value}, confidence={confidence.value}"
         )
         logger.debug(f"Knowledge content length: {len(content)}")
+
+        # Check for duplicates before adding
+        duplicate_id = await self._check_for_duplicate(
+            content, knowledge_type, metadata
+        )
+        if duplicate_id:
+            logger.info(
+                f"Duplicate content detected, returning existing ID: {duplicate_id}"
+            )
+            return duplicate_id
+
+        # Check for conflicts with existing knowledge
+        conflicts = await self._detect_conflicts(content, knowledge_type, metadata)
+        if conflicts:
+            # Handle conflicts based on resolution strategy
+            resolution_result = await self._resolve_conflicts(
+                content, knowledge_type, metadata, conflicts, confidence
+            )
+            if resolution_result["action"] == "reject":
+                logger.warning(
+                    f"Content rejected due to conflicts: {resolution_result['reason']}"
+                )
+                return resolution_result["existing_id"]
+            elif resolution_result["action"] == "update":
+                logger.info(
+                    f"Updating existing knowledge due to conflicts: {resolution_result['reason']}"
+                )
+                # Update the existing knowledge item
+                await self._update_conflicting_knowledge(resolution_result)
+                return resolution_result["existing_id"]
+            # If action == "add", continue with normal addition
 
         try:
             result = await super().add(content, metadata)
@@ -224,6 +256,480 @@ class SemanticMemory(BaseMemory):
         except Exception as e:
             logger.error(f"Failed to add semantic knowledge: {e}")
             raise
+
+    async def _generate_content_hash(self, content: str) -> str:
+        """
+        Generate a hash of the content for duplicate detection.
+
+        Args:
+            content: The content to hash
+
+        Returns:
+            SHA-256 hash of the normalized content
+        """
+        import hashlib
+
+        # Normalize content for consistent hashing
+        normalized_content = content.strip().lower()
+        return hashlib.sha256(normalized_content.encode("utf-8")).hexdigest()
+
+    async def _check_for_duplicate(
+        self, content: str, knowledge_type: KnowledgeType, metadata: dict[str, Any]
+    ) -> str | None:
+        """
+        Check if content already exists in semantic memory.
+
+        Uses content hashing and semantic search to detect duplicates.
+
+        Args:
+            content: Content to check for duplicates
+            knowledge_type: Type of knowledge being added
+            metadata: Metadata for the content
+
+        Returns:
+            ID of existing duplicate if found, None otherwise
+        """
+        try:
+            # Method 1: Content hash-based duplicate detection
+            content_hash = await self._generate_content_hash(content)
+
+            # Search for existing content with same hash
+            hash_filter = {
+                "key": "metadata.content_hash",
+                "match": {"value": content_hash},
+            }
+
+            hash_results = await self.search(
+                query=content[:50],  # Use first 50 chars as query
+                limit=5,
+                filter=hash_filter,
+                knowledge_type=knowledge_type,
+            )
+
+            if hash_results:
+                logger.debug(f"Found exact content hash match: {hash_results[0].id}")
+                return hash_results[0].id
+
+            # Method 2: Asset-specific duplicate detection for asset knowledge
+            if knowledge_type == KnowledgeType.UNKNOWN and metadata.get("asset_id"):
+                asset_filter = {
+                    "key": "metadata.asset_id",
+                    "match": {"value": metadata["asset_id"]},
+                }
+
+                asset_results = await self.search(
+                    query=f"Asset: {metadata.get('deal_name', '')}",
+                    limit=3,
+                    filter=asset_filter,
+                    knowledge_type=knowledge_type,
+                )
+
+                if asset_results:
+                    logger.debug(
+                        f"Found asset-specific duplicate: {asset_results[0].id}"
+                    )
+                    return asset_results[0].id
+
+            # Method 3: File type duplicate detection for file validation rules
+            if knowledge_type == KnowledgeType.RULE and metadata.get("file_extension"):
+                file_filter = {
+                    "key": "metadata.file_extension",
+                    "match": {"value": metadata["file_extension"]},
+                }
+
+                file_results = await self.search(
+                    query=f"file type {metadata['file_extension']}",
+                    limit=3,
+                    filter=file_filter,
+                    knowledge_type=knowledge_type,
+                )
+
+                if file_results:
+                    logger.debug(f"Found file type duplicate: {file_results[0].id}")
+                    return file_results[0].id
+
+            # No duplicates found
+            return None
+
+        except Exception as e:
+            logger.warning(f"Error checking for duplicates: {e}")
+            # If duplicate checking fails, continue with adding to be safe
+            return None
+
+    async def _detect_conflicts(
+        self, content: str, knowledge_type: KnowledgeType, metadata: dict[str, Any]
+    ) -> list[dict[str, Any]]:
+        """
+        Detect conflicts with existing knowledge.
+
+        Checks for contradictory information that would create inconsistencies
+        in the knowledge base, such as same asset with different types.
+
+        Args:
+            content: Content to check for conflicts
+            knowledge_type: Type of knowledge being added
+            metadata: Metadata for the content
+
+        Returns:
+            List of conflict dictionaries with details about conflicting items
+        """
+        conflicts = []
+
+        try:
+            # Asset classification conflicts
+            if metadata.get("asset_id"):
+                asset_conflicts = await self._detect_asset_conflicts(
+                    metadata["asset_id"], content, metadata
+                )
+                conflicts.extend(asset_conflicts)
+
+            # File type rule conflicts
+            if knowledge_type == KnowledgeType.RULE and metadata.get("file_extension"):
+                file_conflicts = await self._detect_file_type_conflicts(
+                    metadata["file_extension"], content, metadata
+                )
+                conflicts.extend(file_conflicts)
+
+            # Sender information conflicts
+            if knowledge_type == KnowledgeType.SENDER and metadata.get("sender_email"):
+                sender_conflicts = await self._detect_sender_conflicts(
+                    metadata["sender_email"], content, metadata
+                )
+                conflicts.extend(sender_conflicts)
+
+            # Business rule conflicts
+            if knowledge_type == KnowledgeType.RULE:
+                rule_conflicts = await self._detect_rule_conflicts(content, metadata)
+                conflicts.extend(rule_conflicts)
+
+            logger.debug(f"Detected {len(conflicts)} potential conflicts")
+            return conflicts
+
+        except Exception as e:
+            logger.error(f"Error detecting conflicts: {e}")
+            return []
+
+    async def _detect_asset_conflicts(
+        self, asset_id: str, content: str, metadata: dict[str, Any]
+    ) -> list[dict[str, Any]]:
+        """Detect conflicts in asset classification."""
+        conflicts = []
+
+        # Search for existing knowledge about this asset
+        asset_filter = {"key": "metadata.asset_id", "match": {"value": asset_id}}
+
+        existing_items = await self.search(
+            query=f"Asset: {metadata.get('deal_name', '')}",
+            limit=10,
+            filter=asset_filter,
+        )
+
+        new_asset_type = metadata.get("asset_type")
+
+        for item in existing_items:
+            existing_type = item.metadata.get("asset_type")
+
+            # Check for asset type conflicts
+            if existing_type and new_asset_type and existing_type != new_asset_type:
+                conflicts.append(
+                    {
+                        "type": "asset_type_conflict",
+                        "asset_id": asset_id,
+                        "existing_id": item.id,
+                        "existing_type": existing_type,
+                        "new_type": new_asset_type,
+                        "existing_confidence": item.metadata.get(
+                            "confidence", "unknown"
+                        ),
+                        "severity": "high",
+                    }
+                )
+
+        return conflicts
+
+    async def _detect_file_type_conflicts(
+        self, file_extension: str, content: str, metadata: dict[str, Any]
+    ) -> list[dict[str, Any]]:
+        """Detect conflicts in file type validation rules."""
+        conflicts = []
+
+        file_filter = {
+            "key": "metadata.file_extension",
+            "match": {"value": file_extension},
+        }
+
+        existing_items = await self.search(
+            query=f"file type {file_extension}",
+            limit=5,
+            filter=file_filter,
+            knowledge_type=KnowledgeType.RULE,
+        )
+
+        new_is_allowed = metadata.get("is_allowed")
+        new_security_level = metadata.get("security_level")
+
+        for item in existing_items:
+            existing_allowed = item.metadata.get("is_allowed")
+            existing_security = item.metadata.get("security_level")
+
+            # Check for permission conflicts
+            if existing_allowed is not None and new_is_allowed is not None:
+                if existing_allowed != new_is_allowed:
+                    conflicts.append(
+                        {
+                            "type": "file_permission_conflict",
+                            "file_extension": file_extension,
+                            "existing_id": item.id,
+                            "existing_allowed": existing_allowed,
+                            "new_allowed": new_is_allowed,
+                            "severity": "high",
+                        }
+                    )
+
+            # Check for security level conflicts
+            security_hierarchy = {
+                "safe": 1,
+                "standard": 2,
+                "restricted": 3,
+                "dangerous": 4,
+            }
+            if existing_security and new_security_level:
+                existing_level = security_hierarchy.get(existing_security, 2)
+                new_level = security_hierarchy.get(new_security_level, 2)
+
+                if (
+                    abs(existing_level - new_level) > 1
+                ):  # More than one level difference
+                    conflicts.append(
+                        {
+                            "type": "security_level_conflict",
+                            "file_extension": file_extension,
+                            "existing_id": item.id,
+                            "existing_security": existing_security,
+                            "new_security": new_security_level,
+                            "severity": "medium",
+                        }
+                    )
+
+        return conflicts
+
+    async def _detect_sender_conflicts(
+        self, sender_email: str, content: str, metadata: dict[str, Any]
+    ) -> list[dict[str, Any]]:
+        """Detect conflicts in sender information."""
+        conflicts = []
+
+        existing_items = await self.search_sender_knowledge(sender_email, limit=5)
+
+        new_org = metadata.get("organization")
+
+        for item in existing_items:
+            existing_org = item.metadata.get("organization")
+
+            # Check for organization conflicts
+            if existing_org and new_org and existing_org.lower() != new_org.lower():
+                conflicts.append(
+                    {
+                        "type": "sender_organization_conflict",
+                        "sender_email": sender_email,
+                        "existing_id": item.id,
+                        "existing_organization": existing_org,
+                        "new_organization": new_org,
+                        "severity": "medium",
+                    }
+                )
+
+        return conflicts
+
+    async def _detect_rule_conflicts(
+        self, content: str, metadata: dict[str, Any]
+    ) -> list[dict[str, Any]]:
+        """Detect conflicts in business rules."""
+        conflicts = []
+
+        # This would check for contradictory business rules
+        # Implementation depends on specific rule structures
+        # For now, we'll focus on explicit contradictions in content
+
+        contradiction_keywords = [
+            ("always", "never"),
+            ("required", "forbidden"),
+            ("allowed", "prohibited"),
+            ("must", "must not"),
+        ]
+
+        content_lower = content.lower()
+
+        # Search for potentially contradictory rules
+        rule_items = await self.search(
+            query=content[:100],  # Use first 100 chars for similarity
+            limit=10,
+            knowledge_type=KnowledgeType.RULE,
+        )
+
+        for item in rule_items:
+            existing_content = item.content.lower()
+
+            # Check for explicit contradictions
+            for positive, negative in contradiction_keywords:
+                if positive in content_lower and negative in existing_content:
+                    conflicts.append(
+                        {
+                            "type": "rule_contradiction",
+                            "existing_id": item.id,
+                            "contradiction": f"'{positive}' vs '{negative}'",
+                            "severity": "high",
+                        }
+                    )
+                elif negative in content_lower and positive in existing_content:
+                    conflicts.append(
+                        {
+                            "type": "rule_contradiction",
+                            "existing_id": item.id,
+                            "contradiction": f"'{negative}' vs '{positive}'",
+                            "severity": "high",
+                        }
+                    )
+
+        return conflicts
+
+    async def _resolve_conflicts(
+        self,
+        content: str,
+        knowledge_type: KnowledgeType,
+        metadata: dict[str, Any],
+        conflicts: list[dict[str, Any]],
+        confidence: KnowledgeConfidence,
+    ) -> dict[str, Any]:
+        """
+        Resolve conflicts using configurable strategies.
+
+        Args:
+            content: New content being added
+            knowledge_type: Type of knowledge
+            metadata: Metadata for new content
+            conflicts: List of detected conflicts
+            confidence: Confidence level of new content
+
+        Returns:
+            Resolution result with action to take
+        """
+        try:
+            # Strategy 1: Confidence-based resolution
+            for conflict in conflicts:
+                existing_confidence = conflict.get("existing_confidence", "medium")
+
+                # Convert confidence levels to numeric for comparison
+                confidence_levels = {
+                    "experimental": 1,
+                    "low": 2,
+                    "medium": 3,
+                    "high": 4,
+                }
+
+                new_conf_level = confidence_levels.get(confidence.value, 3)
+                existing_conf_level = confidence_levels.get(existing_confidence, 3)
+
+                # High severity conflicts require manual review
+                if conflict.get("severity") == "high":
+                    logger.warning(f"High severity conflict detected: {conflict}")
+
+                    # If new confidence is significantly higher, update
+                    if new_conf_level > existing_conf_level + 1:
+                        return {
+                            "action": "update",
+                            "existing_id": conflict["existing_id"],
+                            "reason": f"Higher confidence ({confidence.value} vs {existing_confidence})",
+                            "conflict_type": conflict["type"],
+                            "new_content": content,
+                            "new_metadata": metadata,
+                        }
+                    # If existing confidence is higher, reject new
+                    elif existing_conf_level > new_conf_level:
+                        return {
+                            "action": "reject",
+                            "existing_id": conflict["existing_id"],
+                            "reason": f"Existing knowledge has higher confidence ({existing_confidence} vs {confidence.value})",
+                            "conflict_type": conflict["type"],
+                        }
+                    # Equal confidence - log for human review
+                    else:
+                        logger.warning(f"Conflict requires human review: {conflict}")
+                        await self._log_conflict_for_review(content, metadata, conflict)
+                        return {
+                            "action": "reject",
+                            "existing_id": conflict["existing_id"],
+                            "reason": "Equal confidence conflict - requires human review",
+                            "conflict_type": conflict["type"],
+                        }
+
+            # If we get here, no blocking conflicts found
+            return {"action": "add", "reason": "No blocking conflicts detected"}
+
+        except Exception as e:
+            logger.error(f"Error resolving conflicts: {e}")
+            # On error, be conservative and reject
+            return {
+                "action": "reject",
+                "reason": f"Error during conflict resolution: {e}",
+                "existing_id": conflicts[0].get("existing_id") if conflicts else None,
+            }
+
+    async def _update_conflicting_knowledge(
+        self, resolution_result: dict[str, Any]
+    ) -> None:
+        """Update existing knowledge item with new information."""
+        try:
+            existing_id = resolution_result["existing_id"]
+            new_content = resolution_result["new_content"]
+            new_metadata = resolution_result["new_metadata"]
+
+            # Add conflict resolution metadata
+            new_metadata["conflict_resolution"] = {
+                "action": "updated_due_to_conflict",
+                "reason": resolution_result["reason"],
+                "conflict_type": resolution_result["conflict_type"],
+                "updated_at": datetime.now(UTC).isoformat(),
+            }
+
+            # Update the existing item
+            await super().update(existing_id, new_content, new_metadata)
+            logger.info(
+                f"Updated knowledge item {existing_id} due to conflict resolution"
+            )
+
+        except Exception as e:
+            logger.error(f"Error updating conflicting knowledge: {e}")
+
+    async def _log_conflict_for_review(
+        self, content: str, metadata: dict[str, Any], conflict: dict[str, Any]
+    ) -> None:
+        """Log conflicts that require human review."""
+        try:
+            conflict_log = {
+                "timestamp": datetime.now(UTC).isoformat(),
+                "conflict_type": conflict["type"],
+                "new_content": content[:200],  # First 200 chars
+                "new_metadata": {
+                    k: v for k, v in metadata.items() if k not in ["content_hash"]
+                },
+                "conflict_details": conflict,
+                "status": "pending_review",
+                "priority": conflict.get("severity", "medium"),
+            }
+
+            # Store in a special conflicts collection for human review
+            await self.add(
+                content=f"CONFLICT REVIEW NEEDED: {conflict['type']}",
+                metadata=conflict_log,
+                knowledge_type=KnowledgeType.PATTERN,  # Use PATTERN for meta-information
+                confidence=KnowledgeConfidence.HIGH,  # High confidence that this needs review
+            )
+
+            logger.warning(f"Conflict logged for human review: {conflict['type']}")
+
+        except Exception as e:
+            logger.error(f"Error logging conflict for review: {e}")
 
     @log_function()
     async def add_sender_knowledge(
@@ -357,6 +863,660 @@ class SemanticMemory(BaseMemory):
         return await self.add(content, metadata, KnowledgeType.DOMAIN, confidence)
 
     @log_function()
+    async def add_file_type_knowledge(
+        self,
+        file_extension: str,
+        content: str,
+        is_allowed: bool = True,
+        asset_types: list[str] | None = None,
+        document_categories: list[str] | None = None,
+        security_level: str = "standard",
+        success_count: int = 0,
+        failure_count: int = 0,
+        confidence: KnowledgeConfidence = KnowledgeConfidence.MEDIUM,
+        **kwargs,
+    ) -> str:
+        """
+        Add file type validation knowledge with security and business context.
+
+        Stores learned knowledge about file types, their safety, business relevance,
+        and processing success patterns to replace hardcoded validation rules.
+
+        Args:
+            file_extension: File extension (e.g., '.pdf', '.xlsx')
+            content: Description of file type and its business purpose
+            is_allowed: Whether this file type should be processed
+            asset_types: Asset types where this file type is commonly used
+            document_categories: Document categories this file type represents
+            security_level: Security classification (safe, restricted, dangerous)
+            success_count: Number of successful processing instances
+            failure_count: Number of processing failures
+            confidence: Confidence level in the file type knowledge
+            **kwargs: Additional file type metadata
+
+        Returns:
+            Knowledge ID of the created file type knowledge
+
+        Example:
+            >>> file_type_id = await semantic_memory.add_file_type_knowledge(
+            ...     file_extension=".pdf",
+            ...     content="PDF documents commonly contain loan agreements, financial statements, and asset documentation",
+            ...     is_allowed=True,
+            ...     asset_types=["private_credit", "commercial_real_estate"],
+            ...     document_categories=["loan_documents", "financial_statements"],
+            ...     security_level="safe",
+            ...     success_count=1250,
+            ...     confidence=KnowledgeConfidence.HIGH
+            ... )
+        """
+        if not file_extension.startswith("."):
+            file_extension = "." + file_extension
+
+        file_extension = file_extension.lower()
+
+        metadata = {
+            "file_extension": file_extension,
+            "is_allowed": is_allowed,
+            "asset_types": asset_types or [],
+            "document_categories": document_categories or [],
+            "security_level": security_level,
+            "success_count": success_count,
+            "failure_count": failure_count,
+            "processing_rate": success_count / max(success_count + failure_count, 1),
+            "last_updated": datetime.now(UTC).isoformat(),
+            **kwargs,
+        }
+
+        logger.info(
+            f"Adding file type knowledge: {file_extension} (allowed: {is_allowed})"
+        )
+        return await self.add(content, metadata, KnowledgeType.RULE, confidence)
+
+    @log_function()
+    async def get_file_type_validation(self, file_extension: str) -> dict[str, Any]:
+        """
+        Get file type validation decision from learned knowledge.
+
+        Retrieves file type knowledge to determine if a file extension should
+        be allowed, including confidence scoring and business context.
+
+        Args:
+            file_extension: File extension to validate (e.g., '.pdf', '.xlsx')
+
+        Returns:
+            Dictionary with validation decision and metadata:
+            {
+                "is_allowed": bool,
+                "confidence": float,
+                "security_level": str,
+                "business_context": dict,
+                "learning_source": str
+            }
+
+        Example:
+            >>> validation = await semantic_memory.get_file_type_validation(".pdf")
+            >>> if validation["is_allowed"] and validation["confidence"] > 0.7:
+            ...     # Process the file
+        """
+        if not file_extension.startswith("."):
+            file_extension = "." + file_extension
+
+        file_extension = file_extension.lower()
+
+        logger.info(f"Validating file type: {file_extension}")
+
+        try:
+            # Search for specific file type knowledge
+            file_filter = {
+                "key": "metadata.file_extension",
+                "match": {"value": file_extension},
+            }
+
+            results = await self.search(
+                query=f"file type {file_extension} validation security",
+                limit=5,
+                filter=file_filter,
+                knowledge_type=KnowledgeType.RULE,
+                min_confidence=KnowledgeConfidence.LOW,
+            )
+
+            if results:
+                # Use the most confident result (results are now MemoryItems after tuple extraction)
+                best_result_item = max(
+                    results, key=lambda x: x.metadata.get("success_count", 0)
+                )
+
+                return {
+                    "is_allowed": best_result_item.metadata.get("is_allowed", False),
+                    "confidence": best_result_item.metadata.get("processing_rate", 0.0),
+                    "security_level": best_result_item.metadata.get(
+                        "security_level", "unknown"
+                    ),
+                    "business_context": {
+                        "asset_types": best_result_item.metadata.get("asset_types", []),
+                        "document_categories": best_result_item.metadata.get(
+                            "document_categories", []
+                        ),
+                        "success_count": best_result_item.metadata.get(
+                            "success_count", 0
+                        ),
+                        "failure_count": best_result_item.metadata.get(
+                            "failure_count", 0
+                        ),
+                    },
+                    "learning_source": "semantic_memory",
+                    "knowledge_id": best_result_item.id,
+                }
+            else:
+                # No knowledge found - return conservative default
+                logger.warning(f"No knowledge found for file type: {file_extension}")
+                return {
+                    "is_allowed": False,
+                    "confidence": 0.0,
+                    "security_level": "unknown",
+                    "business_context": {},
+                    "learning_source": "default_conservative",
+                    "knowledge_id": None,
+                }
+
+        except Exception as e:
+            logger.error(f"Error validating file type {file_extension}: {e}")
+            return {
+                "is_allowed": False,
+                "confidence": 0.0,
+                "security_level": "error",
+                "business_context": {},
+                "learning_source": "error_fallback",
+                "knowledge_id": None,
+            }
+
+    @log_function()
+    async def learn_file_type_success(
+        self,
+        file_extension: str,
+        asset_type: str | None = None,
+        document_category: str | None = None,
+        success: bool = True,
+    ) -> str:
+        """
+        Learn from file processing success/failure to improve validation.
+
+        Updates file type knowledge based on actual processing outcomes
+        to continuously improve validation accuracy and business relevance.
+
+        Args:
+            file_extension: File extension that was processed
+            asset_type: Asset type context of the processing
+            document_category: Document category that was classified
+            success: Whether the processing was successful
+
+        Returns:
+            Knowledge ID of the updated file type knowledge
+        """
+        if not file_extension.startswith("."):
+            file_extension = "." + file_extension
+
+        file_extension = file_extension.lower()
+
+        logger.info(
+            f"Learning from file processing: {file_extension} (success: {success})"
+        )
+
+        # Get existing knowledge
+        validation = await self.get_file_type_validation(file_extension)
+
+        if validation["knowledge_id"]:
+            # Update existing knowledge - this would require implementing update_knowledge method
+            # For now, we'll create new knowledge entries and let the system learn patterns
+            pass
+
+        # Create/update file type knowledge based on this processing outcome
+        business_context = validation.get("business_context", {})
+        asset_types = business_context.get("asset_types", [])
+        document_categories = business_context.get("document_categories", [])
+
+        if asset_type and asset_type not in asset_types:
+            asset_types.append(asset_type)
+
+        if document_category and document_category not in document_categories:
+            document_categories.append(document_category)
+
+        success_count = business_context.get("success_count", 0)
+        failure_count = business_context.get("failure_count", 0)
+
+        if success:
+            success_count += 1
+        else:
+            failure_count += 1
+
+        # Determine confidence based on success rate
+        processing_rate = success_count / max(success_count + failure_count, 1)
+        if processing_rate > 0.8:
+            confidence = KnowledgeConfidence.HIGH
+        elif processing_rate > 0.6:
+            confidence = KnowledgeConfidence.MEDIUM
+        else:
+            confidence = KnowledgeConfidence.LOW
+
+        content = f"File type {file_extension} processing: {success_count} successes, {failure_count} failures"
+
+        return await self.add_file_type_knowledge(
+            file_extension=file_extension,
+            content=content,
+            is_allowed=(processing_rate > 0.5),  # Allow if more successes than failures
+            asset_types=asset_types,
+            document_categories=document_categories,
+            security_level="learned",
+            success_count=success_count,
+            failure_count=failure_count,
+            confidence=confidence,
+            learning_source="processing_outcome",
+        )
+
+    @log_function()
+    async def add_asset_knowledge(
+        self,
+        asset_id: str,
+        deal_name: str,
+        asset_name: str,
+        asset_type: str,
+        identifiers: list[str],
+        business_context: dict[str, Any],
+        confidence: KnowledgeConfidence = KnowledgeConfidence.HIGH,
+        **kwargs,
+    ) -> str:
+        """
+        Add asset knowledge to semantic memory.
+
+        Stores structured information about assets including identifiers,
+        business context, and metadata for asset matching and management.
+
+        Args:
+            asset_id: Unique asset identifier
+            deal_name: Human-readable deal name
+            asset_name: Full formal asset name
+            asset_type: Type of asset (e.g., 'private_credit')
+            identifiers: List of identifiers used for matching
+            business_context: Business context and metadata
+            confidence: Knowledge confidence level
+            **kwargs: Additional metadata
+
+        Returns:
+            Knowledge item ID for tracking
+
+        Example:
+            >>> asset_id = await semantic_memory.add_asset_knowledge(
+            ...     asset_id="12345-abcd",
+            ...     deal_name="Gray IV",
+            ...     asset_name="Gray IV Credit Agreement",
+            ...     asset_type="private_credit",
+            ...     identifiers=["Gray", "Gray 4", "Gray revolver"],
+            ...     business_context={"lender": "Wells Fargo", "description": "..."}
+            ... )
+        """
+        logger.info(f"Adding asset knowledge: {deal_name} ({asset_type})")
+
+        # Create comprehensive content for semantic search
+        content_parts = [
+            f"Asset: {deal_name}",
+            f"Type: {asset_type}",
+            f"Identifiers: {', '.join(identifiers)}",
+        ]
+
+        if business_context.get("description"):
+            content_parts.append(f"Description: {business_context['description']}")
+
+        if business_context.get("lender"):
+            content_parts.append(f"Lender: {business_context['lender']}")
+
+        if business_context.get("keywords"):
+            content_parts.append(f"Keywords: {', '.join(business_context['keywords'])}")
+
+        content = " | ".join(content_parts)
+
+        # Build metadata for asset knowledge
+        metadata = {
+            "knowledge_type": KnowledgeType.RULE.value,  # Asset data is factual rule knowledge
+            "knowledge_category": "asset_data",
+            "confidence": confidence.value,
+            "asset_id": asset_id,
+            "deal_name": deal_name,
+            "asset_name": asset_name,
+            "asset_type": asset_type,
+            "identifiers": identifiers,
+            "business_context": business_context,
+            "knowledge_source": kwargs.get("knowledge_source", "manual_entry"),
+            "created_date": datetime.now(UTC).isoformat(),
+        }
+
+        # Add any additional metadata
+        for key, value in kwargs.items():
+            if key not in metadata:
+                metadata[key] = value
+
+        knowledge_id = await self.add(
+            content=content,
+            metadata=metadata,
+            knowledge_type=KnowledgeType.RULE,
+            confidence=confidence,
+        )
+
+        logger.info(f"Successfully added asset knowledge: {knowledge_id}")
+        return knowledge_id
+
+    @log_function()
+    async def search_asset_knowledge(
+        self, query: str = "", limit: int = 100
+    ) -> list[MemoryItem]:
+        """
+        Search for asset knowledge in semantic memory.
+
+        Retrieves asset data for matching algorithms to use.
+
+        Args:
+            query: Optional search query (defaults to all assets)
+            limit: Maximum number of results
+
+        Returns:
+            List of asset knowledge items
+        """
+        logger.info(f"Searching asset knowledge: query='{query}', limit={limit}")
+
+        asset_filter = {
+            "key": "metadata.knowledge_category",
+            "match": {"value": "asset_data"},
+        }
+
+        search_query = query if query else "asset"
+
+        return await self.search(
+            query=search_query,
+            limit=limit,
+            filter=asset_filter,
+            knowledge_type=KnowledgeType.RULE,
+        )
+
+    @log_function()
+    async def load_knowledge_base(
+        self, knowledge_base_path: str = "knowledge"
+    ) -> dict[str, int]:
+        """
+        Load initial knowledge from JSON knowledge base files.
+
+        Initializes semantic memory with bootstrap knowledge from the knowledge
+        directory, replacing hardcoded rules with learned patterns.
+
+        Args:
+            knowledge_base_path: Path to the knowledge base directory
+
+        Returns:
+            Dictionary with loading results:
+            {
+                "file_types_loaded": int,
+                "total_knowledge_items": int,
+                "errors": list[str]
+            }
+
+        Example:
+            >>> results = await semantic_memory.load_knowledge_base("knowledge")
+            >>> print(f"Loaded {results['file_types_loaded']} file type validations")
+        """
+        import json
+        from pathlib import Path
+
+        logger.info("Loading knowledge base from: %s", knowledge_base_path)
+
+        results = {"file_types_loaded": 0, "total_knowledge_items": 0, "errors": []}
+
+        knowledge_path = Path(knowledge_base_path)
+        if not knowledge_path.exists():
+            error_msg = f"Knowledge base path not found: {knowledge_base_path}"
+            logger.error(error_msg)
+            results["errors"].append(error_msg)
+            return results
+
+        # Check if knowledge base has already been loaded
+        try:
+            bootstrap_filter = {
+                "key": "metadata.knowledge_source",
+                "match": {"value": "knowledge_base_bootstrap"},
+            }
+
+            existing_bootstrap = await self.search(
+                query="knowledge base bootstrap", limit=5, filter=bootstrap_filter
+            )
+
+            if existing_bootstrap:
+                logger.info(
+                    f"Knowledge base already loaded ({len(existing_bootstrap)} bootstrap items found), skipping"
+                )
+                return {
+                    "file_types_loaded": 0,
+                    "total_knowledge_items": 0,
+                    "errors": [],
+                    "status": "already_loaded",
+                }
+        except Exception as e:
+            logger.warning(f"Could not check for existing bootstrap items: {e}")
+            # Continue with loading to be safe
+
+        # Load file type validation knowledge
+        file_validation_path = knowledge_path / "file_type_validation.json"
+        if file_validation_path.exists():
+            try:
+                with open(file_validation_path, "r", encoding="utf-8") as f:
+                    file_validation_data = json.load(f)
+
+                validation_config = file_validation_data.get("file_type_validation", {})
+
+                # Load safe file types
+                safe_types = validation_config.get("safe_file_types", {})
+                for ext, config in safe_types.items():
+                    try:
+                        # Map confidence strings to enums
+                        confidence_mapping = {
+                            "high": KnowledgeConfidence.HIGH,
+                            "medium": KnowledgeConfidence.MEDIUM,
+                            "low": KnowledgeConfidence.LOW,
+                        }
+                        confidence = confidence_mapping.get(
+                            config.get("confidence", "medium"),
+                            KnowledgeConfidence.MEDIUM,
+                        )
+
+                        knowledge_id = await self.add_file_type_knowledge(
+                            file_extension=ext,
+                            content=config.get(
+                                "content", f"File type {ext} validation rule"
+                            ),
+                            is_allowed=config.get("is_allowed", True),
+                            asset_types=config.get("asset_types", []),
+                            document_categories=config.get("document_categories", []),
+                            security_level=config.get("security_level", "safe"),
+                            success_count=config.get("success_count", 0),
+                            failure_count=config.get("failure_count", 0),
+                            confidence=confidence,
+                            business_context=config.get("business_context", ""),
+                            knowledge_source="knowledge_base_bootstrap",
+                        )
+
+                        results["file_types_loaded"] += 1
+                        results["total_knowledge_items"] += 1
+
+                        logger.debug(
+                            "Loaded safe file type: %s -> %s", ext, knowledge_id[:8]
+                        )
+
+                    except Exception as e:
+                        error_msg = f"Failed to load safe file type {ext}: {e}"
+                        logger.warning(error_msg)
+                        results["errors"].append(error_msg)
+
+                # Load restricted file types
+                restricted_types = validation_config.get("restricted_file_types", {})
+                for ext, config in restricted_types.items():
+                    try:
+                        confidence_mapping = {
+                            "high": KnowledgeConfidence.HIGH,
+                            "medium": KnowledgeConfidence.MEDIUM,
+                            "low": KnowledgeConfidence.LOW,
+                        }
+                        confidence = confidence_mapping.get(
+                            config.get("confidence", "medium"),
+                            KnowledgeConfidence.MEDIUM,
+                        )
+
+                        knowledge_id = await self.add_file_type_knowledge(
+                            file_extension=ext,
+                            content=config.get(
+                                "content", f"File type {ext} restriction rule"
+                            ),
+                            is_allowed=config.get("is_allowed", False),
+                            asset_types=config.get("asset_types", []),
+                            document_categories=config.get("document_categories", []),
+                            security_level=config.get("security_level", "restricted"),
+                            success_count=config.get("success_count", 0),
+                            failure_count=config.get("failure_count", 0),
+                            confidence=confidence,
+                            business_context=config.get("business_context", ""),
+                            knowledge_source="knowledge_base_bootstrap",
+                        )
+
+                        results["file_types_loaded"] += 1
+                        results["total_knowledge_items"] += 1
+
+                        logger.debug(
+                            "Loaded restricted file type: %s -> %s",
+                            ext,
+                            knowledge_id[:8],
+                        )
+
+                    except Exception as e:
+                        error_msg = f"Failed to load restricted file type {ext}: {e}"
+                        logger.warning(error_msg)
+                        results["errors"].append(error_msg)
+
+                # Load dangerous file types
+                dangerous_types = validation_config.get("dangerous_file_types", {})
+                for ext, config in dangerous_types.items():
+                    try:
+                        confidence_mapping = {
+                            "high": KnowledgeConfidence.HIGH,
+                            "medium": KnowledgeConfidence.MEDIUM,
+                            "low": KnowledgeConfidence.LOW,
+                        }
+                        confidence = confidence_mapping.get(
+                            config.get("confidence", "high"), KnowledgeConfidence.HIGH
+                        )
+
+                        knowledge_id = await self.add_file_type_knowledge(
+                            file_extension=ext,
+                            content=config.get(
+                                "content", f"File type {ext} security prohibition"
+                            ),
+                            is_allowed=config.get("is_allowed", False),
+                            asset_types=config.get("asset_types", []),
+                            document_categories=config.get("document_categories", []),
+                            security_level=config.get("security_level", "dangerous"),
+                            success_count=config.get("success_count", 0),
+                            failure_count=config.get("failure_count", 0),
+                            confidence=confidence,
+                            business_context=config.get("business_context", ""),
+                            knowledge_source="knowledge_base_bootstrap",
+                        )
+
+                        results["file_types_loaded"] += 1
+                        results["total_knowledge_items"] += 1
+
+                        logger.debug(
+                            "Loaded dangerous file type: %s -> %s",
+                            ext,
+                            knowledge_id[:8],
+                        )
+
+                    except Exception as e:
+                        error_msg = f"Failed to load dangerous file type {ext}: {e}"
+                        logger.warning(error_msg)
+                        results["errors"].append(error_msg)
+
+                logger.info(
+                    "File type validation knowledge loading complete: %d types loaded",
+                    results["file_types_loaded"],
+                )
+
+            except Exception as e:
+                error_msg = f"Failed to load file type validation knowledge: {e}"
+                logger.error(error_msg)
+                results["errors"].append(error_msg)
+        else:
+            logger.warning(
+                "File type validation knowledge file not found: %s",
+                file_validation_path,
+            )
+
+        # Load asset data for semantic memory
+        asset_data_path = knowledge_path / "asset_data.json"
+        if asset_data_path.exists():
+            try:
+                logger.info("Loading asset data from: %s", asset_data_path)
+                with open(asset_data_path) as f:
+                    asset_data = json.load(f)
+
+                assets = asset_data.get("assets", [])
+                for asset in assets:
+                    try:
+                        asset_id = await self.add_asset_knowledge(
+                            asset_id=asset.get("asset_id"),
+                            deal_name=asset.get("deal_name"),
+                            asset_name=asset.get("asset_name"),
+                            asset_type=asset.get("asset_type"),
+                            identifiers=asset.get("identifiers", []),
+                            business_context=asset.get("business_context", {}),
+                            confidence=KnowledgeConfidence.HIGH,
+                            knowledge_source="knowledge_base_bootstrap",
+                        )
+
+                        results["asset_data_loaded"] = (
+                            results.get("asset_data_loaded", 0) + 1
+                        )
+                        results["total_knowledge_items"] += 1
+
+                        logger.debug(
+                            "Loaded asset: %s -> %s",
+                            asset.get("deal_name"),
+                            asset_id[:8],
+                        )
+
+                    except Exception as e:
+                        error_msg = f"Failed to load asset {asset.get('deal_name', 'unknown')}: {e}"
+                        logger.warning(error_msg)
+                        results["errors"].append(error_msg)
+
+                logger.info(
+                    "Asset data loading complete: %d assets loaded",
+                    results.get("asset_data_loaded", 0),
+                )
+
+            except Exception as e:
+                error_msg = f"Failed to load asset data: {e}"
+                logger.error(error_msg)
+                results["errors"].append(error_msg)
+        else:
+            logger.warning("Asset data file not found: %s", asset_data_path)
+
+        # Future: Load other knowledge base files here
+        # - classification_patterns.json for document classification
+        # - business_rules.json for business logic
+
+        logger.info(
+            "Knowledge base loading complete: %d total items loaded, %d errors",
+            results["total_knowledge_items"],
+            len(results["errors"]),
+        )
+
+        return results
+
+    @log_function()
     async def search(
         self,
         query: str,
@@ -409,7 +1569,14 @@ class SemanticMemory(BaseMemory):
 
             # Minimum confidence filter
             if min_confidence:
-                confidence_values = [conf.value for conf in KnowledgeConfidence]
+                # Define confidence levels in order from lowest to highest
+                confidence_hierarchy = [
+                    KnowledgeConfidence.EXPERIMENTAL,
+                    KnowledgeConfidence.LOW,
+                    KnowledgeConfidence.MEDIUM,
+                    KnowledgeConfidence.HIGH,
+                ]
+                confidence_values = [conf.value for conf in confidence_hierarchy]
                 min_index = confidence_values.index(min_confidence.value)
                 allowed_values = confidence_values[min_index:]
 
@@ -425,7 +1592,10 @@ class SemanticMemory(BaseMemory):
                     filter_conditions["must"].append(filter)
 
             # Perform semantic search
-            results = await super().search(query, limit, filter_conditions)
+            search_results = await super().search(query, limit, filter_conditions)
+
+            # Extract MemoryItems from tuples (BaseMemory.search returns tuples of (MemoryItem, score))
+            results = [item for item, score in search_results]
 
             logger.info(f"Found {len(results)} semantic knowledge items matching query")
             logger.debug(
@@ -515,7 +1685,10 @@ class SemanticMemory(BaseMemory):
 
         try:
             # Get all knowledge for analysis
-            all_knowledge = await super().search(query="*", limit=1000)
+            search_results = await super().search(query="*", limit=1000)
+
+            # Extract MemoryItems from tuples (BaseMemory.search returns tuples of (MemoryItem, score))
+            all_knowledge = [item for item, score in search_results]
 
             if not all_knowledge:
                 return {

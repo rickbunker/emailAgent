@@ -10,6 +10,9 @@ This directory contains the extracted domain knowledge from the legacy hardcoded
 - **`asset_configs.json`** - File validation rules and size limits by asset type
 - **`business_rules.json`** - Confidence adjustments, routing logic, and business rules
 
+### Adaptive Security Knowledge
+- **`file_type_validation.json`** - File type validation rules with learning patterns - replaces hardcoded file extensions with adaptive semantic memory-driven validation
+
 ## 🎯 Purpose
 
 This knowledge base serves multiple critical functions:

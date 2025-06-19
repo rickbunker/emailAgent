@@ -4,6 +4,8 @@
 **ALWAYS follow the complete coding standards in `/docs/CODING_STANDARDS.md`**
 **ALWAYS prefer fixing a root cause, over working around a problem**
 
+When making changes, try to make and test one change at a time, rather than making sweeping changes all together before testing.
+
 ## 🚨 Critical Enforcement Points
 
 ### Type Safety & Documentation

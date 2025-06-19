@@ -20,8 +20,8 @@
     <div class="col-12">
         <div class="alert alert-warning" role="alert">
             <i class="bi bi-book"></i>
-            <strong>Knowledge Base</strong> - Static domain knowledge and business rules extracted from the legacy
-            system.
+            <strong>Knowledge Base</strong> - Static JSON configuration files containing patterns, business rules, and
+            asset data that bootstrap the memory systems.
         </div>
     </div>
 </div>
@@ -185,18 +185,28 @@
             </div>
             <div class="card-body">
                 <p>
-                    The knowledge base contains structured domain knowledge extracted from the legacy hardcoded
-                    asset document agent. These JSON files define:
+                    The knowledge base contains structured JSON configuration files that bootstrap the memory-driven
+                    architecture.
+                    These files define the initial state and patterns for the adaptive learning system:
                 </p>
                 <ul>
-                    <li><strong>Classification Patterns</strong> - Document type identification rules</li>
-                    <li><strong>Asset Keywords</strong> - Keywords for matching asset types</li>
-                    <li><strong>Asset Configurations</strong> - File validation and processing rules</li>
-                    <li><strong>Business Rules</strong> - Confidence adjustments and routing logic</li>
+                    <li><strong>Classification Patterns</strong> - Document type classification rules and confidence
+                        thresholds</li>
+                    <li><strong>Asset Data</strong> - Asset definitions, identifiers, and metadata for semantic memory
+                    </li>
+                    <li><strong>Asset Matching Procedures</strong> - Algorithms for matching files to assets in
+                        procedural memory</li>
+                    <li><strong>File Type Validation</strong> - File type patterns and validation rules for semantic
+                        memory</li>
+                    <li><strong>Asset Keywords</strong> - Legacy keyword mappings (deprecated in favor of adaptive
+                        learning)</li>
+                    <li><strong>Business Rules</strong> - Core business logic and confidence adjustments</li>
                 </ul>
                 <p class="mb-0">
-                    These files are used to seed the procedural memory system with proven patterns and
-                    provide a fallback for disaster recovery scenarios.
+                    These files seed the memory systems at startup and provide version-controlled persistence for
+                    learned patterns.
+                    The system learns from human feedback and continuously adapts while maintaining these base
+                    configurations.
                 </p>
             </div>
         </div>

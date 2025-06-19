@@ -15,6 +15,9 @@
     <a href="{{ url_for('contact_memory') }}" class="btn btn-outline-info">
         <i class="bi bi-people"></i> Contact Memory
     </a>
+    <a href="{{ url_for('semantic_memory') }}" class="btn btn-outline-dark">
+        <i class="bi bi-brain"></i> Semantic Memory
+    </a>
     <a href="{{ url_for('knowledge_base') }}" class="btn btn-outline-warning">
         <i class="bi bi-book"></i> Knowledge Base
     </a>
@@ -134,6 +137,40 @@
         </div>
     </div>
 
+    <!-- Semantic Memory Card -->
+    <div class="col-md-6 col-lg-3 mb-4">
+        <div class="card border-dark">
+            <div class="card-header bg-dark text-white">
+                <h6 class="card-title mb-0">
+                    <i class="bi bi-brain"></i> Semantic Memory
+                </h6>
+            </div>
+            <div class="card-body">
+                {% set semantic_count = memory_types.semantic | length %}
+                {% if semantic_count > 0 %}
+                {% for collection in memory_types.semantic %}
+                {% if collection in stats %}
+                <p class="mb-1">
+                    <strong>{{ stats[collection].points_count }}</strong> facts
+                    <small class="text-muted d-block">{{ collection.replace('semantic_', '').replace('_', ' ').title()
+                        }}</small>
+                </p>
+                {% endif %}
+                {% endfor %}
+                {% else %}
+                <p class="text-muted mb-1">No semantic collections found</p>
+                {% endif %}
+                <hr class="my-2">
+                <small class="text-muted">File types, asset data, and facts</small>
+            </div>
+            <div class="card-footer">
+                <a href="/memory/semantic" class="btn btn-dark btn-sm">
+                    <i class="bi bi-eye"></i> View Details
+                </a>
+            </div>
+        </div>
+    </div>
+
     <!-- Knowledge Base Card -->
     <div class="col-md-6 col-lg-3 mb-4">
         <div class="card border-warning">
@@ -144,11 +181,11 @@
             </div>
             <div class="card-body">
                 <p class="mb-1">
-                    <strong>5</strong> knowledge files
-                    <small class="text-muted d-block">Static configurations</small>
+                    <strong>6</strong> knowledge files
+                    <small class="text-muted d-block">JSON configurations</small>
                 </p>
                 <hr class="my-2">
-                <small class="text-muted">Static knowledge and business rules</small>
+                <small class="text-muted">Static patterns and configurations</small>
             </div>
             <div class="card-footer">
                 <a href="{{ url_for('knowledge_base') }}" class="btn btn-warning btn-sm text-dark">
@@ -260,22 +297,27 @@
             </div>
             <div class="card-body">
                 <div class="row">
-                    <div class="col-md-3 mb-2">
+                    <div class="col-md-2 mb-2">
                         <button class="btn btn-outline-danger btn-sm w-100" onclick="clearMemoryType('episodic')">
                             <i class="bi bi-trash"></i> Clear Episodic
                         </button>
                     </div>
-                    <div class="col-md-3 mb-2">
+                    <div class="col-md-2 mb-2">
                         <button class="btn btn-outline-warning btn-sm w-100" onclick="clearMemoryType('procedural')">
                             <i class="bi bi-gear"></i> Clear Procedural
                         </button>
                     </div>
-                    <div class="col-md-3 mb-2">
+                    <div class="col-md-2 mb-2">
                         <button class="btn btn-outline-info btn-sm w-100" onclick="clearMemoryType('contact')">
                             <i class="bi bi-people"></i> Clear Contacts
                         </button>
                     </div>
-                    <div class="col-md-3 mb-2">
+                    <div class="col-md-2 mb-2">
+                        <button class="btn btn-outline-dark btn-sm w-100" onclick="clearMemoryType('semantic')">
+                            <i class="bi bi-brain"></i> Clear Semantic
+                        </button>
+                    </div>
+                    <div class="col-md-4 mb-2">
                         <a href="{{ url_for('testing_cleanup') }}" class="btn btn-outline-secondary btn-sm w-100">
                             <i class="bi bi-tools"></i> Advanced Cleanup
                         </a>

@@ -162,6 +162,22 @@
                                         memory</small>
                                 </label>
                             </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" value="semantic" id="semanticMemory">
+                                <label class="form-check-label" for="semanticMemory">
+                                    <strong class="text-dark">🧠 Semantic Memory Only</strong>
+                                    <br><small class="text-muted">Clears only semantic facts (file types, business
+                                        rules)</small>
+                                </label>
+                            </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" value="procedural"
+                                    id="proceduralMemory">
+                                <label class="form-check-label" for="proceduralMemory">
+                                    <strong class="text-success">⚙️ Procedural Memory Only</strong>
+                                    <br><small class="text-muted">Clears learned patterns and decision rules</small>
+                                </label>
+                            </div>
                         </div>
                         <div class="col-md-6">
                             <div class="form-check mb-2">
@@ -171,6 +187,49 @@
                                     <strong class="text-primary">🎯 Smart Memory Reset</strong>
                                     <br><small class="text-muted">Clears episodic memories but re-seeds procedural
                                         knowledge from saved patterns</small>
+                                </label>
+                            </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" value="episodic" id="episodicMemory">
+                                <label class="form-check-label" for="episodicMemory">
+                                    <strong class="text-primary">🕐 Episodic Memory Only</strong>
+                                    <br><small class="text-muted">Clears processing history and experiences</small>
+                                </label>
+                            </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" value="contact" id="contactMemory">
+                                <label class="form-check-label" for="contactMemory">
+                                    <strong class="text-info">👥 Contact Memory Only</strong>
+                                    <br><small class="text-muted">Clears known contacts and relationships</small>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Knowledge Base Management -->
+                <div class="mb-4">
+                    <h6 class="text-success">📚 Knowledge Base Management</h6>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" value="reload_knowledge_base"
+                                    id="reloadKnowledgeBase">
+                                <label class="form-check-label" for="reloadKnowledgeBase">
+                                    <strong class="text-success">🔄 Reload Knowledge Base</strong>
+                                    <br><small class="text-muted">Refreshes semantic memory with updated file type
+                                        validations and business rules from knowledge/ directory</small>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" value="reset_file_validation"
+                                    id="resetFileValidation">
+                                <label class="form-check-label" for="resetFileValidation">
+                                    <strong class="text-info">📁 Reset File Type Learning</strong>
+                                    <br><small class="text-muted">Clears learned file type patterns and reloads from
+                                        knowledge base bootstrap</small>
                                 </label>
                             </div>
                         </div>
@@ -208,12 +267,15 @@
                 <!-- Quick Selection Buttons -->
                 <div class="mb-4">
                     <h6>Quick Selection</h6>
-                    <div class="btn-group" role="group">
+                    <div class="btn-group flex-wrap" role="group">
                         <button type="button" class="btn btn-outline-primary btn-sm" onclick="selectProcessingData()">
-                            Processing Data Only
+                            📊 Processing Data Only
+                        </button>
+                        <button type="button" class="btn btn-outline-info btn-sm" onclick="selectMemoryCleanup()">
+                            🧠 All Memory Types
                         </button>
                         <button type="button" class="btn btn-outline-success btn-sm" onclick="selectSafeCleanup()">
-                            Safe Testing Cleanup
+                            ✅ Safe Testing Cleanup
                         </button>
                         <button type="button" class="btn btn-outline-secondary btn-sm" onclick="selectAll()">
                             Select All
@@ -281,7 +343,15 @@
 
         window.selectSafeCleanup = function () {
             selectNone();
-            ['processedDocs', 'emailHistory', 'processingRuns', 'humanReview', 'attachmentFiles'].forEach(id => {
+            ['processedDocs', 'emailHistory', 'processingRuns', 'humanReview', 'attachmentFiles', 'reloadKnowledgeBase'].forEach(id => {
+                const element = document.getElementById(id);
+                if (element) element.checked = true;
+            });
+        };
+
+        window.selectMemoryCleanup = function () {
+            selectNone();
+            ['semanticMemory', 'proceduralMemory', 'episodicMemory', 'contactMemory'].forEach(id => {
                 const element = document.getElementById(id);
                 if (element) element.checked = true;
             });

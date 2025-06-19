@@ -1,0 +1,659 @@
+{% extends "base.html" %}
+
+{% block title %}Classification Inspector - Inveniam Email Agent{% endblock %}
+
+{% block page_title %}Classification Inspector{% endblock %}
+
+{% block page_actions %}
+<div class="d-flex gap-2">
+    <a href="{{ url_for('browse_files') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Back to Files
+    </a>
+    <a href="{{ url_for('reclassify_file', file_path=file_info.path) }}" class="btn btn-warning">
+        <i class="bi bi-arrow-repeat"></i> Re-classify
+    </a>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .classification-card {
+        border-left: 4px solid #007bff;
+    }
+
+    .confidence-bar {
+        height: 8px;
+        border-radius: 4px;
+        background: linear-gradient(90deg, #dc3545 0%, #ffc107 50%, #28a745 100%);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .confidence-indicator {
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 100%;
+        background: rgba(255, 255, 255, 0.8);
+        border-radius: 4px;
+        transition: width 0.3s ease;
+    }
+
+    .metadata-section {
+        background-color: #f8f9fa;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .pattern-item {
+        background: #e9ecef;
+        border-radius: 0.25rem;
+        padding: 0.5rem;
+        margin: 0.25rem 0;
+        font-family: monospace;
+        font-size: 0.9rem;
+    }
+
+    .reasoning-item {
+        border-left: 3px solid #007bff;
+        padding-left: 1rem;
+        margin: 0.5rem 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- File Information Card -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="bi bi-file-earmark-text me-2"></i>
+            File Information
+        </h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <table class="table table-sm table-borderless">
+                    <tr>
+                        <td><strong>Filename:</strong></td>
+                        <td>{{ file_info.name or 'Unknown' }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Path:</strong></td>
+                        <td><code>{{ file_info.path or 'Unknown' }}</code></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Size:</strong></td>
+                        <td>
+                            {% if file_info.size and file_info.size > 0 %}
+                            {% set size_kb = (file_info.size | float) / 1024 %}
+                            {{ "%.1f KB"|format(size_kb) }}
+                            {% else %}
+                            Unknown
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><strong>Modified:</strong></td>
+                        <td>{{ file_info.modified or 'Unknown' }}</td>
+                    </tr>
+                </table>
+            </div>
+            <div class="col-md-6">
+                <table class="table table-sm table-borderless">
+                    <tr>
+                        <td><strong>Current Asset:</strong></td>
+                        <td>
+                            {% if asset_info %}
+                            <span class="badge bg-primary">{{ asset_info.deal_name }}</span>
+                            {% elif file_info.current_asset_id %}
+                            <span class="badge bg-secondary">{{ file_info.current_asset_id[:8] }}...</span>
+                            {% else %}
+                            <span class="text-muted">No asset assigned</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><strong>Current Category:</strong></td>
+                        <td>
+                            {% if file_info.current_category %}
+                            <span class="badge bg-light text-dark">{{ file_info.current_category.replace('_', '
+                                ').title() }}</span>
+                            {% else %}
+                            <span class="text-muted">Uncategorized</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if classification_info %}
+<!-- Classification Results Card -->
+<div class="card classification-card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="bi bi-brain me-2"></i>
+            Classification Results
+        </h5>
+    </div>
+    <div class="card-body">
+        <div class="row mb-3">
+            <div class="col-md-4">
+                <h6>Document Category</h6>
+                <span class="badge bg-primary fs-6">
+                    {% if classification_info.document_category %}
+                    {{ classification_info.document_category.replace('_', ' ').title() }}
+                    {% else %}
+                    Unknown
+                    {% endif %}
+                </span>
+            </div>
+            <div class="col-md-4">
+                <h6>Confidence Level</h6>
+                <span
+                    class="badge {% if classification_info.confidence_level == 'high' %}bg-success{% elif classification_info.confidence_level == 'medium' %}bg-warning{% else %}bg-danger{% endif %} fs-6">
+                    {% if classification_info.confidence_level %}
+                    {{ classification_info.confidence_level.title() }}
+                    {% else %}
+                    Unknown
+                    {% endif %}
+                </span>
+            </div>
+            <div class="col-md-4">
+                <h6>Processing Status</h6>
+                <span class="badge bg-success fs-6">
+                    {% if classification_info.status %}
+                    {{ classification_info.status.title() }}
+                    {% else %}
+                    Unknown
+                    {% endif %}
+                </span>
+            </div>
+        </div>
+
+        {% if classification_info.confidence is not none %}
+        <div class="mb-3">
+            <h6>Overall Confidence:
+                {% set confidence_pct = (classification_info.confidence | float) * 100 %}
+                {{ "%.1f%%"|format(confidence_pct) }}
+            </h6>
+            <div class="confidence-bar">
+                {% set conf_width = (1 - (classification_info.confidence | float)) * 100 %}
+                <div class="confidence-indicator" style="width: {{ conf_width }}%"></div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if classification_info.processing_date %}
+        <p class="text-muted small mb-0">
+            <i class="bi bi-clock me-1"></i>
+            Processed: {{ classification_info.processing_date }}
+        </p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Detailed Classification Reasoning -->
+{% if classification_info.classification_metadata %}
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="bi bi-search me-2"></i>
+            Classification Reasoning
+        </h5>
+    </div>
+    <div class="card-body">
+        <div class="metadata-section">
+            <h6><i class="bi bi-gear-fill me-2"></i>Processing Details</h6>
+
+            {% if classification_info.classification_metadata.get('learning_source') %}
+            <div class="reasoning-item">
+                <strong>Learning Source:</strong>
+                <span class="badge bg-info">{{ classification_info.classification_metadata.learning_source.replace('_',
+                    ' ').title() }}</span>
+                <p class="small text-muted mb-1">
+                    Classification based on procedural memory patterns (including knowledge base patterns loaded at
+                    startup).
+                    The system operates entirely from memory - no real-time knowledge base lookups.
+                </p>
+            </div>
+            {% endif %}
+
+            {% if classification_info.classification_metadata.get('classification_confidence') is not none %}
+            <div class="reasoning-item">
+                <strong>Classification Confidence:</strong>
+                {% set class_conf_pct = (classification_info.classification_metadata.classification_confidence | float)
+                * 100 %}
+                {{ "%.1f%%"|format(class_conf_pct) }}
+                <div class="small text-muted">Confidence in the document category assignment</div>
+            </div>
+            {% endif %}
+
+            {% if classification_info.classification_metadata.get('asset_confidence') is not none %}
+            <div class="reasoning-item">
+                <strong>Asset Matching Confidence:</strong>
+                {% set asset_conf_pct = (classification_info.classification_metadata.asset_confidence | float) * 100 %}
+                {{ "%.1f%%"|format(asset_conf_pct) }}
+                <div class="small text-muted">Confidence in matching to the specific asset</div>
+            </div>
+            {% endif %}
+
+
+
+            {% if classification_info.classification_metadata.get('patterns_used') %}
+            <div class="reasoning-item">
+                <strong>Pattern Type:</strong>
+                <span class="badge bg-secondary">{{
+                    classification_info.classification_metadata.patterns_used.replace('_', ' ').title() }}</span>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Asset Identification Reasoning Section -->
+        {% if classification_info.classification_metadata.get('asset_identification_details') %}
+        <div class="mt-4">
+            <h6><i class="bi bi-building me-2"></i>Asset Identification Reasoning</h6>
+
+            {% set asset_details = classification_info.classification_metadata.asset_identification_details %}
+
+            <div class="alert alert-success">
+                <i class="bi bi-info-circle me-2"></i>
+                <strong>Primary Driver:</strong>
+                <span class="badge bg-success">{{ asset_details.primary_driver.replace('_', ' ').title() }}</span>
+                <br>
+                <strong>Method Used:</strong> {{ asset_details.method_used.replace('_', ' ').title() }}
+                <br>
+                <strong>Assets Evaluated:</strong> {{ asset_details.total_assets_evaluated or 0 }}
+            </div>
+
+            <!-- Exact Matches (The Real Drivers) -->
+            {% if asset_details.exact_matches %}
+            <div class="card border-success mb-3">
+                <div class="card-header bg-success text-white">
+                    <h6 class="mb-0"><i class="bi bi-bullseye me-2"></i>Exact Matches (Primary Drivers)</h6>
+                </div>
+                <div class="card-body">
+                    {% for match in asset_details.exact_matches %}
+                    <div class="d-flex justify-content-between align-items-center mb-2 p-2 bg-light rounded">
+                        <div>
+                            <strong>"{{ match.identifier }}"</strong>
+                            <span class="text-muted">→</span>
+                            <span class="badge bg-success">{{ match.asset_name }}</span>
+                            {% if match.method %}
+                            <small class="text-muted">({{ match.method.replace('_', ' ') }})</small>
+                            {% endif %}
+                        </div>
+                        <span class="badge bg-success fs-6">{{ "%.1f%%"|format((match.confidence | float) * 100)
+                            }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Fuzzy Matches -->
+            {% if asset_details.fuzzy_matches %}
+            <div class="card border-warning mb-3">
+                <div class="card-header bg-warning text-dark">
+                    <h6 class="mb-0"><i class="bi bi-search me-2"></i>Fuzzy Matches</h6>
+                </div>
+                <div class="card-body">
+                    {% for match in asset_details.fuzzy_matches %}
+                    <div class="d-flex justify-content-between align-items-center mb-2 p-2 bg-light rounded">
+                        <div>
+                            <strong>"{{ match.identifier }}"</strong>
+                            <span class="text-muted">≈</span>
+                            <strong>"{{ match.word_matched or 'N/A' }}"</strong>
+                            <span class="text-muted">→</span>
+                            <span class="badge bg-warning text-dark">{{ match.asset_name }}</span>
+                            {% if match.similarity is not none %}
+                            <small class="text-muted">({{ "%.1f%%"|format((match.similarity | float) * 100) }}
+                                similarity)</small>
+                            {% endif %}
+                        </div>
+                        <span class="badge bg-warning text-dark fs-6">{{ "%.1f%%"|format((match.confidence | float) *
+                            100) }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Decision Flow -->
+            {% if asset_details.decision_flow %}
+            <div class="card border-info mb-3">
+                <div class="card-header bg-info text-white">
+                    <h6 class="mb-0"><i class="bi bi-list-ol me-2"></i>Decision Flow</h6>
+                </div>
+                <div class="card-body">
+                    <ol class="mb-0">
+                        {% for step in asset_details.decision_flow %}
+                        <li class="small mb-1">{{ step }}</li>
+                        {% endfor %}
+                    </ol>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Document Classification Patterns Section -->
+        {% if classification_info.classification_metadata.get('detailed_patterns') %}
+        <div class="mt-4">
+            <h6><i class="bi bi-bullseye me-2"></i>Document Classification Patterns</h6>
+
+            {% set detailed = classification_info.classification_metadata.detailed_patterns %}
+
+            <div class="row mb-3">
+                <div class="col-md-3">
+                    <div class="card bg-light">
+                        <div class="card-body text-center">
+                            <h6 class="mb-1">{{ detailed.winning_patterns_count or 0 }}</h6>
+                            <small class="text-muted">Winning Patterns</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-light">
+                        <div class="card-body text-center">
+                            <h6 class="mb-1">{{ detailed.total_patterns_evaluated or 0 }}</h6>
+                            <small class="text-muted">Total Evaluated</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-light">
+                        <div class="card-body text-center">
+                            <h6 class="mb-1">{{ detailed.categories_considered or 0 }}</h6>
+                            <small class="text-muted">Categories</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-light">
+                        <div class="card-body text-center">
+                            <h6 class="mb-1">
+                                {% if detailed.avg_winning_score is not none %}
+                                {% set avg_score_pct = (detailed.avg_winning_score | float) * 100 %}
+                                {{ "%.1f%%"|format(avg_score_pct) }}
+                                {% else %}
+                                0.0%
+                                {% endif %}
+                            </h6>
+                            <small class="text-muted">Avg Score</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Individual Pattern Details -->
+            {% if detailed.patterns_used %}
+            <div class="pattern-details">
+                <h6 class="mb-3">Top Matching Patterns:</h6>
+                {% for pattern in detailed.patterns_used %}
+                <div class="card mb-3 border-start border-primary border-3">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <h6 class="card-title mb-2">
+                                    Pattern {{ pattern.pattern_id[:8] if pattern.pattern_id else 'Unknown' }}
+                                    {% if pattern.match_score is not none %}
+                                    {% set match_score_pct = (pattern.match_score | float) * 100 %}
+                                    <span class="badge bg-primary ms-2">{{ "%.1f%%"|format(match_score_pct) }}</span>
+                                    {% endif %}
+                                </h6>
+
+                                <p class="mb-1">
+                                    <strong>Category:</strong>
+                                    <span class="badge bg-light text-dark">{{ pattern.category.replace('_', ' ').title()
+                                        }}</span>
+                                </p>
+
+                                <p class="mb-1">
+                                    <strong>Source:</strong>
+                                    <span class="badge bg-secondary">{{ pattern.source.replace('_', ' ').title()
+                                        }}</span>
+                                </p>
+
+                                {% if pattern.asset_type %}
+                                <p class="mb-1">
+                                    <strong>Asset Type:</strong>
+                                    <span class="badge bg-info">{{ pattern.asset_type.replace('_', ' ').title()
+                                        }}</span>
+                                </p>
+                                {% endif %}
+
+                                {% if pattern.created_date and pattern.created_date != 'unknown' %}
+                                <p class="mb-0 text-muted small">
+                                    <i class="bi bi-calendar me-1"></i>Created: {{ pattern.created_date[:10] }}
+                                </p>
+                                {% endif %}
+                            </div>
+
+                            <div class="col-md-4">
+                                <!-- Pattern Components -->
+                                {% if pattern.regex_patterns %}
+                                <div class="mb-2">
+                                    <strong class="small">Regex Patterns:</strong>
+                                    {% for regex in pattern.regex_patterns[:3] %}
+                                    <div class="pattern-item small">{{ regex[:50] }}{% if regex|length > 50 %}...{%
+                                        endif %}</div>
+                                    {% endfor %}
+                                    {% if pattern.regex_patterns|length > 3 %}
+                                    <div class="small text-muted">+ {{ pattern.regex_patterns|length - 3 }} more</div>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+
+                                {% if pattern.keywords %}
+                                <div class="mb-2">
+                                    <strong class="small">Keywords:</strong>
+                                    <div class="small">
+                                        {% for keyword in pattern.keywords[:5] %}
+                                        <span class="badge bg-light text-dark me-1">{{ keyword }}</span>
+                                        {% endfor %}
+                                        {% if pattern.keywords|length > 5 %}
+                                        <span class="text-muted">+{{ pattern.keywords|length - 5 }} more</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endif %}
+
+                                {% if pattern.filename_indicators %}
+                                <div class="mb-2">
+                                    <strong class="small">Filename Indicators:</strong>
+                                    <div class="small">
+                                        {% for indicator in pattern.filename_indicators[:3] %}
+                                        <span class="badge bg-warning text-dark me-1">{{ indicator }}</span>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                {% endif %}
+
+                                {% if pattern.subject_indicators %}
+                                <div class="mb-2">
+                                    <strong class="small">Subject Indicators:</strong>
+                                    <div class="small">
+                                        {% for indicator in pattern.subject_indicators[:3] %}
+                                        <span class="badge bg-success text-white me-1">{{ indicator }}</span>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Complete Decision Summary -->
+        <div class="mt-4">
+            <h6><i class="bi bi-puzzle me-2"></i>Complete Decision Summary</h6>
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle me-2"></i>
+                <strong>Two-Stage Decision Process:</strong>
+
+                <br><br><strong>1. Asset Identification:</strong>
+                {% if classification_info.classification_metadata.get('asset_identification_details') %}
+                {% set asset_details = classification_info.classification_metadata.asset_identification_details %}
+                Driven by <strong>{{ asset_details.primary_driver.replace('_', ' ').title() }}</strong>
+                {% if asset_details.exact_matches %}
+                - Found {{ asset_details.exact_matches|length }} exact identifier match(es)
+                {% elif asset_details.fuzzy_matches %}
+                - Found {{ asset_details.fuzzy_matches|length }} fuzzy match(es)
+                {% else %}
+                - No strong matches found
+                {% endif %}
+                {% else %}
+                Not available (older processing)
+                {% endif %}
+
+                <br><br><strong>2. Document Classification:</strong>
+                Used procedural memory patterns (learned patterns + knowledge base patterns loaded at startup)
+
+                <br><br><strong>Key Insight:</strong> The "Asset Identification" section above shows what ACTUALLY drove
+                the asset assignment,
+                while "Document Classification Patterns" shows what drove the category assignment. Both work together
+                for the final decision.
+            </div>
+
+            <!-- Action Buttons for Pattern Management -->
+            <div class="d-flex gap-2 mt-3">
+                <a href="{{ url_for('procedural_memory') }}" class="btn btn-outline-primary btn-sm">
+                    <i class="bi bi-gear"></i> View Procedural Patterns
+                </a>
+                <a href="{{ url_for('semantic_memory') }}" class="btn btn-outline-info btn-sm">
+                    <i class="bi bi-database"></i> View Semantic Memory
+                </a>
+                <a href="{{ url_for('procedural_memory') }}" class="btn btn-outline-success btn-sm">
+                    <i class="bi bi-book"></i> Browse Classification Rules
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% else %}
+<!-- No Classification Data Available -->
+<div class="card border-warning">
+    <div class="card-header bg-warning text-dark">
+        <h5 class="mb-0">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            No Classification Data Available
+        </h5>
+    </div>
+    <div class="card-body">
+        <p class="mb-3">
+            No stored classification metadata was found for this file. This could happen if:
+        </p>
+        <ul class="mb-3">
+            <li>The file was manually uploaded or moved</li>
+            <li>The file was processed before the classification metadata system was implemented</li>
+            <li>The processing metadata was cleared or lost</li>
+            <li>The file hasn't been processed through the email agent yet</li>
+        </ul>
+
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle me-2"></i>
+            To see detailed classification reasoning, process this file through the email agent by:
+            <ol class="mb-0 mt-2">
+                <li>Moving it back to an email attachment</li>
+                <li>Re-processing through the email interface</li>
+                <li>Or using the reclassification feature above</li>
+            </ol>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Asset Information -->
+{% if asset_info %}
+<div class="card mt-4">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="bi bi-building me-2"></i>
+            Associated Asset
+        </h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <table class="table table-sm table-borderless">
+                    <tr>
+                        <td><strong>Deal Name:</strong></td>
+                        <td>{{ asset_info.deal_name or 'Unknown' }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Asset Name:</strong></td>
+                        <td>{{ asset_info.asset_name or 'Unknown' }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Asset Type:</strong></td>
+                        <td>
+                            {% if asset_info.asset_type and asset_info.asset_type.value %}
+                            <span class="badge bg-secondary">{{ asset_info.asset_type.value.replace('_', ' ').title()
+                                }}</span>
+                            {% else %}
+                            <span class="text-muted">Unknown</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                </table>
+            </div>
+            <div class="col-md-6">
+                <table class="table table-sm table-borderless">
+                    <tr>
+                        <td><strong>Asset ID:</strong></td>
+                        <td><code>{{ asset_info.deal_id or 'Unknown' }}</code></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Identifiers:</strong></td>
+                        <td>
+                            {% if asset_info.identifiers %}
+                            {% for identifier in asset_info.identifiers %}
+                            <span class="badge bg-light text-dark me-1">{{ identifier }}</span>
+                            {% endfor %}
+                            {% else %}
+                            <span class="text-muted">None</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <div class="mt-3">
+            <a href="{{ url_for('view_asset', deal_id=asset_info.deal_id) }}" class="btn btn-outline-primary btn-sm">
+                <i class="bi bi-eye"></i> View Asset Details
+            </a>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Animate confidence bars
+        const indicators = document.querySelectorAll('.confidence-indicator');
+        indicators.forEach(indicator => {
+            const width = indicator.style.width;
+            indicator.style.width = '100%';
+            setTimeout(() => {
+                indicator.style.width = width;
+            }, 100);
+        });
+    });
+</script>
+{% endblock %}

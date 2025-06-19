@@ -273,6 +273,11 @@
         startEmailProcessing();
     });
 
+    // Add event listener for stop button
+    document.getElementById('stopBtn').addEventListener('click', function () {
+        stopEmailProcessing();
+    });
+
     async function startEmailProcessing() {
         if (processingActive) return;
 
@@ -307,11 +312,42 @@
 
             if (result.status === 'success') {
                 showProcessingResults(result.results, true);
+            } else if (result.status === 'cancelled') {
+                showProcessingResults({ message: result.message || 'Processing was cancelled' }, false);
             } else {
                 showProcessingResults({ error: result.error || 'Unknown error' }, false);
             }
         } catch (error) {
             showProcessingResults({ error: error.message }, false);
+        } finally {
+            processingActive = false;
+            hideProcessingStatus();
+        }
+    }
+
+    async function stopEmailProcessing() {
+        if (!processingActive) return;
+
+        try {
+            showProcessingStatus('Stopping processing...');
+
+            const response = await fetch('/api/stop-processing', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            const result = await response.json();
+
+            if (result.status === 'success') {
+                showProcessingResults({ message: 'Processing stopped by user' }, false);
+                console.log('Processing stop requested successfully');
+            } else {
+                showProcessingResults({ error: 'Failed to stop processing: ' + (result.error || 'Unknown error') }, false);
+            }
+        } catch (error) {
+            showProcessingResults({ error: 'Failed to stop processing: ' + error.message }, false);
         } finally {
             processingActive = false;
             hideProcessingStatus();
@@ -477,11 +513,21 @@
                 }
         `;
         } else {
-            alertDiv.className = 'alert alert-danger';
-            contentDiv.innerHTML = `
-            <p><strong>Processing failed:</strong></p>
-            <p>${results.error}</p>
-        `;
+            alertDiv.className = results.message ? 'alert alert-warning' : 'alert alert-danger';
+
+            if (results.message) {
+                // Handle cancelled/stopped processing
+                contentDiv.innerHTML = `
+                <p><strong>Processing stopped:</strong></p>
+                <p>${results.message}</p>
+            `;
+            } else {
+                // Handle errors
+                contentDiv.innerHTML = `
+                <p><strong>Processing failed:</strong></p>
+                <p>${results.error}</p>
+            `;
+            }
         }
 
         document.getElementById('processingResults').style.display = 'block';
