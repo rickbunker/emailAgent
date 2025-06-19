@@ -55,6 +55,7 @@ from typing import Any
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 # # Local application imports
+from utils.config import config
 from utils.logging_system import get_logger, log_function
 
 from .base import BaseMemory, MemoryItem
@@ -998,6 +999,838 @@ class ContactMemory(BaseMemory):
         except Exception as e:
             logger.error(f"Error recording email interaction: {e}")
             return False
+
+    @log_function()
+    async def get_sender_context(self, email_address: str) -> dict[str, Any]:
+        """
+        Get comprehensive context information for a specific sender.
+
+        Retrieves complete sender information from contact memory including
+        trust scores, relationship context, and communication patterns for
+        asset management decision making.
+
+        Args:
+            email_address: Email address to get context for
+
+        Returns:
+            Dictionary containing comprehensive sender context
+
+        Raises:
+            ValueError: If email_address is empty or invalid
+
+        Example:
+            >>> context = await contact_memory.get_sender_context("john@blackstone.com")
+            >>> print(context['trust_score'])  # 0.89
+            >>> print(context['organization'])  # 'Blackstone Group'
+        """
+        if not email_address or not isinstance(email_address, str):
+            raise ValueError("Email address must be a non-empty string")
+
+        email_address = email_address.lower().strip()
+        logger.info(f"Getting sender context for: {email_address}")
+
+        try:
+            # Get contact record
+            contact = await self.find_contact_by_email(email_address)
+
+            if not contact:
+                logger.info(
+                    f"No contact found for {email_address}, creating basic context"
+                )
+                return {
+                    "email": email_address,
+                    "contact_found": False,
+                    "trust_score": config.default_sender_trust_score,
+                    "organization": self._extract_domain_organization(email_address),
+                    "contact_type": "unknown",
+                    "confidence": "low",
+                    "relationship": None,
+                    "interaction_frequency": 0,
+                    "last_interaction": None,
+                    "tags": [],
+                    "communication_patterns": {},
+                    "risk_indicators": [],
+                }
+
+            # Calculate trust score based on contact information
+            trust_score = self._calculate_sender_trust_score(contact)
+
+            # Analyze communication patterns
+            communication_patterns = self._analyze_communication_patterns(contact)
+
+            # Identify risk indicators
+            risk_indicators = self._identify_risk_indicators(contact, email_address)
+
+            context = {
+                "email": email_address,
+                "contact_found": True,
+                "contact_id": contact.id,
+                "name": contact.name,
+                "organization": contact.organization,
+                "title": contact.title,
+                "contact_type": contact.contact_type.value,
+                "confidence": contact.confidence.value,
+                "relationship": contact.relationship,
+                "trust_score": trust_score,
+                "interaction_frequency": contact.email_count,
+                "last_interaction": contact.last_email_interaction,
+                "first_seen": contact.first_seen,
+                "tags": contact.tags,
+                "communication_patterns": communication_patterns,
+                "risk_indicators": risk_indicators,
+                "notes": contact.notes,
+            }
+
+            logger.info(
+                f"Sender context for {email_address}: trust_score={trust_score:.2f}, type={contact.contact_type.value}"
+            )
+            return context
+
+        except Exception as e:
+            logger.error(f"Failed to get sender context for {email_address}: {e}")
+            return {
+                "email": email_address,
+                "contact_found": False,
+                "trust_score": 0.0,
+                "error": str(e),
+            }
+
+    @log_function()
+    async def get_organization_patterns(self, organization: str) -> dict[str, Any]:
+        """
+        Get communication and document patterns for an organization.
+
+        Analyzes patterns across all contacts from a specific organization
+        to identify organizational communication preferences and document types.
+
+        Args:
+            organization: Organization name to analyze patterns for
+
+        Returns:
+            Dictionary containing organization patterns and insights
+
+        Raises:
+            ValueError: If organization is empty or invalid
+
+        Example:
+            >>> patterns = await contact_memory.get_organization_patterns("Blackstone Group")
+            >>> print(patterns['total_contacts'])  # 12
+            >>> print(patterns['common_document_types'])  # ['financial_statements', 'reports']
+        """
+        if not organization or not isinstance(organization, str):
+            raise ValueError("Organization must be a non-empty string")
+
+        organization = organization.strip()
+        logger.info(f"Analyzing organization patterns for: {organization}")
+
+        try:
+            # Find all contacts from the organization
+            org_contacts = await self.search_contacts(
+                query=organization,
+                organization=organization,
+                limit=config.max_organization_contacts,
+            )
+
+            if not org_contacts:
+                logger.info(f"No contacts found for organization: {organization}")
+                return {
+                    "organization": organization,
+                    "total_contacts": 0,
+                    "patterns": {},
+                    "insights": [],
+                }
+
+            # Analyze patterns across organization contacts
+            patterns = {
+                "organization": organization,
+                "total_contacts": len(org_contacts),
+                "contact_types": {},
+                "title_patterns": {},
+                "communication_frequency": {},
+                "trust_distribution": {},
+                "common_tags": {},
+                "relationship_types": {},
+                "average_trust_score": 0.0,
+                "most_active_contacts": [],
+                "communication_insights": [],
+            }
+
+            # Analyze contact patterns
+            total_interactions = 0
+            trust_scores = []
+
+            for contact in org_contacts:
+                # Contact type distribution
+                contact_type = contact.contact_type.value
+                patterns["contact_types"][contact_type] = (
+                    patterns["contact_types"].get(contact_type, 0) + 1
+                )
+
+                # Title patterns
+                if contact.title:
+                    patterns["title_patterns"][contact.title] = (
+                        patterns["title_patterns"].get(contact.title, 0) + 1
+                    )
+
+                # Communication frequency
+                total_interactions += contact.email_count
+
+                # Trust score calculation
+                trust_score = self._calculate_sender_trust_score(contact)
+                trust_scores.append(trust_score)
+
+                # Relationship types
+                if contact.relationship:
+                    patterns["relationship_types"][contact.relationship] = (
+                        patterns["relationship_types"].get(contact.relationship, 0) + 1
+                    )
+
+                # Common tags
+                for tag in contact.tags:
+                    patterns["common_tags"][tag] = (
+                        patterns["common_tags"].get(tag, 0) + 1
+                    )
+
+            # Calculate aggregate metrics
+            patterns["total_interactions"] = total_interactions
+            patterns["average_interactions_per_contact"] = (
+                total_interactions / len(org_contacts) if org_contacts else 0
+            )
+            patterns["average_trust_score"] = (
+                sum(trust_scores) / len(trust_scores) if trust_scores else 0.0
+            )
+
+            # Find most active contacts
+            sorted_contacts = sorted(
+                org_contacts, key=lambda c: c.email_count, reverse=True
+            )
+            patterns["most_active_contacts"] = [
+                {
+                    "name": contact.name,
+                    "email": contact.email,
+                    "title": contact.title,
+                    "interaction_count": contact.email_count,
+                }
+                for contact in sorted_contacts[:5]  # Top 5 most active
+            ]
+
+            # Generate insights
+            insights = []
+
+            if patterns["average_trust_score"] > 0.7:
+                insights.append("High trust organization - above average reliability")
+            elif patterns["average_trust_score"] < 0.4:
+                insights.append(
+                    "Low trust organization - requires additional verification"
+                )
+
+            if total_interactions > 50:
+                insights.append("High interaction volume - established relationship")
+
+            most_common_type = (
+                max(patterns["contact_types"], key=patterns["contact_types"].get)
+                if patterns["contact_types"]
+                else None
+            )
+            if most_common_type:
+                insights.append(f"Primary contact type: {most_common_type}")
+
+            patterns["insights"] = insights
+
+            logger.info(
+                f"Organization pattern analysis complete for {organization}: {len(org_contacts)} contacts, avg trust={patterns['average_trust_score']:.2f}"
+            )
+            return patterns
+
+        except Exception as e:
+            logger.error(
+                f"Failed to analyze organization patterns for {organization}: {e}"
+            )
+            return {"organization": organization, "total_contacts": 0, "error": str(e)}
+
+    @log_function()
+    async def evaluate_sender_trust(
+        self, sender_data: dict[str, Any]
+    ) -> dict[str, Any]:
+        """
+        Evaluate sender trustworthiness based on multiple factors.
+
+        Performs comprehensive trust evaluation considering contact history,
+        organization reputation, communication patterns, and verification status.
+
+        Args:
+            sender_data: Dictionary containing sender information
+
+        Returns:
+            Dictionary containing trust evaluation results
+
+        Raises:
+            ValueError: If sender_data is empty or missing required fields
+
+        Example:
+            >>> trust_eval = await contact_memory.evaluate_sender_trust({
+            ...     "email": "john@blackstone.com",
+            ...     "organization": "Blackstone Group",
+            ...     "domain": "blackstone.com"
+            ... })
+            >>> print(trust_eval['overall_score'])  # 0.87
+        """
+        if not sender_data or not isinstance(sender_data, dict):
+            raise ValueError("Sender data must be a non-empty dictionary")
+
+        if "email" not in sender_data:
+            raise ValueError("Sender data must include email address")
+
+        email = sender_data["email"]
+        logger.info(f"Evaluating sender trust for: {email}")
+
+        try:
+            # Get existing contact context
+            contact = await self.find_contact_by_email(email)
+
+            # Initialize trust evaluation
+            trust_evaluation = {
+                "email": email,
+                "overall_score": 0.0,
+                "factors": {
+                    "contact_history": 0.0,
+                    "organization_reputation": 0.0,
+                    "communication_patterns": 0.0,
+                    "verification_status": 0.0,
+                    "domain_reputation": 0.0,
+                },
+                "risk_flags": [],
+                "confidence": "low",
+                "recommendation": "manual_review",
+            }
+
+            # Factor 1: Contact History (30% weight)
+            if contact:
+                history_score = self._evaluate_contact_history(contact)
+                trust_evaluation["factors"]["contact_history"] = history_score
+            else:
+                trust_evaluation["risk_flags"].append("no_previous_contact_history")
+
+            # Factor 2: Organization Reputation (25% weight)
+            organization = sender_data.get("organization") or (
+                contact.organization if contact else None
+            )
+            if organization:
+                org_score = await self._evaluate_organization_reputation(organization)
+                trust_evaluation["factors"]["organization_reputation"] = org_score
+            else:
+                trust_evaluation["risk_flags"].append("unknown_organization")
+
+            # Factor 3: Communication Patterns (20% weight)
+            if contact:
+                comm_score = self._evaluate_communication_patterns(contact)
+                trust_evaluation["factors"]["communication_patterns"] = comm_score
+            else:
+                trust_evaluation["risk_flags"].append("no_communication_patterns")
+
+            # Factor 4: Verification Status (15% weight)
+            if contact:
+                verification_score = self._evaluate_verification_status(contact)
+                trust_evaluation["factors"]["verification_status"] = verification_score
+            else:
+                trust_evaluation["risk_flags"].append("unverified_contact")
+
+            # Factor 5: Domain Reputation (10% weight)
+            domain = (
+                sender_data.get("domain") or email.split("@")[1]
+                if "@" in email
+                else None
+            )
+            if domain:
+                domain_score = self._evaluate_domain_reputation(domain)
+                trust_evaluation["factors"]["domain_reputation"] = domain_score
+            else:
+                trust_evaluation["risk_flags"].append("invalid_email_domain")
+
+            # Calculate overall trust score (weighted)
+            weights = {
+                "contact_history": 0.30,
+                "organization_reputation": 0.25,
+                "communication_patterns": 0.20,
+                "verification_status": 0.15,
+                "domain_reputation": 0.10,
+            }
+
+            overall_score = sum(
+                trust_evaluation["factors"][factor] * weight
+                for factor, weight in weights.items()
+            )
+            trust_evaluation["overall_score"] = overall_score
+
+            # Determine confidence and recommendation
+            if overall_score >= 0.8:
+                trust_evaluation["confidence"] = "high"
+                trust_evaluation["recommendation"] = "auto_approve"
+            elif overall_score >= 0.6:
+                trust_evaluation["confidence"] = "medium"
+                trust_evaluation["recommendation"] = "conditional_approve"
+            elif overall_score >= 0.4:
+                trust_evaluation["confidence"] = "low"
+                trust_evaluation["recommendation"] = "manual_review"
+            else:
+                trust_evaluation["confidence"] = "very_low"
+                trust_evaluation["recommendation"] = "reject_or_quarantine"
+
+            logger.info(
+                f"Trust evaluation for {email}: score={overall_score:.2f}, recommendation={trust_evaluation['recommendation']}"
+            )
+            return trust_evaluation
+
+        except Exception as e:
+            logger.error(f"Failed to evaluate sender trust for {email}: {e}")
+            return {
+                "email": email,
+                "overall_score": 0.0,
+                "error": str(e),
+                "recommendation": "manual_review",
+            }
+
+    @log_function()
+    async def get_sender_document_patterns(
+        self, email_address: str
+    ) -> list[dict[str, Any]]:
+        """
+        Get document classification patterns for a specific sender.
+
+        Analyzes historical document types and classification patterns
+        from a specific sender to support current classification decisions.
+
+        Args:
+            email_address: Email address to analyze document patterns for
+
+        Returns:
+            List of document pattern insights and preferences
+
+        Raises:
+            ValueError: If email_address is empty or invalid
+
+        Example:
+            >>> patterns = await contact_memory.get_sender_document_patterns("john@blackstone.com")
+            >>> for pattern in patterns:
+            ...     print(f"{pattern['document_type']}: {pattern['frequency']}")
+        """
+        if not email_address or not isinstance(email_address, str):
+            raise ValueError("Email address must be a non-empty string")
+
+        email_address = email_address.lower().strip()
+        logger.info(f"Analyzing document patterns for sender: {email_address}")
+
+        try:
+            # Get contact information
+            contact = await self.find_contact_by_email(email_address)
+
+            if not contact:
+                logger.info(
+                    f"No contact found for {email_address}, no document patterns available"
+                )
+                return []
+
+            # Extract document patterns from contact history
+            document_patterns = []
+
+            # Analyze extraction history for document types
+            document_types = {}
+            for history_entry in contact.extraction_history:
+                if "document_type" in history_entry:
+                    doc_type = history_entry["document_type"]
+                    document_types[doc_type] = document_types.get(doc_type, 0) + 1
+
+            # Create pattern entries
+            total_documents = sum(document_types.values()) if document_types else 0
+
+            for doc_type, count in document_types.items():
+                pattern = {
+                    "sender_email": email_address,
+                    "document_type": doc_type,
+                    "frequency": count,
+                    "percentage": (
+                        (count / total_documents * 100) if total_documents > 0 else 0
+                    ),
+                    "confidence": (
+                        "high" if count >= 5 else "medium" if count >= 2 else "low"
+                    ),
+                    "last_seen": None,  # Would be populated from actual document history
+                }
+                document_patterns.append(pattern)
+
+            # Sort by frequency
+            document_patterns.sort(key=lambda x: x["frequency"], reverse=True)
+
+            # Add organizational patterns if available
+            if contact.organization:
+                org_patterns = await self._get_organization_document_patterns(
+                    contact.organization
+                )
+                for org_pattern in org_patterns:
+                    org_pattern["source"] = "organization_pattern"
+                    document_patterns.append(org_pattern)
+
+            logger.info(
+                f"Found {len(document_patterns)} document patterns for {email_address}"
+            )
+            return document_patterns
+
+        except Exception as e:
+            logger.error(
+                f"Failed to get sender document patterns for {email_address}: {e}"
+            )
+            return []
+
+    @log_function()
+    async def get_organization_asset_relationships(
+        self, organization: str
+    ) -> list[dict[str, Any]]:
+        """
+        Get asset relationships and context for an organization.
+
+        Analyzes relationships between an organization and specific assets
+        based on contact interactions and business context.
+
+        Args:
+            organization: Organization name to analyze asset relationships for
+
+        Returns:
+            List of asset relationship insights and connections
+
+        Raises:
+            ValueError: If organization is empty or invalid
+
+        Example:
+            >>> relationships = await contact_memory.get_organization_asset_relationships("Blackstone Group")
+            >>> for rel in relationships:
+            ...     print(f"Asset: {rel['asset_id']}, Relationship: {rel['relationship_type']}")
+        """
+        if not organization or not isinstance(organization, str):
+            raise ValueError("Organization must be a non-empty string")
+
+        organization = organization.strip()
+        logger.info(f"Analyzing asset relationships for organization: {organization}")
+
+        try:
+            # Get all contacts from the organization
+            org_contacts = await self.search_contacts(
+                query=organization,
+                organization=organization,
+                limit=config.max_organization_contacts,
+            )
+
+            if not org_contacts:
+                logger.info(f"No contacts found for organization: {organization}")
+                return []
+
+            asset_relationships = []
+            asset_interactions = {}
+
+            # Analyze contact interactions for asset references
+            for contact in org_contacts:
+                # Extract asset references from contact tags
+                for tag in contact.tags:
+                    if self._is_asset_related_tag(tag):
+                        asset_id = self._extract_asset_id_from_tag(tag)
+                        if asset_id:
+                            if asset_id not in asset_interactions:
+                                asset_interactions[asset_id] = {
+                                    "asset_id": asset_id,
+                                    "contacts": [],
+                                    "total_interactions": 0,
+                                    "relationship_types": set(),
+                                    "first_interaction": None,
+                                    "last_interaction": None,
+                                }
+
+                            asset_interactions[asset_id]["contacts"].append(
+                                {
+                                    "name": contact.name,
+                                    "email": contact.email,
+                                    "title": contact.title,
+                                    "interaction_count": contact.email_count,
+                                }
+                            )
+                            asset_interactions[asset_id][
+                                "total_interactions"
+                            ] += contact.email_count
+
+                            if contact.relationship:
+                                asset_interactions[asset_id]["relationship_types"].add(
+                                    contact.relationship
+                                )
+
+            # Convert to relationship list
+            for asset_id, interaction_data in asset_interactions.items():
+                relationship = {
+                    "organization": organization,
+                    "asset_id": asset_id,
+                    "relationship_type": self._determine_primary_relationship(
+                        interaction_data["relationship_types"]
+                    ),
+                    "contact_count": len(interaction_data["contacts"]),
+                    "total_interactions": interaction_data["total_interactions"],
+                    "key_contacts": interaction_data["contacts"][:3],  # Top 3 contacts
+                    "relationship_strength": self._calculate_relationship_strength(
+                        interaction_data
+                    ),
+                    "confidence": (
+                        "high"
+                        if interaction_data["total_interactions"] >= 10
+                        else (
+                            "medium"
+                            if interaction_data["total_interactions"] >= 3
+                            else "low"
+                        )
+                    ),
+                }
+                asset_relationships.append(relationship)
+
+            # Sort by relationship strength
+            asset_relationships.sort(
+                key=lambda x: x["relationship_strength"], reverse=True
+            )
+
+            logger.info(
+                f"Found {len(asset_relationships)} asset relationships for {organization}"
+            )
+            return asset_relationships
+
+        except Exception as e:
+            logger.error(
+                f"Failed to get organization asset relationships for {organization}: {e}"
+            )
+            return []
+
+    # Helper methods for trust evaluation and pattern analysis
+
+    def _extract_domain_organization(self, email: str) -> str:
+        """Extract organization name from email domain."""
+        if "@" not in email:
+            return "unknown"
+
+        domain = email.split("@")[1].lower()
+        # Simple domain to organization mapping
+        domain_mapping = {
+            "blackstone.com": "Blackstone Group",
+            "kkr.com": "KKR & Co",
+            "apolloglobal.com": "Apollo Global Management",
+            "carlyle.com": "The Carlyle Group",
+            "tpg.com": "TPG Inc",
+        }
+
+        return domain_mapping.get(
+            domain, domain.replace(".com", "").replace(".", " ").title()
+        )
+
+    def _calculate_sender_trust_score(self, contact: ContactRecord) -> float:
+        """Calculate trust score based on contact information."""
+        score = 0.0
+
+        # Base score from confidence
+        confidence_scores = {
+            ContactConfidence.HIGH: 0.4,
+            ContactConfidence.MEDIUM: 0.25,
+            ContactConfidence.LOW: 0.1,
+        }
+        score += confidence_scores.get(contact.confidence, 0.0)
+
+        # Interaction frequency bonus
+        if contact.email_count >= 10:
+            score += 0.3
+        elif contact.email_count >= 5:
+            score += 0.2
+        elif contact.email_count >= 2:
+            score += 0.1
+
+        # Professional contact bonus
+        if contact.contact_type == ContactType.PROFESSIONAL:
+            score += 0.2
+
+        # Known organization bonus
+        if contact.organization and len(contact.organization) > 3:
+            score += 0.1
+
+        return min(score, 1.0)  # Cap at 1.0
+
+    def _analyze_communication_patterns(self, contact: ContactRecord) -> dict[str, Any]:
+        """Analyze communication patterns for a contact."""
+        return {
+            "interaction_frequency": contact.email_count,
+            "consistency": "regular" if contact.email_count >= 5 else "occasional",
+            "recency": "recent" if contact.last_email_interaction else "old",
+            "pattern_confidence": "high" if contact.email_count >= 10 else "low",
+        }
+
+    def _identify_risk_indicators(
+        self, contact: ContactRecord, email: str
+    ) -> list[str]:
+        """Identify potential risk indicators for a contact."""
+        risks = []
+
+        if contact.confidence == ContactConfidence.LOW:
+            risks.append("low_confidence_contact")
+
+        if contact.email_count == 0:
+            risks.append("no_interaction_history")
+
+        if not contact.organization:
+            risks.append("unknown_organization")
+
+        # Check for suspicious domains
+        domain = email.split("@")[1] if "@" in email else ""
+        suspicious_domains = ["tempmail", "guerrilla", "10minutemail"]
+        if any(suspicious in domain for suspicious in suspicious_domains):
+            risks.append("suspicious_email_domain")
+
+        return risks
+
+    def _evaluate_contact_history(self, contact: ContactRecord) -> float:
+        """Evaluate contact history factor for trust scoring."""
+        if contact.email_count >= 20:
+            return 1.0
+        elif contact.email_count >= 10:
+            return 0.8
+        elif contact.email_count >= 5:
+            return 0.6
+        elif contact.email_count >= 2:
+            return 0.4
+        elif contact.email_count >= 1:
+            return 0.2
+        else:
+            return 0.0
+
+    async def _evaluate_organization_reputation(self, organization: str) -> float:
+        """Evaluate organization reputation factor."""
+        # Known reputable organizations
+        reputable_orgs = [
+            "blackstone",
+            "kkr",
+            "apollo",
+            "carlyle",
+            "tpg",
+            "bain capital",
+            "warburg pincus",
+            "general atlantic",
+            "silver lake",
+        ]
+
+        org_lower = organization.lower()
+        if any(known in org_lower for known in reputable_orgs):
+            return 1.0
+
+        # Check if we have multiple contacts from this organization
+        org_contacts = await self.search_contacts(
+            query=organization, organization=organization, limit=10
+        )
+        if len(org_contacts) >= 5:
+            return 0.8
+        elif len(org_contacts) >= 2:
+            return 0.6
+        else:
+            return 0.3
+
+    def _evaluate_communication_patterns(self, contact: ContactRecord) -> float:
+        """Evaluate communication patterns factor."""
+        if contact.email_count >= 10:
+            return 1.0
+        elif contact.email_count >= 5:
+            return 0.7
+        elif contact.email_count >= 2:
+            return 0.5
+        else:
+            return 0.2
+
+    def _evaluate_verification_status(self, contact: ContactRecord) -> float:
+        """Evaluate verification status factor."""
+        confidence_scores = {
+            ContactConfidence.HIGH: 1.0,
+            ContactConfidence.MEDIUM: 0.7,
+            ContactConfidence.LOW: 0.3,
+        }
+        return confidence_scores.get(contact.confidence, 0.0)
+
+    def _evaluate_domain_reputation(self, domain: str) -> float:
+        """Evaluate domain reputation factor."""
+        # Known business domains
+        business_domains = [".com", ".org", ".net", ".edu", ".gov"]
+
+        # Suspicious domain patterns
+        suspicious_patterns = ["tempmail", "guerrilla", "10minute", "throwaway"]
+
+        if any(suspicious in domain.lower() for suspicious in suspicious_patterns):
+            return 0.0
+
+        if any(domain.endswith(biz_domain) for biz_domain in business_domains):
+            return 0.8
+
+        return 0.5  # Neutral for unknown domains
+
+    async def _get_organization_document_patterns(
+        self, organization: str
+    ) -> list[dict[str, Any]]:
+        """Get document patterns for an organization."""
+        # This would typically query episodic memory for document patterns
+        # For now, return basic organizational patterns
+        return [
+            {
+                "document_type": "financial_statements",
+                "frequency": 5,
+                "percentage": 40.0,
+                "confidence": "medium",
+                "source": "organization_pattern",
+            }
+        ]
+
+    def _is_asset_related_tag(self, tag: str) -> bool:
+        """Check if a tag is asset-related."""
+        asset_keywords = ["asset", "deal", "investment", "property", "fund"]
+        return any(keyword in tag.lower() for keyword in asset_keywords)
+
+    def _extract_asset_id_from_tag(self, tag: str) -> str | None:
+        """Extract asset ID from a tag if present."""
+        # Simple pattern matching for asset IDs in tags
+        import re
+
+        asset_pattern = r"(asset_|deal_|prop_)([A-Z0-9_]+)"
+        match = re.search(asset_pattern, tag, re.IGNORECASE)
+        return match.group(0) if match else None
+
+    def _determine_primary_relationship(self, relationship_types: set[str]) -> str:
+        """Determine primary relationship type from a set."""
+        if not relationship_types:
+            return "unknown"
+
+        # Priority order for relationship types
+        priority = [
+            "counterparty",
+            "investor",
+            "strategic_partner",
+            "vendor",
+            "colleague",
+        ]
+
+        for rel_type in priority:
+            if rel_type in relationship_types:
+                return rel_type
+
+        return list(relationship_types)[0]  # Return first if no priority match
+
+    def _calculate_relationship_strength(
+        self, interaction_data: dict[str, Any]
+    ) -> float:
+        """Calculate relationship strength score."""
+        contacts = len(interaction_data["contacts"])
+        interactions = interaction_data["total_interactions"]
+        relationship_types = len(interaction_data["relationship_types"])
+
+        # Weighted scoring
+        score = (
+            (contacts * 0.3)
+            + (min(interactions / 50, 1.0) * 0.5)
+            + (relationship_types * 0.2)
+        )
+        return min(score, 1.0)
 
 
 # Demonstration and testing functions

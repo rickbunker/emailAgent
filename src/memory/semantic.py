@@ -51,6 +51,7 @@ from typing import Any
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 # # Local application imports
+from utils.config import config
 from utils.logging_system import get_logger, log_function
 
 from .base import BaseMemory, MemoryItem
@@ -1743,6 +1744,476 @@ class SemanticMemory(BaseMemory):
         except Exception as e:
             logger.error(f"Failed to get asset feedback: {e}")
             return []
+
+    @log_function()
+    async def get_asset_type_categories(self, asset_type: str) -> list[str]:
+        """
+        Get allowed document categories for a specific asset type.
+
+        Retrieves the allowed document categories based on asset type context
+        from semantic memory knowledge, supporting intelligent category filtering
+        for document classification workflows.
+
+        Args:
+            asset_type: The asset type to get categories for (e.g., "CRE", "PE", "PC")
+
+        Returns:
+            List of allowed document categories for the asset type
+
+        Raises:
+            ValueError: If asset_type is empty or invalid
+
+        Example:
+            >>> categories = await semantic_memory.get_asset_type_categories("CRE")
+            >>> print(categories)  # ['lease_agreement', 'operating_statements', ...]
+        """
+        if not asset_type or not asset_type.strip():
+            raise ValueError("Asset type cannot be empty")
+
+        asset_type = asset_type.strip().upper()
+        logger.info(f"Getting allowed categories for asset type: {asset_type}")
+
+        try:
+            # Search for asset type configuration knowledge
+            query = f"asset type categories configuration {asset_type} document types allowed"
+
+            search_results = await self.search(
+                query=query,
+                limit=config.semantic_search_limit,
+                filter={
+                    "key": "metadata.knowledge_type",
+                    "match": {"value": "asset_configuration"},
+                },
+                knowledge_type=KnowledgeType.RULE,
+            )
+
+            categories = set()
+
+            # Extract categories from search results
+            for result in search_results:
+                try:
+                    metadata = result.metadata
+                    result_asset_type = metadata.get("asset_type", "").upper()
+
+                    # Match exact asset type or general categories
+                    if result_asset_type == asset_type or result_asset_type == "ALL":
+                        # Extract categories from metadata
+                        if "document_categories" in metadata:
+                            result_categories = metadata["document_categories"]
+                            if isinstance(result_categories, list):
+                                categories.update(result_categories)
+
+                        # Extract categories from content
+                        content = result.content.lower()
+                        if "categories:" in content:
+                            # Parse categories from content format like "categories: lease_agreement, operating_statements"
+                            categories_section = content.split("categories:")[1].split(
+                                "\n"
+                            )[0]
+                            parsed_categories = [
+                                cat.strip() for cat in categories_section.split(",")
+                            ]
+                            categories.update(parsed_categories)
+
+                except Exception as e:
+                    logger.debug(f"Error processing category result: {e}")
+                    continue
+
+            # Asset type specific fallbacks based on domain knowledge
+            if not categories:
+                logger.info(
+                    f"No specific categories found, using asset type fallbacks for {asset_type}"
+                )
+                fallback_categories = self._get_asset_type_fallback_categories(
+                    asset_type
+                )
+                categories.update(fallback_categories)
+
+            categories_list = sorted(list(categories))
+            logger.info(
+                f"Found {len(categories_list)} categories for asset type {asset_type}"
+            )
+
+            return categories_list
+
+        except Exception as e:
+            logger.error(f"Failed to get asset type categories for {asset_type}: {e}")
+            # Return basic fallback categories to prevent total failure
+            return self._get_asset_type_fallback_categories(asset_type)
+
+    def _get_asset_type_fallback_categories(self, asset_type: str) -> list[str]:
+        """
+        Get fallback categories for asset types when no specific knowledge is found.
+
+        Args:
+            asset_type: The asset type to get fallback categories for
+
+        Returns:
+            List of fallback document categories
+        """
+        fallbacks = {
+            "CRE": [
+                "lease_agreement",
+                "operating_statements",
+                "rent_roll",
+                "financial_statements",
+                "property_management",
+                "tenant_correspondence",
+                "capital_expenditures",
+                "property_reports",
+                "market_analysis",
+            ],
+            "PE": [
+                "financial_statements",
+                "board_materials",
+                "investment_memo",
+                "management_presentation",
+                "due_diligence",
+                "legal_documents",
+                "operational_reports",
+                "market_analysis",
+            ],
+            "PC": [
+                "credit_agreement",
+                "financial_statements",
+                "compliance_reports",
+                "borrower_correspondence",
+                "collateral_documents",
+                "covenant_reports",
+                "payment_notices",
+                "legal_documents",
+            ],
+            "INF": [
+                "financial_statements",
+                "operational_reports",
+                "regulatory_filings",
+                "compliance_documents",
+                "environmental_reports",
+                "safety_reports",
+                "maintenance_reports",
+                "government_correspondence",
+            ],
+        }
+
+        return fallbacks.get(
+            asset_type,
+            [
+                "financial_statements",
+                "correspondence",
+                "reports",
+                "legal_documents",
+                "operational_documents",
+            ],
+        )
+
+    @log_function()
+    async def get_asset_context(self, asset_id: str) -> dict[str, Any]:
+        """
+        Get comprehensive context information for a specific asset.
+
+        Retrieves all available context and knowledge about a specific asset
+        from semantic memory to support informed decision making and processing.
+
+        Args:
+            asset_id: The asset identifier to get context for
+
+        Returns:
+            Dictionary containing comprehensive asset context information
+
+        Raises:
+            ValueError: If asset_id is empty or invalid
+
+        Example:
+            >>> context = await semantic_memory.get_asset_context("CRE_123")
+            >>> print(context['asset_type'])  # 'CRE'
+            >>> print(context['deal_name'])   # 'Office Complex Investment'
+        """
+        if not asset_id or not asset_id.strip():
+            raise ValueError("Asset ID cannot be empty")
+
+        asset_id = asset_id.strip()
+        logger.info(f"Getting asset context for: {asset_id}")
+
+        try:
+            # Search for asset knowledge
+            asset_results = await self.search(
+                query=f"asset {asset_id}",
+                limit=config.semantic_search_limit,
+                filter={"key": "metadata.asset_id", "match": {"value": asset_id}},
+                knowledge_type=KnowledgeType.UNKNOWN,  # Don't restrict by type
+            )
+
+            # Initialize context with defaults
+            context = {
+                "asset_id": asset_id,
+                "asset_type": None,
+                "deal_name": None,
+                "asset_name": None,
+                "identifiers": [],
+                "business_context": {},
+                "document_categories": [],
+                "recent_activity": [],
+                "confidence": "low",
+                "knowledge_sources": [],
+                "last_updated": None,
+            }
+
+            # Process asset knowledge results
+            for result in asset_results:
+                try:
+                    metadata = result.metadata
+
+                    # Extract core asset information
+                    if metadata.get("asset_id") == asset_id:
+                        context["asset_type"] = (
+                            metadata.get("asset_type") or context["asset_type"]
+                        )
+                        context["deal_name"] = (
+                            metadata.get("deal_name") or context["deal_name"]
+                        )
+                        context["asset_name"] = (
+                            metadata.get("asset_name") or context["asset_name"]
+                        )
+
+                        # Merge identifiers
+                        if "identifiers" in metadata and isinstance(
+                            metadata["identifiers"], list
+                        ):
+                            context["identifiers"].extend(metadata["identifiers"])
+
+                        # Merge business context
+                        if "business_context" in metadata and isinstance(
+                            metadata["business_context"], dict
+                        ):
+                            context["business_context"].update(
+                                metadata["business_context"]
+                            )
+
+                        # Track knowledge sources
+                        source = metadata.get("knowledge_source", "unknown")
+                        if source not in context["knowledge_sources"]:
+                            context["knowledge_sources"].append(source)
+
+                        # Update confidence based on knowledge quality
+                        result_confidence = metadata.get("confidence", "medium")
+                        if result_confidence == "high":
+                            context["confidence"] = "high"
+                        elif (
+                            result_confidence == "medium"
+                            and context["confidence"] != "high"
+                        ):
+                            context["confidence"] = "medium"
+
+                except Exception as e:
+                    logger.debug(f"Error processing asset context result: {e}")
+                    continue
+
+            # Remove duplicates from identifiers
+            context["identifiers"] = list(set(context["identifiers"]))
+
+            # Get allowed document categories if we have asset type
+            if context["asset_type"]:
+                try:
+                    context["document_categories"] = (
+                        await self.get_asset_type_categories(context["asset_type"])
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"Could not get categories for asset type {context['asset_type']}: {e}"
+                    )
+
+            # Get recent classification feedback for this asset
+            try:
+                recent_feedback = await self.get_asset_feedback(asset_id, {"limit": 5})
+                context["recent_activity"] = recent_feedback[
+                    :5
+                ]  # Limit to 5 most recent
+            except Exception as e:
+                logger.debug(f"Could not get recent feedback for asset {asset_id}: {e}")
+
+            logger.info(
+                f"Asset context retrieved for {asset_id}: type={context['asset_type']}, confidence={context['confidence']}"
+            )
+
+            return context
+
+        except Exception as e:
+            logger.error(f"Failed to get asset context for {asset_id}: {e}")
+            # Return minimal context to prevent total failure
+            return {
+                "asset_id": asset_id,
+                "asset_type": None,
+                "deal_name": None,
+                "asset_name": None,
+                "identifiers": [],
+                "business_context": {},
+                "document_categories": [],
+                "recent_activity": [],
+                "confidence": "unknown",
+                "knowledge_sources": [],
+                "error": str(e),
+            }
+
+    @log_function()
+    async def update_asset_knowledge(
+        self, asset_id: str, new_data: dict[str, Any]
+    ) -> dict[str, Any]:
+        """
+        Update existing asset knowledge with new information.
+
+        Updates or adds knowledge about an existing asset, merging new data
+        with existing knowledge and maintaining knowledge quality and consistency.
+
+        Args:
+            asset_id: The asset identifier to update
+            new_data: Dictionary containing new or updated asset information
+
+        Returns:
+            Dictionary containing update results and status information
+
+        Raises:
+            ValueError: If asset_id is empty or new_data is invalid
+
+        Example:
+            >>> result = await semantic_memory.update_asset_knowledge(
+            ...     "CRE_123",
+            ...     {
+            ...         "business_context": {"sector": "office", "region": "northeast"},
+            ...         "identifiers": ["Building A", "123 Main St"],
+            ...         "confidence": "high"
+            ...     }
+            ... )
+            >>> print(result['status'])  # 'updated'
+        """
+        if not asset_id or not asset_id.strip():
+            raise ValueError("Asset ID cannot be empty")
+
+        if not new_data or not isinstance(new_data, dict):
+            raise ValueError("New data must be a non-empty dictionary")
+
+        asset_id = asset_id.strip()
+        logger.info(f"Updating asset knowledge for: {asset_id}")
+
+        try:
+            # Get existing asset context
+            existing_context = await self.get_asset_context(asset_id)
+
+            update_result = {
+                "asset_id": asset_id,
+                "status": "no_changes",
+                "changes_made": [],
+                "warnings": [],
+                "errors": [],
+            }
+
+            # Determine if this is an update or new asset creation
+            is_new_asset = existing_context.get("asset_type") is None
+
+            # Prepare data for knowledge update
+            updated_data = {
+                "asset_id": asset_id,
+                "deal_name": new_data.get("deal_name")
+                or existing_context.get("deal_name"),
+                "asset_name": new_data.get("asset_name")
+                or existing_context.get("asset_name"),
+                "asset_type": new_data.get("asset_type")
+                or existing_context.get("asset_type"),
+                "identifiers": [],
+                "business_context": {},
+                "confidence": KnowledgeConfidence.MEDIUM,
+                "knowledge_source": new_data.get("source", "knowledge_update"),
+            }
+
+            # Merge identifiers
+            existing_identifiers = set(existing_context.get("identifiers", []))
+            new_identifiers = set(new_data.get("identifiers", []))
+            updated_data["identifiers"] = list(
+                existing_identifiers.union(new_identifiers)
+            )
+
+            if new_identifiers - existing_identifiers:
+                update_result["changes_made"].append(
+                    f"Added identifiers: {list(new_identifiers - existing_identifiers)}"
+                )
+
+            # Merge business context
+            existing_business_context = existing_context.get("business_context", {})
+            new_business_context = new_data.get("business_context", {})
+            updated_data["business_context"] = {
+                **existing_business_context,
+                **new_business_context,
+            }
+
+            if new_business_context:
+                update_result["changes_made"].append(
+                    f"Updated business context: {list(new_business_context.keys())}"
+                )
+
+            # Handle confidence updates
+            confidence_mapping = {
+                "high": KnowledgeConfidence.HIGH,
+                "medium": KnowledgeConfidence.MEDIUM,
+                "low": KnowledgeConfidence.LOW,
+                "experimental": KnowledgeConfidence.EXPERIMENTAL,
+            }
+
+            if "confidence" in new_data:
+                confidence_str = str(new_data["confidence"]).lower()
+                updated_data["confidence"] = confidence_mapping.get(
+                    confidence_str, KnowledgeConfidence.MEDIUM
+                )
+                update_result["changes_made"].append(
+                    f"Updated confidence to: {confidence_str}"
+                )
+
+            # Perform the knowledge update
+            if is_new_asset:
+                # Create new asset knowledge
+                knowledge_id = await self.add_asset_knowledge(**updated_data)
+                update_result["status"] = "created"
+                update_result["knowledge_id"] = knowledge_id
+                logger.info(
+                    f"Created new asset knowledge for {asset_id}: {knowledge_id[:8]}"
+                )
+            else:
+                # Update existing asset knowledge by creating new knowledge entry
+                # (Semantic memory maintains history through versioning)
+                knowledge_id = await self.add_asset_knowledge(**updated_data)
+                update_result["status"] = "updated"
+                update_result["knowledge_id"] = knowledge_id
+                logger.info(
+                    f"Updated asset knowledge for {asset_id}: {knowledge_id[:8]}"
+                )
+
+            # Validate the update
+            updated_context = await self.get_asset_context(asset_id)
+            if updated_context.get("asset_type") == updated_data["asset_type"]:
+                update_result["validation"] = "success"
+            else:
+                update_result["warnings"].append(
+                    "Update validation failed - context may not reflect changes immediately"
+                )
+
+            if not update_result["changes_made"]:
+                update_result["status"] = "no_changes"
+                logger.info(f"No changes needed for asset {asset_id}")
+            else:
+                logger.info(
+                    f"Asset knowledge update complete for {asset_id}: {len(update_result['changes_made'])} changes"
+                )
+
+            return update_result
+
+        except Exception as e:
+            error_msg = f"Failed to update asset knowledge for {asset_id}: {e}"
+            logger.error(error_msg)
+            return {
+                "asset_id": asset_id,
+                "status": "error",
+                "changes_made": [],
+                "warnings": [],
+                "errors": [error_msg],
+            }
 
     @log_function()
     async def load_knowledge_base(

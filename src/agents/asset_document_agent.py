@@ -949,39 +949,55 @@ class AssetDocumentAgent:
             email_body = email_data.get("body", "")
 
             try:
-                # Step 1: Memory-driven document classification with detailed patterns
-                (
-                    category_str,
-                    classification_confidence,
-                    detailed_patterns,
-                ) = await self.procedural_memory.classify_document_with_details(
-                    filename, email_subject, email_body
-                )
-
-                # Memory-only approach: No knowledge base fallback
-                learning_source = "procedural_memory"
-
-                # Log confidence for transparency
-                if classification_confidence < 0.5:
-                    self.logger.info(
-                        f"Low procedural confidence ({classification_confidence:.3f}) - "
-                        f"trusting memory-based decision: {category_str}"
-                    )
-
-                # Step 2: Memory-driven asset identification with detailed capture
+                # Step 1: Combined memory-driven asset identification using all 4 memory types
                 known_assets = await self.list_assets()
                 (
                     asset_matches,
                     asset_identification_details,
-                ) = await self.identify_asset_from_content_with_details(
-                    email_subject, email_body, filename, known_assets
+                ) = await self.identify_asset_combined(
+                    email_subject,
+                    email_body,
+                    filename,
+                    email_data.get("sender_email", ""),
+                    known_assets,
                 )
 
-                # Determine best asset match
+                # Determine best asset match and asset type for classification
                 matched_asset_id = None
                 asset_confidence = 0.0
+                asset_type_for_classification = "unknown"
+
                 if asset_matches:
                     matched_asset_id, asset_confidence = asset_matches[0]
+                    # Get asset type from matched asset for classification context
+                    matched_asset = next(
+                        (a for a in known_assets if a.deal_id == matched_asset_id), None
+                    )
+                    if matched_asset:
+                        asset_type_for_classification = matched_asset.asset_type.value
+
+                # Step 2: Combined memory-driven document classification using all 4 memory types
+                (
+                    category_str,
+                    classification_confidence,
+                    detailed_patterns,
+                ) = await self.classify_document_combined(
+                    filename,
+                    email_subject,
+                    email_body,
+                    asset_type_for_classification,
+                    matched_asset_id,
+                )
+
+                # Combined memory approach: All four memory types consulted
+                learning_source = "combined_memory_types"
+
+                # Log confidence for transparency
+                if classification_confidence < 0.5:
+                    self.logger.info(
+                        f"Low combined confidence ({classification_confidence:.3f}) - "
+                        f"trusting multi-memory decision: {category_str}"
+                    )
 
                 # Step 3: Auto-learning removed - procedural memory now contains stable business rules only
                 # Learning from feedback will be handled by semantic memory (human feedback)
@@ -1007,7 +1023,7 @@ class AssetDocumentAgent:
                 else:
                     confidence_level = ConfidenceLevel.VERY_LOW
 
-                # Update result with memory-driven classification
+                # Update result with combined memory-driven classification
                 result.document_category = document_category
                 result.confidence_level = confidence_level
                 result.matched_asset_id = matched_asset_id
@@ -1017,18 +1033,11 @@ class AssetDocumentAgent:
                     "asset_confidence": asset_confidence,
                     "overall_confidence": overall_confidence,
                     "learning_source": learning_source,
-                    "patterns_used": "memory_driven",  # Pure procedural memory
-                    "detailed_patterns": detailed_patterns,  # Store specific patterns used
-                    "winning_patterns_count": len(
-                        detailed_patterns.get("patterns_used", [])
-                    ),
-                    "total_patterns_evaluated": detailed_patterns.get(
-                        "total_patterns", 0
-                    ),
-                    "categories_considered": detailed_patterns.get(
-                        "categories_considered", 0
-                    ),
-                    "asset_identification_details": asset_identification_details,  # Store asset matching reasoning
+                    "patterns_used": "combined_memory_types",  # All four memory types
+                    "detailed_patterns": detailed_patterns,  # Combined reasoning from all memory types
+                    "asset_identification_details": asset_identification_details,  # Combined asset matching reasoning
+                    "asset_type_used": asset_type_for_classification,  # Asset type context for classification
+                    "memory_integration": "phase_2_complete",  # Indicates Phase 2 implementation
                     "processing_timestamp": datetime.now(UTC).isoformat(),
                 }
 
@@ -1052,13 +1061,14 @@ class AssetDocumentAgent:
                     )
 
                 self.logger.info(
-                    f"Memory-driven results: {category_str} ({classification_confidence:.3f}), "
-                    f"Asset: {matched_asset_id[:8] if matched_asset_id else 'none'} ({asset_confidence:.3f})"
+                    f"Combined memory results: {category_str} ({classification_confidence:.3f}), "
+                    f"Asset: {matched_asset_id[:8] if matched_asset_id else 'none'} ({asset_confidence:.3f}), "
+                    f"Asset Type: {asset_type_for_classification}"
                 )
 
             except Exception as e:
                 self.logger.warning(
-                    "Memory-driven processing failed, using fallback: %s", e
+                    "Combined memory processing failed, using fallback: %s", e
                 )
                 result.document_category = DocumentCategory.UNKNOWN
                 result.confidence_level = ConfidenceLevel.VERY_LOW
@@ -2704,7 +2714,7 @@ class AssetDocumentAgent:
 
             # Search for asset knowledge in semantic memory
             asset_knowledge_results = await self.semantic_memory.search_asset_knowledge(
-                query_text=combined_text,
+                query=combined_text,
                 limit=(
                     config.semantic_search_limit
                     if hasattr(config, "semantic_search_limit")
@@ -2720,8 +2730,8 @@ class AssetDocumentAgent:
                         asset_id=asset.deal_id,
                         context={"combined_text": combined_text[:200]},
                     )
-                    if feedback and feedback.get("results"):
-                        human_feedback_results.extend(feedback["results"])
+                    if feedback:  # feedback is already a list
+                        human_feedback_results.extend(feedback)
                 except Exception as e:
                     self.logger.debug(
                         f"No human feedback found for asset {asset.deal_id}: {e}"
@@ -2729,9 +2739,21 @@ class AssetDocumentAgent:
                     continue
 
             # Combine results from both searches
-            all_semantic_results = (
-                asset_knowledge_results.get("results", []) + human_feedback_results
-            )
+            # Convert MemoryItem objects to dicts for consistent processing
+            asset_knowledge_dicts = []
+            for (
+                item
+            ) in asset_knowledge_results:  # asset_knowledge_results is already a list
+                asset_knowledge_dicts.append(
+                    {
+                        "metadata": item.metadata,
+                        "score": 1.0,  # Default score for asset knowledge
+                        "content": item.content,
+                        "id": item.id,
+                    }
+                )
+
+            all_semantic_results = asset_knowledge_dicts + human_feedback_results
 
             if not all_semantic_results:
                 self.logger.info("No semantic memory matches found")
@@ -2869,9 +2891,7 @@ class AssetDocumentAgent:
                         if hasattr(config, "semantic_memory_weight")
                         else 0.3
                     ),
-                    "knowledge_signals": len(
-                        asset_knowledge_results.get("results", [])
-                    ),
+                    "knowledge_signals": len(asset_knowledge_results),
                     "feedback_signals": len(human_feedback_results),
                     "status": "success",
                 }
@@ -2959,7 +2979,7 @@ class AssetDocumentAgent:
 
                 try:
                     results = await self.episodic_memory.search(
-                        query_text=query,
+                        query=query,
                         limit=(
                             config.episodic_search_limit
                             if hasattr(config, "episodic_search_limit")
@@ -4576,7 +4596,7 @@ class AssetDocumentAgent:
 
                 try:
                     results = await self.episodic_memory.search(
-                        query_text=query,
+                        query=query,
                         limit=config.episodic_search_limit,
                         memory_type="decision",
                     )
