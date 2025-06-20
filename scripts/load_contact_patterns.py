@@ -6,18 +6,18 @@ This script reads contact patterns from knowledge/contact_patterns.json and
 loads them into the semantic memory system for use by the contact extractor.
 """
 
+# # Standard library imports
 import asyncio
 import json
 import sys
 from pathlib import Path
-from typing import Dict, Any
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.memory.semantic import SemanticMemory, KnowledgeType, KnowledgeConfidence
+# # Local application imports
+from src.memory.semantic import KnowledgeConfidence, KnowledgeType, SemanticMemory
 from src.utils.logging_system import get_logger, log_function
-from src.utils.config import config
 
 logger = get_logger(__name__)
 
@@ -38,7 +38,7 @@ async def load_contact_patterns_to_memory(
     """
     logger.info(f"Loading contact patterns from: {patterns_file}")
 
-    with open(patterns_file, "r", encoding="utf-8") as f:
+    with open(patterns_file, encoding="utf-8") as f:
         data = json.load(f)
 
     patterns_loaded = 0
@@ -188,6 +188,155 @@ async def load_contact_patterns_to_memory(
             confidence=KnowledgeConfidence.HIGH,
         )
         patterns_loaded += 1
+
+    # Load signature markers
+    if "signature_markers" in data["contact_patterns"]:
+        signature_data = data["contact_patterns"]["signature_markers"]
+
+        for pattern in signature_data.get("patterns", []):
+            content = {
+                "type": "contact_pattern",
+                "pattern_type": "signature_marker",
+                "marker": pattern["marker"],
+                "confidence": pattern["confidence"],
+                "description": pattern.get("description", ""),
+                "source": "knowledge_base",
+            }
+
+            await memory.add(
+                content=f"Signature marker: {pattern['marker']} - {pattern.get('description', '')}",
+                metadata=content,
+                knowledge_type=KnowledgeType.PATTERN,
+                confidence=(
+                    KnowledgeConfidence.HIGH
+                    if pattern["confidence"] > 0.7
+                    else KnowledgeConfidence.MEDIUM
+                ),
+            )
+            patterns_loaded += 1
+
+    # Load contact classification terms
+    if "contact_classification" in data["contact_patterns"]:
+        classification_data = data["contact_patterns"]["contact_classification"]
+
+        # Load family terms
+        for pattern in classification_data.get("family_terms", {}).get("patterns", []):
+            content = {
+                "type": "contact_pattern",
+                "pattern_type": "family_term",
+                "term": pattern["term"],
+                "confidence": pattern["confidence"],
+                "description": pattern.get("description", ""),
+                "source": "knowledge_base",
+            }
+
+            await memory.add(
+                content=f"Family term: {pattern['term']} - {pattern.get('description', '')}",
+                metadata=content,
+                knowledge_type=KnowledgeType.PATTERN,
+                confidence=KnowledgeConfidence.HIGH,
+            )
+            patterns_loaded += 1
+
+        # Load business terms
+        for pattern in classification_data.get("business_terms", {}).get(
+            "patterns", []
+        ):
+            content = {
+                "type": "contact_pattern",
+                "pattern_type": "business_term",
+                "term": pattern["term"],
+                "confidence": pattern["confidence"],
+                "description": pattern.get("description", ""),
+                "source": "knowledge_base",
+            }
+
+            await memory.add(
+                content=f"Business term: {pattern['term']} - {pattern.get('description', '')}",
+                metadata=content,
+                knowledge_type=KnowledgeType.PATTERN,
+                confidence=(
+                    KnowledgeConfidence.HIGH
+                    if pattern["confidence"] > 0.7
+                    else KnowledgeConfidence.MEDIUM
+                ),
+            )
+            patterns_loaded += 1
+
+        # Load vendor terms
+        for pattern in classification_data.get("vendor_terms", {}).get("patterns", []):
+            content = {
+                "type": "contact_pattern",
+                "pattern_type": "vendor_term",
+                "term": pattern["term"],
+                "confidence": pattern["confidence"],
+                "description": pattern.get("description", ""),
+                "source": "knowledge_base",
+            }
+
+            await memory.add(
+                content=f"Vendor term: {pattern['term']} - {pattern.get('description', '')}",
+                metadata=content,
+                knowledge_type=KnowledgeType.PATTERN,
+                confidence=(
+                    KnowledgeConfidence.HIGH
+                    if pattern["confidence"] > 0.7
+                    else KnowledgeConfidence.MEDIUM
+                ),
+            )
+            patterns_loaded += 1
+
+    # Load organization patterns
+    if "organization_patterns" in data["contact_patterns"]:
+        org_data = data["contact_patterns"]["organization_patterns"]
+
+        # Load company suffixes
+        for pattern in org_data.get("company_suffixes", {}).get("patterns", []):
+            content = {
+                "type": "contact_pattern",
+                "pattern_type": "company_suffix",
+                "pattern": pattern["pattern"],
+                "pattern_format": pattern["type"],
+                "confidence": pattern["confidence"],
+                "description": pattern.get("description", ""),
+                "source": "knowledge_base",
+            }
+
+            await memory.add(
+                content=f"Company suffix pattern: {pattern.get('description', '')}",
+                metadata=content,
+                knowledge_type=KnowledgeType.PATTERN,
+                confidence=(
+                    KnowledgeConfidence.HIGH
+                    if pattern["confidence"] > 0.7
+                    else KnowledgeConfidence.MEDIUM
+                ),
+            )
+            patterns_loaded += 1
+
+        # Load job titles
+        for pattern in org_data.get("job_titles", {}).get("patterns", []):
+            content = {
+                "type": "contact_pattern",
+                "pattern_type": "job_title",
+                "pattern": pattern["pattern"],
+                "pattern_format": pattern["type"],
+                "confidence": pattern["confidence"],
+                "description": pattern.get("description", ""),
+                "source": "knowledge_base",
+            }
+
+            await memory.add(
+                content=f"Job title pattern: {pattern.get('description', '')}",
+                metadata=content,
+                knowledge_type=KnowledgeType.PATTERN,
+                confidence=(
+                    KnowledgeConfidence.HIGH
+                    if pattern["confidence"] > 0.7
+                    else KnowledgeConfidence.MEDIUM
+                ),
+            )
+            patterns_loaded += 1
 
     logger.info(f"Successfully loaded {patterns_loaded} contact patterns into memory")
     return patterns_loaded

@@ -402,6 +402,192 @@
             },
             "pattern_effectiveness_tracking": true,
             "human_feedback_weight": 1.5
+        },
+        "signature_markers": {
+            "description": "Common email signature markers to identify signature blocks",
+            "patterns": [
+                {
+                    "marker": "regards",
+                    "confidence": 0.8,
+                    "description": "Formal closing"
+                },
+                {
+                    "marker": "sincerely",
+                    "confidence": 0.8,
+                    "description": "Formal closing"
+                },
+                {
+                    "marker": "thanks",
+                    "confidence": 0.7,
+                    "description": "Informal closing"
+                },
+                {
+                    "marker": "best",
+                    "confidence": 0.6,
+                    "description": "Common closing"
+                },
+                {
+                    "marker": "--",
+                    "confidence": 0.9,
+                    "description": "Email signature separator"
+                }
+            ]
+        },
+        "contact_classification": {
+            "description": "Terms for classifying contact types based on email content",
+            "family_terms": {
+                "patterns": [
+                    {
+                        "term": "family",
+                        "confidence": 0.9,
+                        "description": "Direct family reference"
+                    },
+                    {
+                        "term": "mom",
+                        "confidence": 0.95,
+                        "description": "Mother reference"
+                    },
+                    {
+                        "term": "dad",
+                        "confidence": 0.95,
+                        "description": "Father reference"
+                    },
+                    {
+                        "term": "sister",
+                        "confidence": 0.9,
+                        "description": "Sister reference"
+                    },
+                    {
+                        "term": "brother",
+                        "confidence": 0.9,
+                        "description": "Brother reference"
+                    },
+                    {
+                        "term": "aunt",
+                        "confidence": 0.9,
+                        "description": "Aunt reference"
+                    },
+                    {
+                        "term": "uncle",
+                        "confidence": 0.9,
+                        "description": "Uncle reference"
+                    },
+                    {
+                        "term": "cousin",
+                        "confidence": 0.85,
+                        "description": "Cousin reference"
+                    }
+                ]
+            },
+            "business_terms": {
+                "patterns": [
+                    {
+                        "term": "meeting",
+                        "confidence": 0.7,
+                        "description": "Business meeting"
+                    },
+                    {
+                        "term": "project",
+                        "confidence": 0.8,
+                        "description": "Business project"
+                    },
+                    {
+                        "term": "deadline",
+                        "confidence": 0.8,
+                        "description": "Business deadline"
+                    },
+                    {
+                        "term": "proposal",
+                        "confidence": 0.8,
+                        "description": "Business proposal"
+                    },
+                    {
+                        "term": "contract",
+                        "confidence": 0.85,
+                        "description": "Business contract"
+                    },
+                    {
+                        "term": "business",
+                        "confidence": 0.7,
+                        "description": "General business reference"
+                    }
+                ]
+            },
+            "vendor_terms": {
+                "patterns": [
+                    {
+                        "term": "invoice",
+                        "confidence": 0.9,
+                        "description": "Vendor invoice"
+                    },
+                    {
+                        "term": "payment",
+                        "confidence": 0.8,
+                        "description": "Payment processing"
+                    },
+                    {
+                        "term": "service",
+                        "confidence": 0.6,
+                        "description": "Service provider"
+                    },
+                    {
+                        "term": "quote",
+                        "confidence": 0.8,
+                        "description": "Service quote"
+                    },
+                    {
+                        "term": "delivery",
+                        "confidence": 0.7,
+                        "description": "Delivery service"
+                    },
+                    {
+                        "term": "order",
+                        "confidence": 0.7,
+                        "description": "Order processing"
+                    }
+                ]
+            }
+        },
+        "organization_patterns": {
+            "description": "Patterns for extracting organization and job title information",
+            "company_suffixes": {
+                "patterns": [
+                    {
+                        "pattern": "(?:Company|Corp|Inc|LLC|Ltd)\\.?",
+                        "type": "regex",
+                        "confidence": 0.8,
+                        "description": "Company legal suffixes"
+                    },
+                    {
+                        "pattern": "(?:at\\s+)([A-Z][a-zA-Z\\s&]+)",
+                        "type": "regex",
+                        "confidence": 0.7,
+                        "description": "At company name pattern"
+                    }
+                ]
+            },
+            "job_titles": {
+                "patterns": [
+                    {
+                        "pattern": "(?:Manager|Director|President|VP|CEO|CTO|CFO|Partner)",
+                        "type": "regex",
+                        "confidence": 0.8,
+                        "description": "Executive titles"
+                    },
+                    {
+                        "pattern": "(?:Senior|Principal|Lead)\\s+\\w+",
+                        "type": "regex",
+                        "confidence": 0.7,
+                        "description": "Senior level titles"
+                    },
+                    {
+                        "pattern": "(?:Vice President|Executive|Analyst|Associate)",
+                        "type": "regex",
+                        "confidence": 0.7,
+                        "description": "Professional titles"
+                    }
+                ]
+            }
         }
     }
 }

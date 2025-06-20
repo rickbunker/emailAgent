@@ -52,14 +52,14 @@ import sys
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import Enum
-from typing import Any, Dict
+from typing import Any
 
 from ..memory.contact import ContactMemory
 from ..memory.episodic import EpisodicMemory
 
 # Memory system integration
 from ..memory.procedural import ProceduralMemory
-from ..memory.semantic import SemanticMemory, KnowledgeType
+from ..memory.semantic import KnowledgeType, SemanticMemory
 
 # Email message structure
 from .supervisor import EmailMessage
@@ -243,13 +243,19 @@ class ContactExtractor:
         self.semantic_memory = SemanticMemory()
 
         # Initialize pattern storage - will be loaded from memory
-        self.contact_patterns: Dict[str, Any] = {
+        self.contact_patterns: dict[str, Any] = {
             "no_reply_patterns": [],
             "bulk_domains": set(),
             "personal_indicators": [],
             "automated_indicators": [],
             "local_part_indicators": [],
             "extraction_config": {},
+            "signature_markers": [],
+            "family_terms": [],
+            "business_terms": [],
+            "vendor_terms": [],
+            "company_suffixes": [],
+            "job_titles": [],
         }
 
         # Load patterns asynchronously (will be populated on first use)
@@ -558,7 +564,7 @@ class ContactExtractor:
             contact.name = self._extract_name_from_sender(email.sender)
 
             # Parse signature for additional details
-            signature_info = self._extract_from_signature(email.content)
+            signature_info = await self._extract_from_signature(email.content)
 
             # Merge signature information
             if signature_info.get("name") and not contact.name:
@@ -579,7 +585,7 @@ class ContactExtractor:
                     contact.first_name = name_parts[0]
 
             # Determine contact type
-            contact.contact_type = self._determine_contact_type(email, contact)
+            contact.contact_type = await self._determine_contact_type(email, contact)
 
             # Add extraction metadata
             contact.metadata = {
@@ -632,7 +638,7 @@ class ContactExtractor:
         return sender.strip() if sender.strip() else None
 
     @log_function()
-    def _extract_from_signature(self, content: str) -> dict[str, str]:
+    async def _extract_from_signature(self, content: str) -> dict[str, str]:
         """
         Extract contact information from email signature.
 
@@ -648,6 +654,9 @@ class ContactExtractor:
         if not content:
             return {}
 
+        # Ensure patterns are loaded from memory
+        await self._ensure_patterns_loaded()
+
         signature_info = {}
 
         # Look for common signature patterns
@@ -659,7 +668,7 @@ class ContactExtractor:
             line_lower = line.lower().strip()
             if any(
                 marker in line_lower
-                for marker in ["regards", "sincerely", "thanks", "best", "--"]
+                for marker in self.contact_patterns["signature_markers"]
             ):
                 signature_start = i
                 break
@@ -697,25 +706,14 @@ class ContactExtractor:
                 signature_info["name"] = potential_names[0]
 
         # Look for organization/company names
-        org_patterns = [
-            r"(?:Company|Corp|Inc|LLC|Ltd)\.?",  # Company suffixes
-            r"(?:at\s+)([A-Z][a-zA-Z\s&]+)",  # "at Company Name"
-        ]
-
-        for pattern in org_patterns:
+        for pattern in self.contact_patterns["company_suffixes"]:
             matches = re.findall(pattern, signature_text, re.IGNORECASE)
             if matches:
                 signature_info["organization"] = matches[0].strip()
                 break
 
         # Look for job titles
-        title_patterns = [
-            r"(?:Manager|Director|President|VP|CEO|CTO|CFO|Partner)",
-            r"(?:Senior|Principal|Lead)\s+\w+",
-            r"(?:Vice President|Executive|Analyst|Associate)",
-        ]
-
-        for pattern in title_patterns:
+        for pattern in self.contact_patterns["job_titles"]:
             matches = re.findall(pattern, signature_text, re.IGNORECASE)
             if matches:
                 signature_info["title"] = matches[0].strip()
@@ -726,7 +724,7 @@ class ContactExtractor:
         return signature_info
 
     @log_function()
-    def _determine_contact_type(
+    async def _determine_contact_type(
         self, email: EmailMessage, contact: ContactInfo
     ) -> ContactType:
         """
@@ -741,37 +739,23 @@ class ContactExtractor:
         Returns:
             ContactType enum value
         """
+        # Ensure patterns are loaded from memory
+        await self._ensure_patterns_loaded()
+
         content_lower = f"{email.subject} {email.content}".lower()
 
         # Family indicators
-        family_terms = [
-            "family",
-            "mom",
-            "dad",
-            "sister",
-            "brother",
-            "aunt",
-            "uncle",
-            "cousin",
-        ]
-        if any(term in content_lower for term in family_terms):
+        if any(term in content_lower for term in self.contact_patterns["family_terms"]):
             return ContactType.FAMILY
 
-        # indicators
-        business_terms = [
-            "meeting",
-            "project",
-            "deadline",
-            "proposal",
-            "contract",
-            "business",
-        ]
-        if any(term in content_lower for term in business_terms):
+        # Business indicators
+        if any(
+            term in content_lower for term in self.contact_patterns["business_terms"]
+        ):
             return ContactType.PROFESSIONAL
 
         # Vendor indicators
-        vendor_terms = ["invoice", "payment", "service", "quote", "delivery", "order"]
-        if any(term in content_lower for term in vendor_terms):
+        if any(term in content_lower for term in self.contact_patterns["vendor_terms"]):
             return ContactType.VENDOR
 
         # Check organization for business classification
@@ -1045,6 +1029,12 @@ class ContactExtractor:
                 "automated_indicators": [],
                 "local_part_indicators": [],
                 "extraction_config": {},
+                "signature_markers": [],
+                "family_terms": [],
+                "business_terms": [],
+                "vendor_terms": [],
+                "company_suffixes": [],
+                "job_titles": [],
             }
 
             for item in pattern_results:
@@ -1075,6 +1065,30 @@ class ContactExtractor:
                             "description": metadata.get("description", ""),
                         }
                     )
+                elif pattern_type == "signature_marker":
+                    self.contact_patterns["signature_markers"].append(
+                        metadata.get("marker", "")
+                    )
+                elif pattern_type == "family_term":
+                    self.contact_patterns["family_terms"].append(
+                        metadata.get("term", "")
+                    )
+                elif pattern_type == "business_term":
+                    self.contact_patterns["business_terms"].append(
+                        metadata.get("term", "")
+                    )
+                elif pattern_type == "vendor_term":
+                    self.contact_patterns["vendor_terms"].append(
+                        metadata.get("term", "")
+                    )
+                elif pattern_type == "company_suffix":
+                    self.contact_patterns["company_suffixes"].append(
+                        metadata.get("pattern", "")
+                    )
+                elif pattern_type == "job_title":
+                    self.contact_patterns["job_titles"].append(
+                        metadata.get("pattern", "")
+                    )
 
             # Search for extraction configuration
             config_results = await self.semantic_memory.search(
@@ -1089,7 +1103,7 @@ class ContactExtractor:
                     "configuration", {}
                 )
 
-            self.logger.info(f"Loaded contact patterns from memory:")
+            self.logger.info("Loaded contact patterns from memory:")
             self.logger.info(
                 f"  No-reply patterns: {len(self.contact_patterns['no_reply_patterns'])}"
             )
@@ -1104,6 +1118,24 @@ class ContactExtractor:
             )
             self.logger.info(
                 f"  Local part indicators: {len(self.contact_patterns['local_part_indicators'])}"
+            )
+            self.logger.info(
+                f"  Signature markers: {len(self.contact_patterns['signature_markers'])}"
+            )
+            self.logger.info(
+                f"  Family terms: {len(self.contact_patterns['family_terms'])}"
+            )
+            self.logger.info(
+                f"  Business terms: {len(self.contact_patterns['business_terms'])}"
+            )
+            self.logger.info(
+                f"  Vendor terms: {len(self.contact_patterns['vendor_terms'])}"
+            )
+            self.logger.info(
+                f"  Company suffixes: {len(self.contact_patterns['company_suffixes'])}"
+            )
+            self.logger.info(
+                f"  Job titles: {len(self.contact_patterns['job_titles'])}"
             )
 
         except Exception as e:

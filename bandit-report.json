@@ -1,6 +1,6 @@
 {
   "errors": [],
-  "generated_at": "2025-06-20T00:15:35Z",
+  "generated_at": "2025-06-20T13:16:29Z",
   "metrics": {
     "_totals": {
       "CONFIDENCE.HIGH": 14,
@@ -11,7 +11,7 @@
       "SEVERITY.LOW": 15,
       "SEVERITY.MEDIUM": 5,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 18819,
+      "loc": 20118,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -37,7 +37,7 @@
       "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 858,
+      "loc": 910,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -63,7 +63,7 @@
       "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 957,
+      "loc": 1136,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -544,7 +544,7 @@
       "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 126,
+      "loc": 139,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -557,7 +557,7 @@
       "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 1,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 67,
+      "loc": 73,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -587,6 +587,19 @@
       "nosec": 0,
       "skipped_tests": 0
     },
+    "src/web_api/routers/email_processing.py": {
+      "CONFIDENCE.HIGH": 0,
+      "CONFIDENCE.LOW": 0,
+      "CONFIDENCE.MEDIUM": 0,
+      "CONFIDENCE.UNDEFINED": 0,
+      "SEVERITY.HIGH": 0,
+      "SEVERITY.LOW": 0,
+      "SEVERITY.MEDIUM": 0,
+      "SEVERITY.UNDEFINED": 0,
+      "loc": 273,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
     "src/web_api/routers/health.py": {
       "CONFIDENCE.HIGH": 0,
       "CONFIDENCE.LOW": 0,
@@ -597,6 +610,19 @@
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
       "loc": 125,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "src/web_api/routers/human_review.py": {
+      "CONFIDENCE.HIGH": 0,
+      "CONFIDENCE.LOW": 0,
+      "CONFIDENCE.MEDIUM": 0,
+      "CONFIDENCE.UNDEFINED": 0,
+      "SEVERITY.HIGH": 0,
+      "SEVERITY.LOW": 0,
+      "SEVERITY.MEDIUM": 0,
+      "SEVERITY.UNDEFINED": 0,
+      "loc": 383,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -622,7 +648,7 @@
       "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 520,
+      "loc": 913,
       "nosec": 0,
       "skipped_tests": 0
     }
@@ -1038,7 +1064,7 @@
       "test_name": "hardcoded_password_default"
     },
     {
-      "code": "101         \"src.web_api.main:app\",\n102         host=\"0.0.0.0\",\n103         port=8000,\n",
+      "code": "98         \"src.web_api.main:app\",\n99         host=\"0.0.0.0\",\n100         port=8000,\n",
       "col_offset": 13,
       "end_col_offset": 22,
       "filename": "src/web_api/main.py",
@@ -1049,9 +1075,9 @@
       },
       "issue_severity": "MEDIUM",
       "issue_text": "Possible binding to all interfaces.",
-      "line_number": 102,
+      "line_number": 99,
       "line_range": [
-        102
+        99
       ],
       "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b104_hardcoded_bind_all_interfaces.html",
       "test_id": "B104",
