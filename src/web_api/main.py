@@ -33,6 +33,7 @@ from src.web_api.routers import (
     ui,
     email_processing,
     human_review,
+    memory,
 )
 
 logger = get_logger(__name__)
@@ -81,6 +82,7 @@ app.include_router(assets.router, prefix="/api/v1", tags=["assets"])
 app.include_router(senders.router, prefix="/api/v1", tags=["senders"])
 app.include_router(email_processing.router, prefix="/api/v1", tags=["email_processing"])
 app.include_router(human_review.router, prefix="/api/v1", tags=["human_review"])
+app.include_router(memory.router, prefix="/api/v1", tags=["memory"])
 
 # Include UI router (for demo frontend)
 app.include_router(ui.router, tags=["ui"])

@@ -87,10 +87,15 @@ class StorageService:
             True if duplicate exists, False otherwise
         """
         if not self.qdrant:
-            logger.warning("No Qdrant client available for duplicate check")
+            logger.debug("No Qdrant client available for duplicate check")
             return False
 
         try:
+            # Ensure collection exists first
+            if not await self._ensure_tracking_collection():
+                logger.debug("Cannot check duplicates - collection unavailable")
+                return False
+
             # Search for existing document with this hash
             search_result = self.qdrant.scroll(
                 collection_name=self.DOCUMENT_TRACKING_COLLECTION,
@@ -276,6 +281,46 @@ Size: {len(content)} bytes
             logger.error(f"Failed to quarantine file: {e}")
             return {"file_path": None, "error": str(e), "success": False}
 
+    async def _ensure_tracking_collection(self) -> bool:
+        """
+        Ensure the document tracking collection exists.
+
+        Returns:
+            True if collection exists or was created, False otherwise
+        """
+        if not self.qdrant:
+            return False
+
+        try:
+            from qdrant_client.models import VectorParams, Distance
+
+            # Check if collection exists
+            collections = self.qdrant.get_collections()
+            collection_names = [c.name for c in collections.collections]
+
+            if self.DOCUMENT_TRACKING_COLLECTION not in collection_names:
+                logger.info(
+                    f"Creating missing collection: {self.DOCUMENT_TRACKING_COLLECTION}"
+                )
+
+                # Create the collection with minimal vector size
+                self.qdrant.create_collection(
+                    collection_name=self.DOCUMENT_TRACKING_COLLECTION,
+                    vectors_config=VectorParams(
+                        size=384,  # Standard embedding size
+                        distance=Distance.COSINE,
+                    ),
+                )
+                logger.info(
+                    f"Successfully created collection: {self.DOCUMENT_TRACKING_COLLECTION}"
+                )
+
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to ensure tracking collection: {e}")
+            return False
+
     async def _track_document(
         self,
         file_hash: str,
@@ -295,9 +340,15 @@ Size: {len(content)} bytes
             original_filename: Original filename
         """
         if not self.qdrant:
+            logger.debug("No Qdrant client available for document tracking")
             return
 
         try:
+            # Ensure collection exists first
+            if not await self._ensure_tracking_collection():
+                logger.warning("Cannot track document - collection unavailable")
+                return
+
             from qdrant_client.models import PointStruct
             import uuid
 
@@ -323,6 +374,7 @@ Size: {len(content)} bytes
 
         except Exception as e:
             logger.error(f"Failed to track document: {e}")
+            # Don't re-raise - document tracking failure shouldn't stop file processing
 
     async def get_storage_stats(self) -> dict[str, Any]:
         """Get storage statistics."""

@@ -579,6 +579,31 @@ class BaseMemory:
             raise ConnectionError(f"Delete operation failed: {e}") from e
 
     @log_function()
+    async def clear(self) -> None:
+        """
+        Clear all items from the memory collection.
+
+        Removes all memory items from the collection. Use with caution!
+
+        Raises:
+            ConnectionError: If clear operation fails
+        """
+        await self._ensure_collection()
+
+        try:
+            # Delete entire collection and recreate
+            await self.client.delete_collection(collection_name=self.collection_name)
+            await self._ensure_collection()
+
+            self.logger.warning(
+                f"Cleared all items from collection {self.collection_name}"
+            )
+
+        except Exception as e:
+            self.logger.error(f"Failed to clear collection: {e}")
+            raise ConnectionError(f"Clear operation failed: {e}") from e
+
+    @log_function()
     async def clear_collection(self, force_delete: bool = False) -> None:
         """
         Clear all items from the memory collection.
@@ -595,20 +620,7 @@ class BaseMemory:
         if not force_delete:
             raise ValueError("Must set force_delete=True to clear collection")
 
-        await self._ensure_collection()
-
-        try:
-            # Delete entire collection and recreate
-            await self.client.delete_collection(collection_name=self.collection_name)
-            await self._ensure_collection()
-
-            self.logger.warning(
-                f"Cleared all items from collection {self.collection_name}"
-            )
-
-        except Exception as e:
-            self.logger.error(f"Failed to clear collection: {e}")
-            raise ConnectionError(f"Clear operation failed: {e}") from e
+        await self.clear()
 
     @log_function()
     async def get_collection_info(self) -> dict[str, Any]:

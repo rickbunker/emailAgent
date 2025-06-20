@@ -410,3 +410,101 @@ Edit JSON files    →     Run initialization  →   Agents read
 - **Memory Initialization**: Only run when explicitly needed (testing resets, initial setup)
 - **Production**: Memory persists across restarts and continuously improves
 - **Never reset production memory** - it becomes more valuable over time through learning
+
+# Session Summary: Memory Dashboard Refactoring
+## Date: June 20, 2025
+
+## Objective
+Refactor the memory dashboard to properly display all memory collections, particularly the 4 separate ProceduralMemory collections, and fix the semantic memory showing 0 items despite having 8 items in Qdrant.
+
+## What We Accomplished
+
+### 1. Fixed ContactMemory Collection Name
+- Changed from `contacts` (with 's') to `contact` (without 's') in `src/memory/contact.py`
+- This prevents duplicate collection creation
+
+### 2. Refactored Memory Dashboard Display
+- Updated `src/web_api/routers/memory.py` to handle ProceduralMemory's multiple collections
+- Created `get_procedural_memory_stats()` helper function to query all 4 procedural collections:
+  - `procedural_classification_patterns`
+  - `procedural_asset_patterns`
+  - `procedural_configuration_rules`
+  - `procedural_confidence_models`
+- Updated the dashboard template to show each procedural collection separately with appropriate icons
+
+### 3. Fixed Memory System Initialization
+- Updated `src/web_api/dependencies.py` to initialize memory systems with `qdrant_url` parameter
+- This should fix the semantic memory showing 0 items issue
+
+## Current Issues
+
+### 1. API Server Won't Start Properly
+- The server starts but then immediately stops
+- Not listening on port 8000
+- No clear error messages in the output
+
+### 2. Semantic Memory Count Mismatch
+- Qdrant shows 8 items in the semantic collection
+- API reports 0 items
+- Likely due to memory system initialization without qdrant_url parameter
+
+## Current State of Collections in Qdrant
+```
+semantic: 8 items (loaded from knowledge base)
+episodic: 0 items
+contact: 0 items  
+procedural_classification_patterns: 2 items
+procedural_asset_patterns: 0 items
+procedural_configuration_rules: 0 items
+procedural_confidence_models: 0 items
+assets: 0 items
+photos: kept as requested
+```
+
+## Next Steps
+
+1. **Debug API Server Startup**
+   - Run the server manually outside Cursor to see full error output
+   - Check if there are port conflicts or permission issues
+   - Look for any import errors or configuration issues
+
+2. **Verify Memory System Initialization**
+   - Ensure all memory systems are properly initialized with qdrant_url
+   - Test that they can connect to and query Qdrant collections
+
+3. **Test Memory Dashboard**
+   - Once API is running, verify the dashboard shows all collections correctly
+   - Confirm semantic memory shows the correct count (8 items)
+   - Test loading more data through the dashboard
+
+## Commands to Run After Restart
+
+```bash
+# Check if anything is using port 8000
+lsof -i :8000
+
+# Kill any existing processes
+pkill -f "python -m src.web_api.main"
+
+# Run the API server with full output
+cd /Users/richardbunker/python/emailAgent
+python -m src.web_api.main
+
+# In another terminal, check the memory stats
+curl -s http://localhost:8000/api/v1/memory/api/stats | jq '.memory_stats'
+
+# Or visit the dashboard in browser
+open http://localhost:8000/api/v1/memory/
+```
+
+## Files Modified
+- `src/memory/contact.py` - Fixed collection name
+- `src/web_api/routers/memory.py` - Added procedural collections handling
+- `src/web_api/templates/memory_dashboard.html` - Updated UI for multiple collections
+- `src/web_api/dependencies.py` - Fixed memory initialization with qdrant_url
+
+## Scripts Created
+- `scripts/initialize_memory.py` - Loads knowledge base into memory systems
+- `scripts/simple_load_knowledge.py` - Direct JSON to Qdrant loader (simplified)
+- `scripts/cleanup_qdrant.py` - Removes unnecessary collections
+- `scripts/env_memory_example.txt` - Environment configuration example

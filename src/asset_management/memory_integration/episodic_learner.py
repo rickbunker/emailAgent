@@ -141,15 +141,16 @@ class EpisodicLearner:
         )
 
         # Store in episodic memory
-        await self.memory.add_memory(
-            event_type="asset_identification",
+        metadata = {
+            "decision_id": decision.decision_id,
+            "result": decision.result,
+            "confidence": decision.confidence,
+            "timestamp": decision.timestamp.isoformat(),
+            "type": "asset_identification",
+        }
+        await self.memory.add(
             content=json.dumps(decision.context),
-            metadata={
-                "decision_id": decision.decision_id,
-                "result": decision.result,
-                "confidence": decision.confidence,
-                "timestamp": decision.timestamp.isoformat(),
-            },
+            metadata=metadata,
         )
 
         logger.info(
@@ -199,15 +200,16 @@ class EpisodicLearner:
         )
 
         # Store in episodic memory
-        await self.memory.add_memory(
-            event_type="document_classification",
+        metadata = {
+            "decision_id": decision.decision_id,
+            "result": decision.result,
+            "confidence": decision.confidence,
+            "timestamp": decision.timestamp.isoformat(),
+            "type": "document_classification",
+        }
+        await self.memory.add(
             content=json.dumps(decision.context),
-            metadata={
-                "decision_id": decision.decision_id,
-                "result": decision.result,
-                "confidence": decision.confidence,
-                "timestamp": decision.timestamp.isoformat(),
-            },
+            metadata=metadata,
         )
 
         logger.info(

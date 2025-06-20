@@ -294,7 +294,7 @@ class ContactMemory(BaseMemory):
             **kwargs: Additional arguments passed to BaseMemory
         """
         super().__init__(max_items=max_items, **kwargs)
-        self.collection_name = "contacts"
+        self.collection_name = "contact"
         logger.info(f"Initialized ContactMemory with max_items={max_items}")
 
     @log_function()

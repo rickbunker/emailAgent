@@ -35,8 +35,19 @@
                     <div class="mb-3">
                         <label for="hours_back" class="form-label">Hours to Look Back</label>
                         <input type="number" class="form-control" id="hours_back" name="hours_back" value="24" min="1"
-                            max="168" required>
-                        <div class="form-text">Process emails from the last N hours (max 168 = 7 days)</div>
+                            max="720" required>
+                        <div class="form-text">Process emails from the last N hours (max 720 = 30 days)</div>
+                        <div class="mt-2">
+                            <small class="text-muted">Quick select: </small>
+                            <button type="button" class="btn btn-sm btn-outline-secondary me-1"
+                                onclick="document.getElementById('hours_back').value=24">1 day</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary me-1"
+                                onclick="document.getElementById('hours_back').value=168">1 week</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary me-1"
+                                onclick="document.getElementById('hours_back').value=336">2 weeks</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary"
+                                onclick="document.getElementById('hours_back').value=720">30 days</button>
+                        </div>
                     </div>
 
                     <div class="mb-3">

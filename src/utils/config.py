@@ -2,10 +2,12 @@
 Configuration management for Email Agent.
 
 Loads configuration from environment variables with sensible defaults.
+Includes memory monitoring and system resource validation for production readiness.
 """
 
 # # Standard library imports
 import os
+import psutil
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -155,6 +157,21 @@ class EmailAgentConfig:
     gmail_mailbox_name: str
     msgraph_mailbox_id: str
     msgraph_mailbox_name: str
+
+    # Phase 6.2: Memory Monitoring Configuration
+    memory_monitoring_enabled: bool
+    memory_cleanup_threshold: float  # Percentage (0.0-1.0) when cleanup kicks in
+    memory_warning_threshold: float  # Percentage (0.0-1.0) when warnings are logged
+    memory_performance_logging: bool
+    memory_usage_check_interval: int  # Seconds between memory usage checks
+    memory_cleanup_batch_size: int  # Number of items to remove per cleanup batch
+    memory_stats_log_interval: int  # Seconds between memory statistics logging
+
+    # Phase 6.2: System Resource Validation
+    min_available_memory_gb: float  # Minimum system RAM required
+    min_available_disk_gb: float  # Minimum disk space required
+    max_memory_usage_ratio: float  # Maximum ratio of memory limits to system RAM
+    system_resource_check_enabled: bool
 
     @classmethod
     def from_env(cls) -> "EmailAgentConfig":
@@ -350,6 +367,49 @@ class EmailAgentConfig:
             msgraph_mailbox_name=os.getenv(
                 "MSGRAPH_MAILBOX_NAME", "Microsoft 365 (Primary Account)"
             ),
+            # Phase 6.2: Memory Monitoring Configuration
+            memory_monitoring_enabled=parse_bool(
+                os.getenv("MEMORY_MONITORING_ENABLED", "true")
+            ),
+            memory_cleanup_threshold=float(
+                os.getenv(
+                    "MEMORY_CLEANUP_THRESHOLD", "0.85"
+                )  # 85% full triggers cleanup
+            ),
+            memory_warning_threshold=float(
+                os.getenv(
+                    "MEMORY_WARNING_THRESHOLD", "0.75"
+                )  # 75% full triggers warnings
+            ),
+            memory_performance_logging=parse_bool(
+                os.getenv("MEMORY_PERFORMANCE_LOGGING", "true")
+            ),
+            memory_usage_check_interval=int(
+                os.getenv("MEMORY_USAGE_CHECK_INTERVAL", "300")  # Check every 5 minutes
+            ),
+            memory_cleanup_batch_size=int(
+                os.getenv(
+                    "MEMORY_CLEANUP_BATCH_SIZE", "1000"
+                )  # Remove 1000 items per batch
+            ),
+            memory_stats_log_interval=int(
+                os.getenv("MEMORY_STATS_LOG_INTERVAL", "3600")  # Log stats every hour
+            ),
+            # Phase 6.2: System Resource Validation
+            min_available_memory_gb=float(
+                os.getenv("MIN_AVAILABLE_MEMORY_GB", "2.0")  # Require 2GB RAM minimum
+            ),
+            min_available_disk_gb=float(
+                os.getenv("MIN_AVAILABLE_DISK_GB", "5.0")  # Require 5GB disk minimum
+            ),
+            max_memory_usage_ratio=float(
+                os.getenv(
+                    "MAX_MEMORY_USAGE_RATIO", "0.5"
+                )  # Memory limits <= 50% of system RAM
+            ),
+            system_resource_check_enabled=parse_bool(
+                os.getenv("SYSTEM_RESOURCE_CHECK_ENABLED", "true")
+            ),
         )
 
     def validate(self) -> list[str]:
@@ -370,6 +430,31 @@ class EmailAgentConfig:
 
         if not (0.0 <= self.requires_review_threshold <= 1.0):
             errors.append("Requires review threshold must be between 0.0 and 1.0")
+
+        # Phase 6.2: Validate memory monitoring thresholds
+        if not (0.0 <= self.memory_cleanup_threshold <= 1.0):
+            errors.append("Memory cleanup threshold must be between 0.0 and 1.0")
+
+        if not (0.0 <= self.memory_warning_threshold <= 1.0):
+            errors.append("Memory warning threshold must be between 0.0 and 1.0")
+
+        if self.memory_warning_threshold >= self.memory_cleanup_threshold:
+            errors.append(
+                "Memory warning threshold must be less than cleanup threshold"
+            )
+
+        if not (0.0 <= self.max_memory_usage_ratio <= 1.0):
+            errors.append("Max memory usage ratio must be between 0.0 and 1.0")
+
+        # Validate intervals
+        if self.memory_usage_check_interval < 60:
+            errors.append("Memory usage check interval must be at least 60 seconds")
+
+        if self.memory_stats_log_interval < 300:
+            errors.append("Memory stats log interval must be at least 300 seconds")
+
+        if self.memory_cleanup_batch_size < 100:
+            errors.append("Memory cleanup batch size must be at least 100")
 
         # Validate parallel processing settings
         if self.max_concurrent_emails < 1:
@@ -395,7 +480,119 @@ class EmailAgentConfig:
             except Exception as e:
                 errors.append(f"Cannot create {name}: {path} - {e}")
 
+        # Phase 6.2: System resource validation
+        if self.system_resource_check_enabled:
+            try:
+                resource_errors = self.validate_system_resources()
+                errors.extend(resource_errors)
+            except Exception as e:
+                errors.append(f"System resource check failed: {e}")
+
         return errors
+
+    def validate_system_resources(self) -> list[str]:
+        """
+        Validate system resources meet minimum requirements.
+
+        Returns:
+            List of validation error messages
+        """
+        errors = []
+
+        try:
+            # Check available memory
+            memory_info = psutil.virtual_memory()
+            available_memory_gb = memory_info.available / (1024**3)
+            total_memory_gb = memory_info.total / (1024**3)
+
+            if available_memory_gb < self.min_available_memory_gb:
+                errors.append(
+                    f"Insufficient available memory: {available_memory_gb:.1f}GB "
+                    f"(required: {self.min_available_memory_gb}GB)"
+                )
+
+            # Calculate total memory requirements from limits
+            total_memory_items = (
+                self.semantic_memory_max_items
+                + self.procedural_memory_max_items
+                + self.episodic_memory_max_items
+                + self.contact_memory_max_items
+            )
+
+            # Estimate memory usage (rough calculation: ~2KB per item on average)
+            estimated_memory_usage_gb = (total_memory_items * 2048) / (1024**3)
+            memory_usage_ratio = estimated_memory_usage_gb / total_memory_gb
+
+            if memory_usage_ratio > self.max_memory_usage_ratio:
+                errors.append(
+                    f"Memory limits too high: {memory_usage_ratio:.1%} of system RAM "
+                    f"(max allowed: {self.max_memory_usage_ratio:.1%})"
+                )
+
+            # Check available disk space
+            disk_usage = psutil.disk_usage(self.assets_base_path)
+            available_disk_gb = disk_usage.free / (1024**3)
+
+            if available_disk_gb < self.min_available_disk_gb:
+                errors.append(
+                    f"Insufficient disk space: {available_disk_gb:.1f}GB "
+                    f"(required: {self.min_available_disk_gb}GB)"
+                )
+
+        except Exception as e:
+            errors.append(f"Failed to check system resources: {e}")
+
+        return errors
+
+    def get_memory_limits_summary(self) -> dict[str, int]:
+        """
+        Get summary of configured memory limits.
+
+        Returns:
+            Dictionary with memory type limits
+        """
+        return {
+            "semantic": self.semantic_memory_max_items,
+            "procedural": self.procedural_memory_max_items,
+            "episodic": self.episodic_memory_max_items,
+            "contact": self.contact_memory_max_items,
+            "total": (
+                self.semantic_memory_max_items
+                + self.procedural_memory_max_items
+                + self.episodic_memory_max_items
+                + self.contact_memory_max_items
+            ),
+        }
+
+    def get_system_resource_info(self) -> dict[str, any]:
+        """
+        Get current system resource information.
+
+        Returns:
+            Dictionary with system resource stats
+        """
+        try:
+            memory_info = psutil.virtual_memory()
+            disk_usage = psutil.disk_usage(self.assets_base_path)
+
+            return {
+                "memory": {
+                    "total_gb": memory_info.total / (1024**3),
+                    "available_gb": memory_info.available / (1024**3),
+                    "used_percent": memory_info.percent,
+                },
+                "disk": {
+                    "total_gb": disk_usage.total / (1024**3),
+                    "available_gb": disk_usage.free / (1024**3),
+                    "used_percent": (disk_usage.used / disk_usage.total) * 100,
+                },
+                "cpu": {
+                    "count": psutil.cpu_count(),
+                    "usage_percent": psutil.cpu_percent(interval=1),
+                },
+            }
+        except Exception as e:
+            return {"error": str(e)}
 
     def is_production(self) -> bool:
         """Check if running in production mode."""
@@ -419,12 +616,37 @@ def load_config() -> EmailAgentConfig:
     if errors:
         logger.warning("⚠️  Configuration validation errors:")
         for error in errors:
-            logger.info("   - %s", error)
+            logger.warning("   - %s", error)
 
         if config.is_production():
             raise RuntimeError("Configuration validation failed in production mode")
         else:
-            logger.info("   Continuing in development mode...")
+            logger.warning("   Continuing in development mode...")
+
+    # Log system resource information if monitoring is enabled
+    if config.system_resource_check_enabled:
+        try:
+            resource_info = config.get_system_resource_info()
+            memory_limits = config.get_memory_limits_summary()
+
+            logger.info("📊 System Resource Summary:")
+            logger.info(
+                f"   Memory: {resource_info['memory']['available_gb']:.1f}GB available / {resource_info['memory']['total_gb']:.1f}GB total"
+            )
+            logger.info(
+                f"   Disk: {resource_info['disk']['available_gb']:.1f}GB available / {resource_info['disk']['total_gb']:.1f}GB total"
+            )
+            logger.info(
+                f"   CPU: {resource_info['cpu']['count']} cores, {resource_info['cpu']['usage_percent']:.1f}% usage"
+            )
+            logger.info("🧠 Memory Limits Configured:")
+            for memory_type, limit in memory_limits.items():
+                if memory_type != "total":
+                    logger.info(f"   {memory_type.capitalize()}: {limit:,} items")
+            logger.info(f"   Total: {memory_limits['total']:,} items")
+
+        except Exception as e:
+            logger.warning(f"Failed to log system resources: {e}")
 
     return config
 

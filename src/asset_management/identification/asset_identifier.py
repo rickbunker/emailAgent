@@ -22,6 +22,7 @@ from src.asset_management.core.data_models import (
 )
 from src.asset_management.core.exceptions import IdentificationError
 from src.asset_management.memory_integration.sender_mappings import SenderMappingService
+from src.memory.semantic import SemanticMemory, KnowledgeType
 from src.utils.config import config
 from src.utils.logging_system import get_logger, log_function
 
@@ -54,12 +55,77 @@ class AssetIdentifier:
                                 Defaults to config.asset_match_confidence_threshold
         """
         self.sender_mappings = sender_mapping_service or SenderMappingService()
+        self.semantic_memory = SemanticMemory()
+        self._thresholds_cache = {}
         self.confidence_threshold = confidence_threshold or getattr(
             config, "asset_match_confidence_threshold", 0.7
         )
         logger.info(
             f"Asset identifier initialized with threshold: {self.confidence_threshold}"
         )
+
+    @log_function()
+    async def _get_confidence_thresholds(self) -> dict[str, float]:
+        """
+        Get confidence thresholds from business rules in memory.
+
+        Returns:
+            Dictionary of confidence thresholds for asset identification
+        """
+        if self._thresholds_cache:
+            return self._thresholds_cache
+
+        try:
+            # Search for asset identification thresholds
+            threshold_rules = await self.semantic_memory.search(
+                query="Confidence thresholds for asset_identification",
+                limit=10,
+                knowledge_type=KnowledgeType.RULE,
+            )
+
+            thresholds = {}
+            for rule in threshold_rules:
+                metadata = (
+                    rule.metadata
+                )  # Access metadata property directly from MemoryItem
+                if (
+                    metadata.get("rule_category") == "confidence_thresholds"
+                    and metadata.get("threshold_category") == "asset_identification"
+                ):
+                    threshold_data = metadata.get("thresholds", {})
+                    thresholds.update(threshold_data)
+                    break
+
+            # Set defaults if not found in memory
+            if not thresholds:
+                logger.warning(
+                    "No confidence thresholds found in memory, using defaults"
+                )
+                thresholds = {
+                    "asset_match_confidence_threshold": 0.7,
+                    "exact_word_match_confidence": 0.95,
+                    "all_words_match_confidence": 0.85,
+                    "substring_match_confidence": 0.75,
+                    "partial_words_match_confidence": 0.65,
+                    "weak_match_minimum": 0.5,
+                }
+
+            # Cache the result
+            self._thresholds_cache = thresholds
+            logger.debug(f"Loaded confidence thresholds: {thresholds}")
+            return thresholds
+
+        except Exception as e:
+            logger.error(f"Failed to load confidence thresholds from memory: {e}")
+            # Return hardcoded defaults as fallback
+            return {
+                "asset_match_confidence_threshold": 0.7,
+                "exact_word_match_confidence": 0.95,
+                "all_words_match_confidence": 0.85,
+                "substring_match_confidence": 0.75,
+                "partial_words_match_confidence": 0.65,
+                "weak_match_minimum": 0.5,
+            }
 
     @log_function()
     async def identify_asset(
@@ -189,7 +255,7 @@ class AssetIdentifier:
                 if not identifier:
                     continue
 
-                confidence = self._calculate_identifier_confidence(
+                confidence = await self._calculate_identifier_confidence(
                     identifier, combined_text
                 )
 
@@ -207,17 +273,19 @@ class AssetIdentifier:
                     match_source="pattern_match",
                     match_details={
                         "matched_identifier": matched_identifier,
-                        "pattern_type": self._get_pattern_type(max_confidence),
+                        "pattern_type": await self._get_pattern_type(max_confidence),
                     },
                 )
 
         return best_match
 
-    def _calculate_identifier_confidence(self, identifier: str, text: str) -> float:
+    async def _calculate_identifier_confidence(
+        self, identifier: str, text: str
+    ) -> float:
         """
         Calculate confidence score for an identifier match.
 
-        Uses configuration values instead of hardcoded scores.
+        Uses business rules from memory instead of hardcoded scores.
 
         Args:
             identifier: The identifier to match
@@ -229,12 +297,13 @@ class AssetIdentifier:
         identifier_lower = identifier.lower()
         text_lower = text.lower()
 
-        # Get confidence scores from config
-        exact_word_confidence = getattr(config, "exact_word_match_confidence", 0.95)
-        substring_confidence = getattr(config, "substring_match_confidence", 0.75)
-        all_words_confidence = getattr(config, "all_words_match_confidence", 0.85)
-        partial_words_confidence = getattr(
-            config, "partial_words_match_confidence", 0.65
+        # Get confidence scores from memory
+        thresholds = await self._get_confidence_thresholds()
+        exact_word_confidence = thresholds.get("exact_word_match_confidence", 0.95)
+        substring_confidence = thresholds.get("substring_match_confidence", 0.75)
+        all_words_confidence = thresholds.get("all_words_match_confidence", 0.85)
+        partial_words_confidence = thresholds.get(
+            "partial_words_match_confidence", 0.65
         )
 
         # Exact match gets highest confidence
@@ -260,14 +329,15 @@ class AssetIdentifier:
         # No significant match
         return 0.0
 
-    def _get_pattern_type(self, confidence: float) -> str:
-        """Get descriptive pattern type based on confidence."""
-        # Get thresholds from config
-        exact_word_confidence = getattr(config, "exact_word_match_confidence", 0.95)
-        all_words_confidence = getattr(config, "all_words_match_confidence", 0.85)
-        substring_confidence = getattr(config, "substring_match_confidence", 0.75)
-        partial_words_confidence = getattr(
-            config, "partial_words_match_confidence", 0.65
+    async def _get_pattern_type(self, confidence: float) -> str:
+        """Get descriptive pattern type based on confidence from memory."""
+        # Get thresholds from memory
+        thresholds = await self._get_confidence_thresholds()
+        exact_word_confidence = thresholds.get("exact_word_match_confidence", 0.95)
+        all_words_confidence = thresholds.get("all_words_match_confidence", 0.85)
+        substring_confidence = thresholds.get("substring_match_confidence", 0.75)
+        partial_words_confidence = thresholds.get(
+            "partial_words_match_confidence", 0.65
         )
 
         if confidence >= exact_word_confidence:

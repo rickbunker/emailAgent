@@ -462,9 +462,14 @@ class GmailInterface(BaseEmailInterface):
 
             # Get full message details
             emails = []
+            # Include attachments if searching for emails with attachments
+            include_attachments = criteria.has_attachments is True
+
             for msg in messages:
                 try:
-                    email_obj = await self.get_email(msg["id"])
+                    email_obj = await self.get_email(
+                        msg["id"], include_attachments=include_attachments
+                    )
                     emails.append(email_obj)
                 except Exception as e:
                     logger.warning("Failed to get email %s: %s", msg["id"], e)

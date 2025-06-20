@@ -112,6 +112,12 @@
                         </a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link {% if request.url.path.startswith('/api/v1/memory') %}active{% endif %}"
+                            href="/api/v1/memory/">
+                            <i class="bi bi-memory"></i> Memory Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link {% if request.url.path == '/health' %}active{% endif %}" href="/health">
                             <i class="bi bi-heart-pulse"></i> Health
                         </a>
@@ -122,13 +128,26 @@
                             <i class="bi bi-gear"></i> More
                         </a>
                         <ul class="dropdown-menu">
-
-                            <li><a class="dropdown-item" href="#" disabled>Documents (Coming Soon)</a></li>
-                            <li><a class="dropdown-item" href="#" disabled>Email Processing (Coming Soon)</a></li>
+                            <li><a class="dropdown-item" href="/api/v1/memory/">
+                                    <i class="bi bi-memory"></i> Memory System Dashboard
+                                </a></li>
+                            <li><a class="dropdown-item" href="/api/v1/memory/semantic">
+                                    <i class="bi bi-brain"></i> Semantic Memory
+                                </a></li>
+                            <li><a class="dropdown-item" href="/api/v1/memory/episodic">
+                                    <i class="bi bi-journal-text"></i> Episodic Memory
+                                </a></li>
+                            <li><a class="dropdown-item" href="/api/v1/memory/procedural">
+                                    <i class="bi bi-gear-fill"></i> Procedural Memory
+                                </a></li>
+                            <li><a class="dropdown-item" href="/api/v1/memory/contact">
+                                    <i class="bi bi-people"></i> Contact Memory
+                                </a></li>
                             <li>
                                 <hr class="dropdown-divider">
                             </li>
-                            <li><a class="dropdown-item" href="#" disabled>Memory System (Coming Soon)</a></li>
+                            <li><a class="dropdown-item" href="#" disabled>Documents (Coming Soon)</a></li>
+                            <li><a class="dropdown-item" href="#" disabled>File Browser (Coming Soon)</a></li>
                         </ul>
                     </li>
                 </ul>

@@ -6,7 +6,7 @@ dependency functions for FastAPI routes.
 """
 
 # # Standard library imports
-from typing import Optional
+from typing import Optional, Dict, Any
 from functools import lru_cache
 
 # # Third-party imports
@@ -22,6 +22,10 @@ from src.asset_management import (
 from src.asset_management.processing.document_processor import DocumentProcessor
 from src.asset_management.services.asset_service import AssetService
 from src.asset_management.utils.storage import StorageService
+from src.memory.semantic import SemanticMemory
+from src.memory.episodic import EpisodicMemory
+from src.memory.procedural import ProceduralMemory
+from src.memory.contact import ContactMemory
 from src.utils.config import config
 from src.utils.logging_system import get_logger
 
@@ -36,6 +40,12 @@ sender_mapping_service: Optional[SenderMappingService] = None
 storage_service: Optional[StorageService] = None
 qdrant_client: Optional[QdrantClient] = None
 
+# Global memory system instances
+semantic_memory: Optional[SemanticMemory] = None
+episodic_memory: Optional[EpisodicMemory] = None
+procedural_memory: Optional[ProceduralMemory] = None
+contact_memory: Optional[ContactMemory] = None
+
 
 async def initialize_services() -> None:
     """
@@ -47,6 +57,7 @@ async def initialize_services() -> None:
     global asset_service, document_processor, asset_identifier
     global document_classifier, sender_mapping_service, storage_service
     global qdrant_client
+    global semantic_memory, episodic_memory, procedural_memory, contact_memory
 
     try:
         # Initialize Qdrant client
@@ -59,6 +70,34 @@ async def initialize_services() -> None:
             logger.warning(f"Failed to connect to Qdrant: {e}")
             logger.warning("Running without vector storage - some features limited")
             qdrant_client = None
+
+        # Initialize memory systems
+        try:
+            # Get Qdrant URL
+            qdrant_url = f"http://{config.qdrant_host}:{config.qdrant_port}"
+
+            semantic_memory = SemanticMemory(qdrant_url=qdrant_url)
+            episodic_memory = EpisodicMemory(qdrant_url=qdrant_url)
+            # ProceduralMemory requires qdrant_client parameter
+            procedural_memory = (
+                ProceduralMemory(qdrant_client=qdrant_client) if qdrant_client else None
+            )
+            contact_memory = ContactMemory(qdrant_url=qdrant_url)
+
+            # Only procedural memory has initialize_collections method
+            # Other memory types initialize collections automatically when needed
+            if procedural_memory:
+                await procedural_memory.initialize_collections()
+
+            logger.info("✅ Memory systems initialized successfully")
+
+        except Exception as e:
+            logger.error(f"Failed to initialize memory systems: {e}")
+            # Initialize with None to allow API to start but memory features will be limited
+            semantic_memory = None
+            episodic_memory = None
+            procedural_memory = None
+            contact_memory = None
 
         # Initialize services
         asset_service = AssetService(
@@ -181,6 +220,67 @@ async def get_qdrant_client() -> Optional[QdrantClient]:
         The Qdrant client if available, None otherwise
     """
     return qdrant_client
+
+
+def get_memory_systems() -> Dict[str, Any]:
+    """
+    Dependency function to get all memory systems.
+
+    Returns:
+        Dictionary mapping memory system names to instances
+
+    Raises:
+        RuntimeError: If memory systems are not initialized
+    """
+    memory_systems = {}
+
+    # Debug logging to understand what's happening
+    logger.debug(
+        f"Memory system status: semantic={semantic_memory is not None}, "
+        f"episodic={episodic_memory is not None}, "
+        f"procedural={procedural_memory is not None}, "
+        f"contact={contact_memory is not None}"
+    )
+
+    if semantic_memory:
+        memory_systems["semantic"] = semantic_memory
+    if episodic_memory:
+        memory_systems["episodic"] = episodic_memory
+    if procedural_memory:
+        memory_systems["procedural"] = procedural_memory
+    if contact_memory:
+        memory_systems["contact"] = contact_memory
+
+    if not memory_systems:
+        # Try to re-initialize if they're None
+        logger.warning(
+            "Memory systems appear to be None, attempting re-initialization..."
+        )
+        try:
+            # Create simple instances for testing
+            qdrant_url = f"http://{config.qdrant_host}:{config.qdrant_port}"
+            memory_systems = {
+                "semantic": SemanticMemory(qdrant_url=qdrant_url),
+                "episodic": EpisodicMemory(qdrant_url=qdrant_url),
+                "contact": ContactMemory(qdrant_url=qdrant_url),
+            }
+
+            # ProceduralMemory requires qdrant_client
+            if qdrant_client:
+                memory_systems["procedural"] = ProceduralMemory(
+                    qdrant_client=qdrant_client
+                )
+            else:
+                logger.warning("Cannot create ProceduralMemory without qdrant_client")
+
+            logger.info("Successfully created memory systems on-demand")
+        except Exception as e:
+            logger.error(f"Failed to create memory systems on-demand: {e}")
+            raise RuntimeError(
+                f"Memory systems not initialized and cannot be created: {e}"
+            )
+
+    return memory_systems
 
 
 # Create template environment

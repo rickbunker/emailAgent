@@ -709,13 +709,29 @@ async def email_processing_ui(
             }
         )
 
+    # Fetch recent processing runs from persistent storage
+    recent_runs = []
+    total_runs = 0
+
+    try:
+        # Import the persistent storage functions from email_processing router
+        from src.web_api.routers.email_processing import _get_processing_runs
+
+        # Get runs from persistent storage
+        all_runs = await _get_processing_runs(limit=20)
+        recent_runs = all_runs[:10]  # Show last 10 runs
+        total_runs = len(all_runs)
+    except Exception as e:
+        logger.warning(f"Failed to fetch recent processing runs: {e}")
+        # Continue with empty runs - page will still work
+
     return templates.TemplateResponse(
         "email_processing.html",
         {
             "request": request,
             "mailboxes": mailboxes,
-            "recent_runs": [],  # Will be populated dynamically via API
-            "total_runs": 0,
+            "recent_runs": recent_runs,
+            "total_runs": total_runs,
         },
     )
 

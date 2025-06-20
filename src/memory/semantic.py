@@ -76,6 +76,7 @@ class KnowledgeType(Enum):
         RULE: Business rules and decision criteria
         INSIGHT: Business insights and intelligence
         PATTERN: Communication and behavioral patterns
+        PROCESSING_HISTORY: Email processing runs and history
         UNKNOWN: Unclassified knowledge requiring review
     """
 
@@ -86,6 +87,7 @@ class KnowledgeType(Enum):
     RULE = "rule"
     INSIGHT = "insight"
     PATTERN = "pattern"
+    PROCESSING_HISTORY = "processing_history"
     UNKNOWN = "unknown"
 
 

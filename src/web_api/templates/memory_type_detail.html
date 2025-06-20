@@ -1,0 +1,305 @@
+{% extends "base.html" %}
+
+{% block title %}{{ memory_type_title }} Memory{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1>
+                        {% if memory_type == 'semantic' %}
+                        🎯 Semantic Memory
+                        {% elif memory_type == 'episodic' %}
+                        📚 Episodic Memory
+                        {% elif memory_type == 'procedural' %}
+                        ⚙️ Procedural Memory
+                        {% elif memory_type == 'contact' %}
+                        👥 Contact Memory
+                        {% endif %}
+                    </h1>
+                    <p class="text-muted mb-0">{{ description }}</p>
+                </div>
+                <div>
+                    <a href="/api/v1/memory/" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left"></i> Back to Dashboard
+                    </a>
+                    <button class="btn btn-danger" onclick="clearMemorySystem()">
+                        <i class="fas fa-trash"></i> Clear All
+                    </button>
+                </div>
+            </div>
+
+            <!-- Statistics Cards -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card bg-primary text-white">
+                        <div class="card-body text-center">
+                            <h3>{{ "{:,}".format(current_items) }}</h3>
+                            <p class="mb-0">Items Stored</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-info text-white">
+                        <div class="card-body text-center">
+                            <h3>{{ "{:,}".format(max_items) }}</h3>
+                            <p class="mb-0">Maximum Items</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-success text-white">
+                        <div class="card-body text-center">
+                            <h3>{{ "%.1f"|format(usage_percentage) }}%</h3>
+                            <p class="mb-0">Capacity Used</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-warning text-white">
+                        <div class="card-body text-center">
+                            <h3>{{ "{:,}".format(max_items - current_items) }}</h3>
+                            <p class="mb-0">Available Space</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Usage Progress Bar -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Memory Usage</h5>
+                    <div class="progress mb-3" style="height: 20px;">
+                        {% set usage_color = 'bg-success' if usage_percentage < 50 else 'bg-warning' if usage_percentage
+                            < 75 else 'bg-danger' %} <div class="progress-bar {{ usage_color }}"
+                            style="width: {{ usage_percentage }}%">
+                            {{ "%.1f"|format(usage_percentage) }}%
+                    </div>
+                </div>
+                <div class="row text-center">
+                    <div class="col-3">
+                        <strong>{{ "{:,}".format(current_items) }}</strong><br>
+                        <small class="text-muted">Current Items</small>
+                    </div>
+                    <div class="col-3">
+                        <strong>{{ "{:,}".format(max_items) }}</strong><br>
+                        <small class="text-muted">Maximum Items</small>
+                    </div>
+                    <div class="col-3">
+                        <strong>{{ "%.1f"|format((current_items * 2048) / (1024 * 1024)) }}MB</strong><br>
+                        <small class="text-muted">Estimated Size</small>
+                    </div>
+                    <div class="col-3">
+                        <strong>{{ "{:,}".format(max_items - current_items) }}</strong><br>
+                        <small class="text-muted">Available Space</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Collection Information -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Collection Information</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-borderless">
+                        <tbody>
+                            {% for key, value in collection_info.items() %}
+                            <tr>
+                                <td class="fw-bold" style="width: 200px;">{{ key.replace('_', ' ').title() }}:</td>
+                                <td>
+                                    {% if value is mapping %}
+                                    <pre class="bg-light p-2 rounded"><code>{{ value | tojson(indent=2) }}</code></pre>
+                                    {% else %}
+                                    {{ value }}
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sample Items -->
+        {% if sample_items %}
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Sample Items ({{ sample_items|length }} of {{ current_items }})</h5>
+                <button class="btn btn-sm btn-outline-primary" onclick="refreshSamples()">
+                    <i class="fas fa-refresh"></i> Refresh Samples
+                </button>
+            </div>
+            <div class="card-body">
+                <div class="accordion" id="sampleItemsAccordion">
+                    {% for item in sample_items %}
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="heading{{ loop.index }}">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                data-bs-target="#collapse{{ loop.index }}">
+                                <div class="d-flex justify-content-between w-100 me-3">
+                                    <div>
+                                        <strong>Item {{ loop.index }}</strong>
+                                        {% if item.id != 'N/A' %}
+                                        <small class="text-muted ms-2">ID: {{ item.id[:8] }}...</small>
+                                        {% endif %}
+                                    </div>
+                                    <div class="text-end">
+                                        {% if item.confidence != 'N/A' %}
+                                        <span class="badge bg-secondary">{{ item.confidence }}</span>
+                                        {% endif %}
+                                        {% if item.timestamp != 'N/A' %}
+                                        <small class="text-muted">{{ item.timestamp }}</small>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </button>
+                        </h2>
+                        <div id="collapse{{ loop.index }}" class="accordion-collapse collapse"
+                            data-bs-parent="#sampleItemsAccordion">
+                            <div class="accordion-body">
+                                <div class="row">
+                                    <div class="col-md-8">
+                                        <h6>Content</h6>
+                                        <div class="bg-light p-3 rounded">
+                                            <pre style="white-space: pre-wrap; margin: 0;">{{ item.content }}</pre>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <h6>Metadata</h6>
+                                        {% if item.metadata %}
+                                        <div class="table-responsive">
+                                            <table class="table table-sm table-borderless">
+                                                {% for key, value in item.metadata.items() %}
+                                                <tr>
+                                                    <td class="fw-bold">{{ key }}:</td>
+                                                    <td>{{ value }}</td>
+                                                </tr>
+                                                {% endfor %}
+                                            </table>
+                                        </div>
+                                        {% else %}
+                                        <p class="text-muted">No metadata</p>
+                                        {% endif %}
+
+                                        {% if item.id != 'N/A' %}
+                                        <h6 class="mt-3">Item Details</h6>
+                                        <table class="table table-sm table-borderless">
+                                            <tr>
+                                                <td class="fw-bold">ID:</td>
+                                                <td><code>{{ item.id }}</code></td>
+                                            </tr>
+                                            {% if item.confidence != 'N/A' %}
+                                            <tr>
+                                                <td class="fw-bold">Confidence:</td>
+                                                <td><span class="badge bg-secondary">{{ item.confidence }}</span></td>
+                                            </tr>
+                                            {% endif %}
+                                            {% if item.timestamp != 'N/A' %}
+                                            <tr>
+                                                <td class="fw-bold">Timestamp:</td>
+                                                <td>{{ item.timestamp }}</td>
+                                            </tr>
+                                            {% endif %}
+                                        </table>
+                                        {% endif %}
+
+                                        <div class="mt-3">
+                                            <button class="btn btn-sm btn-outline-danger"
+                                                onclick="deleteItem('{{ item.id }}')">
+                                                <i class="fas fa-trash"></i> Delete Item
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="card">
+            <div class="card-body text-center">
+                <div class="py-5">
+                    <i class="fas fa-database fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">No Items Found</h5>
+                    <p class="text-muted">This memory system is currently empty or items could not be retrieved.</p>
+                    {% if memory_type in ['procedural', 'semantic'] %}
+                    <button class="btn btn-primary" onclick="loadKnowledge()">
+                        <i class="fas fa-upload"></i> Load Knowledge Base
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+</div>
+
+<script>
+    async function clearMemorySystem() {
+        if (!confirm(`Are you sure you want to clear all {{ current_items }} items from {{ memory_type }} memory? This cannot be undone.`)) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/v1/memory/{{ memory_type }}/clear`, {
+                method: 'POST'
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                alert(`Successfully cleared ${result.items_cleared} items from {{ memory_type }} memory.`);
+                location.reload();
+            } else {
+                alert(`Failed to clear {{ memory_type }} memory.`);
+            }
+
+        } catch (error) {
+            console.error('Failed to clear memory:', error);
+            alert('Failed to clear memory. Please try again.');
+        }
+    }
+
+    async function deleteItem(itemId) {
+        if (!confirm('Are you sure you want to delete this item?')) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/v1/memory/{{ memory_type }}/items/${itemId}`, {
+                method: 'DELETE'
+            });
+
+            if (response.ok) {
+                alert('Item deleted successfully.');
+                location.reload();
+            } else {
+                alert('Failed to delete item.');
+            }
+
+        } catch (error) {
+            console.error('Failed to delete item:', error);
+            alert('Failed to delete item. Please try again.');
+        }
+    }
+
+    function refreshSamples() {
+        location.reload();
+    }
+
+    function loadKnowledge() {
+        window.location.href = '/api/v1/memory/';
+    }
+</script>
+{% endblock %}

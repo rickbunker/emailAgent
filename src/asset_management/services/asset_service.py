@@ -18,6 +18,7 @@ from qdrant_client.models import PointStruct
 
 # # Local application imports
 from src.asset_management.core.data_models import Asset, AssetType
+from src.memory.semantic import SemanticMemory, KnowledgeType
 from src.utils.config import config
 from src.utils.logging_system import get_logger, log_function
 
@@ -49,6 +50,8 @@ class AssetService:
         self.qdrant = qdrant_client
         self.base_assets_path = Path(base_assets_path or config.assets_base_path)
         self.collection_name = "assets"
+        self.semantic_memory = SemanticMemory()
+        self._folder_rules_cache = {}
 
         # Create base assets directory if it doesn't exist
         self.base_assets_path.mkdir(parents=True, exist_ok=True)
@@ -56,6 +59,90 @@ class AssetService:
         logger.info(
             f"Asset service initialized with base path: {self.base_assets_path}"
         )
+
+    @log_function()
+    async def _get_folder_structure(self, asset_type: AssetType) -> list[str]:
+        """
+        Get folder structure for an asset type from business rules in memory.
+
+        Args:
+            asset_type: The asset type to get folder structure for
+
+        Returns:
+            List of folder names to create
+        """
+        cache_key = asset_type.value
+        if cache_key in self._folder_rules_cache:
+            return self._folder_rules_cache[cache_key]
+
+        try:
+            # First try to get asset-type-specific folder structure
+            asset_type_rules = await self.semantic_memory.search(
+                query=f"Asset type {asset_type.value} folder structure",
+                limit=10,
+                knowledge_type=KnowledgeType.RULE,
+            )
+
+            folders = []
+            for rule in asset_type_rules:
+                metadata = (
+                    rule.metadata
+                )  # Access metadata property directly from MemoryItem
+                if (
+                    metadata.get("rule_category") == "asset_folder_structure"
+                    and metadata.get("rule_type") == "asset_type_specific"
+                    and metadata.get("asset_type") == asset_type.value
+                ):
+                    folders = metadata.get("folders", [])
+                    break
+
+            # Fall back to standard folder structure if no asset-specific structure found
+            if not folders:
+                logger.info(
+                    f"No specific folder structure for {asset_type.value}, using standard structure"
+                )
+                standard_rules = await self.semantic_memory.search(
+                    query="Asset folder standard folders",
+                    limit=20,
+                    knowledge_type=KnowledgeType.RULE,
+                )
+
+                # Collect standard folders with their priorities
+                folder_info = []
+                for rule in standard_rules:
+                    metadata = (
+                        rule.metadata
+                    )  # Access metadata property directly from MemoryItem
+                    if (
+                        metadata.get("rule_category") == "asset_folder_structure"
+                        and metadata.get("rule_type") == "standard_folder"
+                    ):
+                        folder_info.append(
+                            {
+                                "name": metadata.get("folder_name"),
+                                "required": metadata.get("required", True),
+                                "priority": metadata.get("priority", 999),
+                            }
+                        )
+
+                # Sort by priority and get folder names
+                folder_info.sort(key=lambda x: x["priority"])
+                folders = [
+                    f["name"] for f in folder_info if f["name"] and f["required"]
+                ]
+
+            # Cache the result
+            self._folder_rules_cache[cache_key] = folders
+
+            logger.info(f"Folder structure for {asset_type.value}: {folders}")
+            return folders
+
+        except Exception as e:
+            logger.error(f"Failed to get folder structure from memory: {e}")
+            # Fallback to minimal hardcoded structure as last resort
+            fallback_folders = ["correspondence", "needs_review"]
+            logger.warning(f"Using fallback folder structure: {fallback_folders}")
+            return fallback_folders
 
     @log_function()
     async def initialize_collection(self) -> None:
@@ -153,9 +240,11 @@ class AssetService:
             asset_folder = self.base_assets_path / asset.folder_path
             asset_folder.mkdir(parents=True, exist_ok=True)
 
-            # Create standard subfolders
-            for subfolder in ["correspondence", "legal_documents", "needs_review"]:
+            # Create subfolders based on business rules from memory
+            folder_structure = await self._get_folder_structure(asset_type)
+            for subfolder in folder_structure:
                 (asset_folder / subfolder).mkdir(exist_ok=True)
+                logger.debug(f"Created subfolder: {subfolder}")
 
             logger.info(f"✅ Created asset: {deal_name} ({deal_id}) at {asset_folder}")
             return deal_id

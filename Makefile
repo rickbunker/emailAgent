@@ -104,6 +104,25 @@ check-tools:
 run-dev:
 	python app.py
 
+# Initialize memory systems
+init-memory:
+	@echo "🧠 Initializing Memory Systems..."
+	@echo "This will load knowledge base data into Qdrant"
+	@echo ""
+	python scripts/initialize_memory.py
+
+# Clean memory systems (clear Qdrant)
+clean-memory:
+	@echo "🗑️  Clearing Memory Systems..."
+	@echo "This will delete all Qdrant collections"
+	@echo ""
+	python scripts/clear_qdrant.py
+
+# Run the new FastAPI server
+run-api:
+	@echo "🚀 Starting FastAPI server..."
+	python -m src.web_api.main
+
 # Quick fix common issues
 fix:
 	python scripts/test_harness.py --fix --format

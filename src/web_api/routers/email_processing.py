@@ -10,6 +10,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Optional
 from uuid import uuid4
+import json
 
 # # Third-party imports
 from fastapi import APIRouter, Depends, HTTPException
@@ -20,6 +21,7 @@ from src.asset_management.processing.document_processor import DocumentProcessor
 from src.asset_management.services.asset_service import AssetService
 from src.email_interface.base import EmailSearchCriteria
 from src.email_interface.factory import EmailInterfaceFactory
+from src.memory.semantic import SemanticMemory, KnowledgeType, KnowledgeConfidence
 from src.utils.config import config
 from src.utils.logging_system import get_logger, log_function
 from src.web_api.dependencies import get_asset_service, get_document_processor
@@ -27,6 +29,9 @@ from src.web_api.dependencies import get_asset_service, get_document_processor
 logger = get_logger(__name__)
 
 router = APIRouter(prefix="/email-processing", tags=["email-processing"])
+
+# Initialize semantic memory for persistent storage
+semantic_memory = SemanticMemory()
 
 
 # Pydantic models for request/response
@@ -66,8 +71,7 @@ class ProcessingRunResult(BaseModel):
     results: list[EmailProcessingResult] = []
 
 
-# In-memory storage for processing runs (will be replaced with proper persistence)
-processing_runs: dict[str, ProcessingRunResult] = {}
+# Global flag for processing cancellation
 processing_cancelled = False
 
 
@@ -112,17 +116,39 @@ async def process_emails(
         attachments_processed=0,
         errors=0,
     )
-    processing_runs[run_id] = run_result
+    # Processing run will be saved to persistent storage when complete
 
     try:
-        # Create email interface
-        email_interface = EmailInterfaceFactory.create(
-            system_type=mailbox_config["type"],
-            credentials_path=mailbox_config.get("credentials_file"),
-        )
+        # Create email interface based on system type
+        system_type = mailbox_config["type"]
+        credentials_file = mailbox_config.get("credentials_file")
 
-        # Connect to email interface
-        connected = await email_interface.connect()
+        if system_type == "gmail":
+            # Gmail: Create interface without parameters, connect with credentials
+            email_interface = EmailInterfaceFactory.create(system_type=system_type)
+
+            # Load Gmail credentials from file
+            with open(credentials_file, "r") as f:
+                credentials_data = json.load(f)
+
+            # Gmail connect expects credentials dict with specific structure
+            gmail_credentials = {
+                "credentials_file": credentials_file,
+                "token_file": credentials_file.replace(
+                    "credentials.json", "token.json"
+                ),
+            }
+
+            connected = await email_interface.connect(gmail_credentials)
+        else:
+            # Microsoft Graph: Create interface with credentials_path, connect without parameters
+            email_interface = EmailInterfaceFactory.create(
+                system_type=system_type,
+                credentials_path=credentials_file,
+            )
+
+            connected = await email_interface.connect()
+
         if not connected:
             raise HTTPException(
                 status_code=500, detail="Failed to connect to email system"
@@ -150,7 +176,7 @@ async def process_emails(
                 break
 
             # Check if already processed (unless force reprocess)
-            if not request.force_reprocess and _is_email_processed(
+            if not request.force_reprocess and await _is_email_processed(
                 email.id, request.mailbox_id
             ):
                 logger.debug(f"Skipping already processed email: {email.id}")
@@ -168,7 +194,7 @@ async def process_emails(
                 run_result.errors += 1
 
             # Mark as processed
-            _mark_email_processed(email.id, request.mailbox_id)
+            await _mark_email_processed(email.id, request.mailbox_id)
 
         run_result.completed_at = datetime.now(UTC).isoformat()
         run_result.status = "completed" if not processing_cancelled else "cancelled"
@@ -183,6 +209,9 @@ async def process_emails(
         f"Email processing completed: {run_result.emails_processed} emails, "
         f"{run_result.attachments_processed} attachments"
     )
+
+    # Replace in-memory storage with persistent storage helper functions
+    await _save_processing_run(run_result)
 
     return run_result
 
@@ -201,19 +230,17 @@ async def stop_processing() -> dict[str, str]:
 @log_function()
 async def get_processing_runs(limit: int = 20) -> list[ProcessingRunResult]:
     """Get recent processing runs."""
-    runs = sorted(processing_runs.values(), key=lambda x: x.started_at, reverse=True)[
-        :limit
-    ]
-    return runs
+    return await _get_processing_runs(limit)
 
 
 @router.get("/runs/{run_id}")
 @log_function()
 async def get_processing_run(run_id: str) -> ProcessingRunResult:
     """Get details of a specific processing run."""
-    if run_id not in processing_runs:
+    run_result = await _get_processing_run_by_id(run_id)
+    if not run_result:
         raise HTTPException(status_code=404, detail="Processing run not found")
-    return processing_runs[run_id]
+    return run_result
 
 
 @router.get("/mailboxes")
@@ -266,22 +293,7 @@ def _get_configured_mailboxes() -> list[dict[str, Any]]:
     return mailboxes
 
 
-# Simple in-memory tracking of processed emails (will be replaced with proper persistence)
-processed_emails: dict[str, dict[str, Any]] = {}
-
-
-def _is_email_processed(email_id: str, mailbox_id: str) -> bool:
-    """Check if an email has been processed."""
-    key = f"{mailbox_id}:{email_id}"
-    return key in processed_emails
-
-
-def _mark_email_processed(email_id: str, mailbox_id: str) -> None:
-    """Mark an email as processed."""
-    key = f"{mailbox_id}:{email_id}"
-    processed_emails[key] = {
-        "processed_at": datetime.now(UTC).isoformat(),
-    }
+# Persistent storage functions are defined below
 
 
 async def _process_single_email(
@@ -312,10 +324,15 @@ async def _process_single_email(
         # Process each attachment
         for attachment in email.attachments:
             try:
-                # Get attachment content
-                content = await email_interface.get_attachment_content(
-                    email.id, attachment.attachment_id
-                )
+                logger.info(f"Processing attachment: {attachment.filename}")
+
+                # Use already-loaded attachment content
+                content = attachment.content
+                if not content:
+                    logger.warning(
+                        f"No content loaded for attachment: {attachment.filename}"
+                    )
+                    continue
 
                 # Prepare attachment data
                 attachment_data = {
@@ -367,3 +384,183 @@ async def _process_single_email(
             error_message=str(e),
             processing_time=processing_time,
         )
+
+
+# Replace in-memory storage with persistent storage helper functions
+async def _save_processing_run(run_result: ProcessingRunResult) -> None:
+    """Save processing run to persistent storage."""
+    try:
+        content = f"Email processing run {run_result.run_id}: {run_result.status}"
+        metadata = {
+            "run_id": run_result.run_id,
+            "mailbox_id": run_result.mailbox_id,
+            "status": run_result.status,
+            "started_at": run_result.started_at,
+            "completed_at": run_result.completed_at,
+            "emails_processed": run_result.emails_processed,
+            "attachments_processed": run_result.attachments_processed,
+            "errors": run_result.errors,
+            "results": [result.dict() for result in run_result.results],
+        }
+
+        await semantic_memory.add(
+            content=content,
+            knowledge_type=KnowledgeType.PROCESSING_HISTORY,
+            confidence=KnowledgeConfidence.HIGH,
+            metadata=metadata,
+        )
+
+        logger.info(f"Saved processing run {run_result.run_id} to persistent storage")
+    except Exception as e:
+        logger.error(f"Failed to save processing run {run_result.run_id}: {e}")
+
+
+async def _get_processing_runs(limit: int = 20) -> list[ProcessingRunResult]:
+    """Get processing runs from persistent storage."""
+    try:
+        # Search for processing runs
+        results = await semantic_memory.search(
+            query="Email processing run",
+            knowledge_type=KnowledgeType.PROCESSING_HISTORY,
+            limit=limit * 2,  # Get extra in case some are malformed
+        )
+
+        runs = []
+        for memory_item in results:
+            try:
+                metadata = memory_item.metadata
+                # Check if this is a processing run (not a processed email)
+                if (
+                    metadata
+                    and metadata.get("type") == "knowledge"
+                    and metadata.get("run_id")
+                ):
+                    # Reconstruct ProcessingRunResult from metadata
+                    run_data = {
+                        "run_id": metadata["run_id"],
+                        "mailbox_id": metadata["mailbox_id"],
+                        "status": metadata["status"],
+                        "started_at": metadata["started_at"],
+                        "completed_at": metadata.get("completed_at"),
+                        "emails_processed": metadata.get("emails_processed", 0),
+                        "attachments_processed": metadata.get(
+                            "attachments_processed", 0
+                        ),
+                        "errors": metadata.get("errors", 0),
+                        "results": [
+                            EmailProcessingResult(**result_data)
+                            for result_data in metadata.get("results", [])
+                        ],
+                    }
+                    runs.append(ProcessingRunResult(**run_data))
+            except Exception as e:
+                logger.warning(f"Failed to parse processing run from memory: {e}")
+                continue
+
+        # Sort by start time (most recent first) and limit
+        runs.sort(key=lambda x: x.started_at, reverse=True)
+        return runs[:limit]
+
+    except Exception as e:
+        logger.error(f"Failed to get processing runs from persistent storage: {e}")
+        return []
+
+
+async def _get_processing_run_by_id(run_id: str) -> Optional[ProcessingRunResult]:
+    """Get a specific processing run by ID from persistent storage."""
+    try:
+        # Search for the specific run
+        results = await semantic_memory.search(
+            query=f"Email processing run {run_id}",
+            knowledge_type=KnowledgeType.PROCESSING_HISTORY,
+            limit=10,
+        )
+
+        for memory_item in results:
+            try:
+                metadata = memory_item.metadata
+                if (
+                    metadata
+                    and metadata.get("type") == "knowledge"
+                    and metadata.get("run_id") == run_id
+                ):
+                    # Reconstruct ProcessingRunResult from metadata
+                    run_data = {
+                        "run_id": metadata["run_id"],
+                        "mailbox_id": metadata["mailbox_id"],
+                        "status": metadata["status"],
+                        "started_at": metadata["started_at"],
+                        "completed_at": metadata.get("completed_at"),
+                        "emails_processed": metadata.get("emails_processed", 0),
+                        "attachments_processed": metadata.get(
+                            "attachments_processed", 0
+                        ),
+                        "errors": metadata.get("errors", 0),
+                        "results": [
+                            EmailProcessingResult(**result_data)
+                            for result_data in metadata.get("results", [])
+                        ],
+                    }
+                    return ProcessingRunResult(**run_data)
+            except Exception as e:
+                logger.warning(
+                    f"Failed to parse processing run {run_id} from memory: {e}"
+                )
+                continue
+
+        return None
+
+    except Exception as e:
+        logger.error(
+            f"Failed to get processing run {run_id} from persistent storage: {e}"
+        )
+        return None
+
+
+async def _is_email_processed(email_id: str, mailbox_id: str) -> bool:
+    """Check if an email has been processed using persistent storage."""
+    try:
+        query = f"Processed email {mailbox_id} {email_id}"
+        results = await semantic_memory.search(
+            query=query,
+            knowledge_type=KnowledgeType.PROCESSING_HISTORY,
+            limit=5,
+        )
+
+        for memory_item in results:
+            metadata = memory_item.metadata
+            if (
+                metadata
+                and metadata.get("type") == "knowledge"
+                and metadata.get("email_id") == email_id
+                and metadata.get("mailbox_id") == mailbox_id
+            ):
+                return True
+
+        return False
+
+    except Exception as e:
+        logger.error(f"Failed to check if email {email_id} is processed: {e}")
+        return False
+
+
+async def _mark_email_processed(email_id: str, mailbox_id: str) -> None:
+    """Mark an email as processed using persistent storage."""
+    try:
+        content = f"Processed email {mailbox_id} {email_id}"
+        metadata = {
+            "email_id": email_id,
+            "mailbox_id": mailbox_id,
+            "processed_at": datetime.now(UTC).isoformat(),
+        }
+
+        await semantic_memory.add(
+            content=content,
+            knowledge_type=KnowledgeType.PROCESSING_HISTORY,
+            confidence=KnowledgeConfidence.HIGH,
+            metadata=metadata,
+        )
+
+        logger.debug(f"Marked email {email_id} as processed in persistent storage")
+    except Exception as e:
+        logger.error(f"Failed to mark email {email_id} as processed: {e}")
