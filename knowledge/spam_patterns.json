@@ -1,0 +1,450 @@
+{
+    "metadata": {
+        "description": "Spam detection patterns for email filtering",
+        "version": "1.0.0",
+        "created_date": "2025-06-20",
+        "source": "Extracted from hardcoded patterns in spam_detector.py",
+        "notes": "These patterns are used for spam detection with confidence scoring and learning capabilities"
+    },
+    "spam_patterns": {
+        "spam_words": {
+            "description": "Common spam keywords and phrases",
+            "confidence_weight": 2.0,
+            "patterns": [
+                {
+                    "word": "free",
+                    "confidence": 0.8,
+                    "category": "promotional"
+                },
+                {
+                    "word": "win",
+                    "confidence": 0.7,
+                    "category": "promotional"
+                },
+                {
+                    "word": "winner",
+                    "confidence": 0.75,
+                    "category": "promotional"
+                },
+                {
+                    "word": "congratulations",
+                    "confidence": 0.7,
+                    "category": "promotional"
+                },
+                {
+                    "word": "click here",
+                    "confidence": 0.85,
+                    "category": "action"
+                },
+                {
+                    "word": "act now",
+                    "confidence": 0.8,
+                    "category": "urgency"
+                },
+                {
+                    "word": "limited time",
+                    "confidence": 0.75,
+                    "category": "urgency"
+                },
+                {
+                    "word": "urgent",
+                    "confidence": 0.7,
+                    "category": "urgency"
+                },
+                {
+                    "word": "guarantee",
+                    "confidence": 0.6,
+                    "category": "promotional"
+                },
+                {
+                    "word": "100% free",
+                    "confidence": 0.9,
+                    "category": "promotional"
+                },
+                {
+                    "word": "risk free",
+                    "confidence": 0.7,
+                    "category": "promotional"
+                },
+                {
+                    "word": "satisfaction guaranteed",
+                    "confidence": 0.65,
+                    "category": "promotional"
+                },
+                {
+                    "word": "amazing",
+                    "confidence": 0.5,
+                    "category": "promotional"
+                },
+                {
+                    "word": "offer expires",
+                    "confidence": 0.8,
+                    "category": "urgency"
+                },
+                {
+                    "word": "order now",
+                    "confidence": 0.8,
+                    "category": "action"
+                },
+                {
+                    "word": "special promotion",
+                    "confidence": 0.75,
+                    "category": "promotional"
+                },
+                {
+                    "word": "bonus",
+                    "confidence": 0.6,
+                    "category": "promotional"
+                },
+                {
+                    "word": "discount",
+                    "confidence": 0.6,
+                    "category": "promotional"
+                },
+                {
+                    "word": "lowest price",
+                    "confidence": 0.7,
+                    "category": "promotional"
+                },
+                {
+                    "word": "best price",
+                    "confidence": 0.65,
+                    "category": "promotional"
+                },
+                {
+                    "word": "cheap",
+                    "confidence": 0.6,
+                    "category": "promotional"
+                },
+                {
+                    "word": "bargain",
+                    "confidence": 0.6,
+                    "category": "promotional"
+                },
+                {
+                    "word": "cash",
+                    "confidence": 0.5,
+                    "category": "financial"
+                },
+                {
+                    "word": "check",
+                    "confidence": 0.5,
+                    "category": "financial"
+                },
+                {
+                    "word": "money order",
+                    "confidence": 0.7,
+                    "category": "financial"
+                },
+                {
+                    "word": "credit card",
+                    "confidence": 0.5,
+                    "category": "financial"
+                },
+                {
+                    "word": "investment",
+                    "confidence": 0.5,
+                    "category": "financial"
+                },
+                {
+                    "word": "viagra",
+                    "confidence": 0.95,
+                    "category": "pharmaceutical"
+                },
+                {
+                    "word": "cialis",
+                    "confidence": 0.95,
+                    "category": "pharmaceutical"
+                },
+                {
+                    "word": "pharmacy",
+                    "confidence": 0.8,
+                    "category": "pharmaceutical"
+                },
+                {
+                    "word": "debt relief",
+                    "confidence": 0.85,
+                    "category": "financial"
+                },
+                {
+                    "word": "work from home",
+                    "confidence": 0.8,
+                    "category": "promotional"
+                },
+                {
+                    "word": "make money fast",
+                    "confidence": 0.9,
+                    "category": "financial"
+                },
+                {
+                    "word": "get rich quick",
+                    "confidence": 0.95,
+                    "category": "financial"
+                }
+            ]
+        },
+        "suspicious_regex_patterns": {
+            "description": "Regex patterns for suspicious content",
+            "confidence_weight": 1.5,
+            "patterns": [
+                {
+                    "regex": "\\$+",
+                    "description": "Multiple dollar signs",
+                    "confidence": 0.6,
+                    "category": "financial"
+                },
+                {
+                    "regex": "%+",
+                    "description": "Multiple percent signs",
+                    "confidence": 0.5,
+                    "category": "promotional"
+                },
+                {
+                    "regex": "@+",
+                    "description": "Multiple @ symbols",
+                    "confidence": 0.4,
+                    "category": "suspicious"
+                },
+                {
+                    "regex": "[!]{2,}",
+                    "description": "Multiple exclamation marks",
+                    "confidence": 0.6,
+                    "category": "urgency"
+                },
+                {
+                    "regex": "[\\?]{2,}",
+                    "description": "Multiple question marks",
+                    "confidence": 0.5,
+                    "category": "suspicious"
+                },
+                {
+                    "regex": "[A-Z]{10,}",
+                    "description": "Long stretches of caps",
+                    "confidence": 0.7,
+                    "category": "shouting"
+                },
+                {
+                    "regex": "[\\d]{1,3}%\\s*OFF",
+                    "description": "Percentage discount patterns",
+                    "confidence": 0.8,
+                    "category": "promotional"
+                },
+                {
+                    "regex": "FREE\\s*[!]+",
+                    "description": "FREE with emphasis",
+                    "confidence": 0.85,
+                    "category": "promotional"
+                },
+                {
+                    "regex": "URGENT[!]*",
+                    "description": "Urgent with emphasis",
+                    "confidence": 0.8,
+                    "category": "urgency"
+                }
+            ]
+        },
+        "phishing_patterns": {
+            "description": "Patterns indicating phishing attempts",
+            "confidence_weight": 2.0,
+            "patterns": [
+                {
+                    "regex": "verify\\s+your\\s+account",
+                    "description": "Account verification request",
+                    "confidence": 0.9,
+                    "category": "phishing"
+                },
+                {
+                    "regex": "click\\s+here\\s+to\\s+confirm",
+                    "description": "Confirmation link request",
+                    "confidence": 0.85,
+                    "category": "phishing"
+                },
+                {
+                    "regex": "suspended\\s+account",
+                    "description": "Account suspension threat",
+                    "confidence": 0.9,
+                    "category": "phishing"
+                },
+                {
+                    "regex": "expire.*?\\d+.*?hours?",
+                    "description": "Time-limited expiration",
+                    "confidence": 0.8,
+                    "category": "phishing"
+                },
+                {
+                    "regex": "update.*?payment.*?information",
+                    "description": "Payment update request",
+                    "confidence": 0.9,
+                    "category": "phishing"
+                },
+                {
+                    "regex": "security.*?alert",
+                    "description": "Security alert",
+                    "confidence": 0.7,
+                    "category": "phishing"
+                },
+                {
+                    "regex": "unauthorized.*?access",
+                    "description": "Unauthorized access claim",
+                    "confidence": 0.8,
+                    "category": "phishing"
+                }
+            ]
+        },
+        "blacklists": {
+            "description": "DNS blacklists for IP/domain reputation checking",
+            "patterns": [
+                {
+                    "server": "zen.spamhaus.org",
+                    "type": "composite",
+                    "weight": 1.0,
+                    "description": "Spamhaus composite list"
+                },
+                {
+                    "server": "bl.spamcop.net",
+                    "type": "spam",
+                    "weight": 0.9,
+                    "description": "SpamCop blocking list"
+                },
+                {
+                    "server": "dnsbl.sorbs.net",
+                    "type": "aggregate",
+                    "weight": 0.8,
+                    "description": "SORBS aggregate"
+                },
+                {
+                    "server": "psbl.surriel.com",
+                    "type": "passive",
+                    "weight": 0.7,
+                    "description": "Passive Spam Block List"
+                },
+                {
+                    "server": "dnsbl.njabl.org",
+                    "type": "spam",
+                    "weight": 0.7,
+                    "description": "Not Just Another Bogus List"
+                },
+                {
+                    "server": "cbl.abuseat.org",
+                    "type": "composite",
+                    "weight": 0.8,
+                    "description": "Composite Blocking List"
+                },
+                {
+                    "server": "pbl.spamhaus.org",
+                    "type": "policy",
+                    "weight": 0.6,
+                    "description": "Policy Block List"
+                },
+                {
+                    "server": "sbl.spamhaus.org",
+                    "type": "spam",
+                    "weight": 0.9,
+                    "description": "Spam Block List"
+                },
+                {
+                    "server": "css.spamhaus.org",
+                    "type": "reputation",
+                    "weight": 0.8,
+                    "description": "CSS reputation"
+                },
+                {
+                    "server": "xbl.spamhaus.org",
+                    "type": "exploits",
+                    "weight": 0.9,
+                    "description": "Exploits Block List"
+                }
+            ]
+        },
+        "domain_blacklists": {
+            "description": "Domain-based blacklists",
+            "patterns": [
+                {
+                    "server": "dbl.spamhaus.org",
+                    "type": "domain",
+                    "weight": 0.9,
+                    "description": "Domain Block List"
+                },
+                {
+                    "server": "multi.surbl.org",
+                    "type": "multi",
+                    "weight": 0.8,
+                    "description": "SURBL multi"
+                }
+            ]
+        },
+        "suspicious_tlds": {
+            "description": "Top-level domains commonly used in spam",
+            "patterns": [
+                {
+                    "tld": ".tk",
+                    "confidence": 0.8,
+                    "description": "Tokelau - high spam rate"
+                },
+                {
+                    "tld": ".ml",
+                    "confidence": 0.8,
+                    "description": "Mali - high spam rate"
+                },
+                {
+                    "tld": ".ga",
+                    "confidence": 0.8,
+                    "description": "Gabon - high spam rate"
+                },
+                {
+                    "tld": ".cf",
+                    "confidence": 0.8,
+                    "description": "Central African Republic - high spam rate"
+                },
+                {
+                    "tld": ".club",
+                    "confidence": 0.6,
+                    "description": "Generic - moderate spam rate"
+                },
+                {
+                    "tld": ".download",
+                    "confidence": 0.7,
+                    "description": "Generic - often malicious"
+                }
+            ]
+        },
+        "urgency_indicators": {
+            "description": "Words indicating false urgency",
+            "confidence_weight": 3.0,
+            "patterns": [
+                {
+                    "word": "urgent",
+                    "confidence": 0.7
+                },
+                {
+                    "word": "immediate",
+                    "confidence": 0.7
+                },
+                {
+                    "word": "expire",
+                    "confidence": 0.6
+                },
+                {
+                    "word": "limited time",
+                    "confidence": 0.75
+                },
+                {
+                    "word": "act now",
+                    "confidence": 0.8
+                },
+                {
+                    "word": "hurry",
+                    "confidence": 0.7
+                }
+            ]
+        }
+    },
+    "learning_configuration": {
+        "pattern_effectiveness_tracking": true,
+        "human_feedback_weight": 1.5,
+        "pattern_decay_rate": 0.95,
+        "minimum_confidence_threshold": 0.3,
+        "maximum_pattern_age_days": 180,
+        "effectiveness_review_frequency_days": 30
+    }
+}

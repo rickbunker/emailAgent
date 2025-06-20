@@ -6,25 +6,31 @@ for dynamic behavior without a full SPA framework.
 """
 
 # # Standard library imports
+import os
+import json
 from pathlib import Path
-from typing import Optional, Dict, List
+from typing import Any, Dict, List, Optional
 
 # # Third-party imports
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, Query
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from starlette.status import HTTP_404_NOT_FOUND
 
 # # Local application imports
 from src.asset_management import AssetType
+from src.asset_management.core.data_models import Asset
 from src.asset_management.memory_integration.sender_mappings import SenderMappingService
 from src.asset_management.services.asset_service import AssetService
+from src.memory.episodic import EpisodicMemory
+from src.memory.semantic import SemanticMemory
 from src.utils.config import config
-from src.utils.logging_system import get_logger
+from src.utils.logging_system import get_logger, log_function
 from src.web_api.dependencies import (
     get_asset_service,
+    get_document_processor,
     get_sender_mapping_service,
     get_templates,
-    get_document_processor,
 )
 
 logger = get_logger(__name__)
@@ -740,3 +746,374 @@ async def human_review_ui(
             },
         },
     )
+
+
+@router.get("/classification-inspector", response_class=HTMLResponse)
+@log_function()
+async def classification_inspector_list(request: Request) -> HTMLResponse:
+    """
+    Show list of processed files for classification inspection.
+
+    Returns:
+        HTML response with file browser for classification inspection
+    """
+    try:
+        processed_files = []
+        processed_dir = Path(config.processed_attachments_path)
+
+        if processed_dir.exists():
+            # Walk through asset folders to find processed files
+            for asset_dir in processed_dir.iterdir():
+                if asset_dir.is_dir():
+                    for category_dir in asset_dir.iterdir():
+                        if category_dir.is_dir():
+                            for file_path in category_dir.iterdir():
+                                if (
+                                    file_path.is_file()
+                                    and not file_path.name.startswith(".")
+                                ):
+                                    processed_files.append(
+                                        {
+                                            "filename": file_path.name,
+                                            "asset_folder": asset_dir.name,
+                                            "category": category_dir.name,
+                                            "relative_path": str(
+                                                file_path.relative_to(processed_dir)
+                                            ),
+                                            "full_path": str(file_path),
+                                            "size": file_path.stat().st_size,
+                                            "modified": file_path.stat().st_mtime,
+                                        }
+                                    )
+
+        # Sort by modification time (most recent first)
+        processed_files.sort(key=lambda x: x["modified"], reverse=True)
+
+        return templates.TemplateResponse(
+            "classification_inspector_list.html",
+            {
+                "request": request,
+                "files": processed_files,
+                "total_files": len(processed_files),
+            },
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to load classification inspector list: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/classification-inspector/{file_path:path}", response_class=HTMLResponse)
+@log_function()
+async def inspect_classification(request: Request, file_path: str) -> HTMLResponse:
+    """
+    Inspect the classification reasoning for a specific processed file.
+
+    Args:
+        file_path: Relative path to the processed file
+
+    Returns:
+        HTML response with detailed classification reasoning
+    """
+    try:
+        # Get full file path
+        full_file_path = Path(config.processed_attachments_path) / file_path
+
+        if not full_file_path.exists():
+            raise HTTPException(
+                status_code=HTTP_404_NOT_FOUND, detail=f"File not found: {file_path}"
+            )
+
+        # Extract file info
+        file_info = {
+            "filename": full_file_path.name,
+            "relative_path": file_path,
+            "full_path": str(full_file_path),
+            "size": full_file_path.stat().st_size,
+            "modified": full_file_path.stat().st_mtime,
+            "asset_folder": full_file_path.parent.parent.name,
+            "category": full_file_path.parent.name,
+        }
+
+        # Try to find corresponding processing metadata in semantic memory
+        semantic_memory = SemanticMemory()
+        episodic_memory = EpisodicMemory()
+
+        classification_info = None
+        processing_metadata = None
+
+        # Search for processing information by filename
+        search_results = await semantic_memory.search(
+            query=f"processed_file:{full_file_path.name}", limit=5
+        )
+
+        # Also search episodic memory for processing decisions
+        decision_results = await episodic_memory.search(
+            query=f"filename:{full_file_path.name}", limit=5
+        )
+
+        # Try to reconstruct processing information
+        if search_results:
+            for memory_item, score in search_results:
+                if score > 0.7:  # High confidence match
+                    metadata = memory_item.metadata or {}
+                    if "processing_result" in metadata or "classification" in metadata:
+                        processing_metadata = {
+                            "source": "semantic_memory",
+                            "confidence": score,
+                            "content": memory_item.content,
+                            "metadata": metadata,
+                        }
+                        break
+
+        # Build classification info from available data
+        if processing_metadata or decision_results:
+            classification_info = await _build_classification_info(
+                file_info,
+                processing_metadata,
+                decision_results,
+                semantic_memory,
+                episodic_memory,
+            )
+
+        return templates.TemplateResponse(
+            "classification_inspector.html",
+            {
+                "request": request,
+                "file_info": file_info,
+                "classification_info": classification_info,
+                "processing_metadata": processing_metadata,
+                "has_metadata": processing_metadata is not None
+                or bool(decision_results),
+            },
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to inspect classification for {file_path}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@log_function()
+async def _build_classification_info(
+    file_info: Dict[str, Any],
+    processing_metadata: Optional[Dict[str, Any]],
+    decision_results: List[tuple],
+    semantic_memory: SemanticMemory,
+    episodic_memory: EpisodicMemory,
+) -> Dict[str, Any]:
+    """
+    Build comprehensive classification information from available sources.
+
+    This function reconstructs the two-step processing workflow (asset identification
+    and document categorization) from available memory sources, following the
+    Email Agent's architecture where semantic memory captures human feedback
+    in two distinct parts: asset matching feedback and document type feedback.
+
+    Args:
+        file_info: Basic file information including filename, paths, and folder structure
+        processing_metadata: Metadata from semantic memory searches
+        decision_results: Results from episodic memory searches
+        semantic_memory: Semantic memory instance for additional lookups
+        episodic_memory: Episodic memory instance for decision history
+
+    Returns:
+        Dictionary with comprehensive classification reasoning including:
+        - Two-step processing breakdown (asset identification + categorization)
+        - Memory source contributions (semantic, episodic, procedural, contact)
+        - Confidence levels and decision flow
+        - Human feedback integration paths
+
+    Raises:
+        ProcessingError: If classification info cannot be built
+    """
+    try:
+        logger.info(f"Building classification info for: {file_info['filename']}")
+
+        classification_info = {
+            "filename": file_info["filename"],
+            "asset_folder": file_info["asset_folder"],
+            "category": file_info["category"],
+            "confidence": 0.0,
+            "confidence_level": "unknown",
+            "processing_source": "file_location",
+            "decision_flow": [],
+            "step1_asset_identification": {
+                "final_asset": file_info["asset_folder"],
+                "confidence": None,
+                "method": "inferred_from_location",
+                "reasoning": [],
+            },
+            "step2_document_categorization": {
+                "final_category": file_info["category"],
+                "confidence": None,
+                "method": "inferred_from_location",
+                "reasoning": [],
+            },
+            "memory_sources": {
+                "semantic": [],
+                "episodic": [],
+                "procedural": [],
+                "contact": [],
+            },
+            "reasoning_summary": "",
+        }
+
+        # Extract info from file location (two-step process breakdown)
+        classification_info["step1_asset_identification"]["reasoning"].append(
+            f"Asset inferred from folder structure: {file_info['asset_folder']}"
+        )
+        classification_info["step2_document_categorization"]["reasoning"].append(
+            f"Category inferred from folder structure: {file_info['category']}"
+        )
+
+        # Combined decision flow for legacy view
+        classification_info["decision_flow"].append(
+            f"Step 1 - Asset Identification: {file_info['asset_folder']} (inferred from location)"
+        )
+        classification_info["decision_flow"].append(
+            f"Step 2 - Document Categorization: {file_info['category']} (inferred from location)"
+        )
+
+        # Add processing metadata if available
+        if processing_metadata:
+            metadata = processing_metadata.get("metadata", {})
+            classification_info["confidence"] = processing_metadata.get(
+                "confidence", 0.0
+            )
+            classification_info["processing_source"] = processing_metadata.get(
+                "source", "unknown"
+            )
+
+            if "asset_confidence" in metadata:
+                classification_info["asset_confidence"] = metadata["asset_confidence"]
+                classification_info["step1_asset_identification"]["confidence"] = (
+                    metadata["asset_confidence"]
+                )
+                classification_info["step1_asset_identification"][
+                    "method"
+                ] = "memory_based"
+                classification_info["decision_flow"].append(
+                    f"Asset identification confidence: {metadata['asset_confidence']:.2f}"
+                )
+
+            if "document_category" in metadata:
+                classification_info["document_category"] = metadata["document_category"]
+                classification_info["step2_document_categorization"]["confidence"] = (
+                    classification_info["confidence"]
+                )
+                classification_info["step2_document_categorization"][
+                    "method"
+                ] = "memory_based"
+                classification_info["decision_flow"].append(
+                    f"Document classified as: {metadata['document_category']}"
+                )
+
+        # Add episodic memory information
+        for memory_item, score in decision_results:
+            if score > 0.6:
+                classification_info["memory_sources"]["episodic"].append(
+                    {
+                        "content": memory_item.content,
+                        "confidence": score,
+                        "metadata": memory_item.metadata or {},
+                    }
+                )
+                classification_info["decision_flow"].append(
+                    f"Episodic memory match (confidence: {score:.2f}): {memory_item.content[:100]}..."
+                )
+
+        # Determine confidence level
+        avg_confidence = classification_info.get("confidence", 0.0)
+        if avg_confidence >= 0.8:
+            classification_info["confidence_level"] = "high"
+        elif avg_confidence >= 0.6:
+            classification_info["confidence_level"] = "medium"
+        elif avg_confidence >= 0.4:
+            classification_info["confidence_level"] = "low"
+        else:
+            classification_info["confidence_level"] = "very_low"
+
+        # Build reasoning summary
+        if classification_info["decision_flow"]:
+            classification_info["reasoning_summary"] = (
+                f"File processed through {len(classification_info['decision_flow'])} decision steps. "
+                f"Primary evidence from {classification_info['processing_source']}. "
+                f"Overall confidence: {classification_info['confidence_level']}"
+            )
+        else:
+            classification_info["reasoning_summary"] = (
+                f"File classification inferred from folder structure. "
+                f"No detailed processing metadata available."
+            )
+
+        logger.info(
+            f"Successfully built classification info for: {file_info['filename']}"
+        )
+        return classification_info
+
+    except KeyError as e:
+        logger.error(f"Missing required file info key: {e}")
+        # Return minimal classification info with error indication
+        return {
+            "filename": file_info.get("filename", "unknown"),
+            "asset_folder": file_info.get("asset_folder", "unknown"),
+            "category": file_info.get("category", "unknown"),
+            "confidence": 0.0,
+            "confidence_level": "error",
+            "processing_source": "error",
+            "decision_flow": [f"Error building classification info: {str(e)}"],
+            "step1_asset_identification": {
+                "final_asset": "error",
+                "confidence": None,
+                "method": "error",
+                "reasoning": [f"Error: {str(e)}"],
+            },
+            "step2_document_categorization": {
+                "final_category": "error",
+                "confidence": None,
+                "method": "error",
+                "reasoning": [f"Error: {str(e)}"],
+            },
+            "memory_sources": {
+                "semantic": [],
+                "episodic": [],
+                "procedural": [],
+                "contact": [],
+            },
+            "reasoning_summary": f"Error building classification info: {str(e)}",
+        }
+    except Exception as e:
+        logger.error(
+            f"Unexpected error building classification info for {file_info.get('filename', 'unknown')}: {e}"
+        )
+        # Return minimal classification info with error indication
+        return {
+            "filename": file_info.get("filename", "unknown"),
+            "asset_folder": file_info.get("asset_folder", "unknown"),
+            "category": file_info.get("category", "unknown"),
+            "confidence": 0.0,
+            "confidence_level": "error",
+            "processing_source": "error",
+            "decision_flow": [f"Unexpected error: {str(e)}"],
+            "step1_asset_identification": {
+                "final_asset": "error",
+                "confidence": None,
+                "method": "error",
+                "reasoning": [f"Error: {str(e)}"],
+            },
+            "step2_document_categorization": {
+                "final_category": "error",
+                "confidence": None,
+                "method": "error",
+                "reasoning": [f"Error: {str(e)}"],
+            },
+            "memory_sources": {
+                "semantic": [],
+                "episodic": [],
+                "procedural": [],
+                "contact": [],
+            },
+            "reasoning_summary": f"Unexpected error building classification info: {str(e)}",
+        }

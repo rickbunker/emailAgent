@@ -49,7 +49,7 @@ import socket
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
-from typing import Any
+from typing import Any, Dict, List
 
 # External dependencies (install with pip if needed)
 try:
@@ -69,7 +69,7 @@ import sys
 from ..memory.contact import ContactMemory
 from ..memory.episodic import EpisodicMemory
 from ..memory.procedural import ProceduralMemory
-from ..memory.semantic import SemanticMemory
+from ..memory.semantic import SemanticMemory, KnowledgeType, KnowledgeConfidence
 
 # SpamAssassin integration
 from ..tools.spamassassin_integration import SpamAssassinIntegration
@@ -273,63 +273,22 @@ class SpamDetector:
         self.logger = get_logger(f"{__name__}.{self.__class__.__name__}")
         self.logger.info("Initializing Spam Detection Agent")
 
-        # Spam trigger patterns from research and experience
-        self.spam_words = [
-            "free",
-            "earn",
-            "money",
-            "winner",
-            "cash",
-            "prize",
-            "urgent",
-            "limited time",
-            "act now",
-            "double your income",
-            "guaranteed",
-            "risk free",
-            "no obligation",
-            "call now",
-            "click here",
-            "special offer",
-            "discount",
-            "save money",
-            "cheap",
-            "deal",
-            "lose weight",
-            "viagra",
-            "cialis",
-            "pharmacy",
-            "debt relief",
-            "work from home",
-            "make money fast",
-            "get rich quick",
-        ]
+        # Initialize semantic memory for spam patterns
+        self.semantic_memory = SemanticMemory()
 
-        self.suspicious_patterns = [
-            r"\$+",  # Multiple dollar signs
-            r"%+",  # Multiple percent signs
-            r"@+",  # Multiple @ symbols
-            r"[!]{2,}",  # Multiple exclamation marks
-            r"[\?]{2,}",  # Multiple question marks
-            r"[A-Z]{10,}",  # Long stretches of caps
-            r"[\d]{1,3}%\s*OFF",  # Percentage discount patterns
-            r"FREE\s*[!]+",  # FREE with emphasis
-            r"URGENT[!]*",  # Urgent with emphasis
-        ]
+        # Load spam patterns from memory instead of hardcoding
+        self.spam_patterns: Dict[str, Any] = {
+            "keywords": [],
+            "regex_patterns": [],
+            "phishing_patterns": [],
+            "blacklists": [],
+            "tlds": [],
+            "learning_config": {},
+        }
 
-        # DNS blacklists to check (major reputation services)
-        self.blacklists = [
-            "zen.spamhaus.org",  # Spamhaus composite
-            "bl.spamcop.net",  # SpamCop blocking list
-            "dnsbl.sorbs.net",  # SORBS aggregate
-            "psbl.surriel.com",  # Passive Spam Block List
-            "dnsbl.njabl.org",  # Not Just Another Bogus List
-            "cbl.abuseat.org",  # Composite Blocking List
-            "pbl.spamhaus.org",  # Policy Block List
-            "sbl.spamhaus.org",  # Spam Block List
-            "css.spamhaus.org",  # CSS reputation
-            "xbl.spamhaus.org",  # Exploits Block List
-        ]
+        # Load patterns asynchronously (will be populated on first use)
+        self._patterns_loaded = False
+        self.logger.info("Spam patterns will be loaded from memory on first use")
 
         # Initialize SpamAssassin integration
         try:
@@ -343,18 +302,167 @@ class SpamDetector:
             self.logger.warning(f"SpamAssassin initialization failed: {e}")
             self.spamassassin = None
 
-        # Phishing indicators
-        self.phishing_patterns = [
-            r"verify\s+your\s+account",
-            r"click\s+here\s+to\s+confirm",
-            r"suspended\s+account",
-            r"expire.*?\d+.*?hours?",
-            r"update.*?payment.*?information",
-            r"security.*?alert",
-            r"unauthorized.*?access",
-        ]
-
         self.logger.info("Spam Detection Agent initialized successfully")
+
+    def _parse_confidence(self, confidence: Any) -> float:
+        """
+        Parse confidence value that might be string or numeric.
+
+        Args:
+            confidence: Confidence value (string like 'high', 'medium' or numeric)
+
+        Returns:
+            Numeric confidence value
+        """
+        if isinstance(confidence, (int, float)):
+            return float(confidence)
+
+        # Map string confidence to numeric values
+        confidence_map = {
+            "high": 0.8,
+            "medium": 0.5,
+            "low": 0.3,
+            "very_high": 0.9,
+            "very_low": 0.1,
+        }
+
+        if isinstance(confidence, str):
+            return confidence_map.get(confidence.lower(), 0.5)
+
+        return 0.5  # Default
+
+    @log_function()
+    async def _ensure_patterns_loaded(self) -> None:
+        """Ensure spam patterns are loaded from memory."""
+        if self._patterns_loaded:
+            return
+
+        await self._load_spam_patterns_from_memory()
+        self._patterns_loaded = True
+
+    @log_function()
+    async def _load_spam_patterns_from_memory(self) -> None:
+        """
+        Load spam patterns from semantic memory.
+
+        Searches semantic memory for spam patterns and organizes them
+        by type for efficient use during analysis.
+        """
+        self.logger.info("Loading spam patterns from semantic memory")
+
+        try:
+            # Search for all spam patterns
+            pattern_results = await self.semantic_memory.search(
+                query="spam pattern", limit=200, knowledge_type=KnowledgeType.PATTERN
+            )
+
+            patterns_by_type = {
+                "keywords": [],
+                "regex_patterns": [],
+                "phishing_patterns": [],
+                "blacklists": [],
+                "domain_blacklists": [],
+                "tlds": [],
+            }
+
+            for item in pattern_results:
+                metadata = item.metadata
+                pattern_type = metadata.get("pattern_type", "unknown")
+
+                if pattern_type == "keyword":
+                    patterns_by_type["keywords"].append(
+                        {
+                            "word": metadata.get("word", ""),
+                            "confidence": self._parse_confidence(
+                                metadata.get("confidence", 0.5)
+                            ),
+                            "weight": metadata.get("weight", 2.0),
+                            "category": metadata.get("category", "spam"),
+                        }
+                    )
+                elif pattern_type == "regex":
+                    if metadata.get("category") == "phishing":
+                        patterns_by_type["phishing_patterns"].append(
+                            {
+                                "regex": metadata.get("regex", ""),
+                                "confidence": self._parse_confidence(
+                                    metadata.get("confidence", 0.5)
+                                ),
+                                "weight": metadata.get("weight", 1.5),
+                                "description": metadata.get("description", ""),
+                            }
+                        )
+                    else:
+                        patterns_by_type["regex_patterns"].append(
+                            {
+                                "regex": metadata.get("regex", ""),
+                                "confidence": self._parse_confidence(
+                                    metadata.get("confidence", 0.5)
+                                ),
+                                "weight": metadata.get("weight", 1.5),
+                                "description": metadata.get("description", ""),
+                            }
+                        )
+                elif pattern_type == "blacklist":
+                    if metadata.get("blacklist_type") == "domain":
+                        patterns_by_type["domain_blacklists"].append(
+                            {
+                                "server": metadata.get("server", ""),
+                                "weight": metadata.get("weight", 0.8),
+                            }
+                        )
+                    else:
+                        patterns_by_type["blacklists"].append(
+                            {
+                                "server": metadata.get("server", ""),
+                                "weight": metadata.get("weight", 0.8),
+                            }
+                        )
+                elif pattern_type == "tld":
+                    patterns_by_type["tlds"].append(
+                        {
+                            "tld": metadata.get("tld", ""),
+                            "confidence": self._parse_confidence(
+                                metadata.get("confidence", 0.5)
+                            ),
+                            "description": metadata.get("description", ""),
+                        }
+                    )
+
+            # Search for learning configuration
+            config_results = await self.semantic_memory.search(
+                query="spam learning configuration",
+                limit=1,
+                knowledge_type=KnowledgeType.PROCESS,
+            )
+
+            if config_results:
+                config_metadata = config_results[0].metadata
+                self.spam_patterns["learning_config"] = config_metadata.get(
+                    "configuration", {}
+                )
+
+            # Update patterns
+            self.spam_patterns.update(patterns_by_type)
+
+            self.logger.info(f"Loaded spam patterns from memory:")
+            self.logger.info(f"  Keywords: {len(self.spam_patterns['keywords'])}")
+            self.logger.info(
+                f"  Regex patterns: {len(self.spam_patterns['regex_patterns'])}"
+            )
+            self.logger.info(
+                f"  Phishing patterns: {len(self.spam_patterns['phishing_patterns'])}"
+            )
+            self.logger.info(f"  Blacklists: {len(self.spam_patterns['blacklists'])}")
+            self.logger.info(
+                f"  Domain blacklists: {len(self.spam_patterns['domain_blacklists'])}"
+            )
+            self.logger.info(f"  Suspicious TLDs: {len(self.spam_patterns['tlds'])}")
+
+        except Exception as e:
+            self.logger.error(f"Failed to load spam patterns from memory: {e}")
+            # Fall back to empty patterns rather than crash
+            self.logger.warning("Using empty spam patterns as fallback")
 
     @log_function()
     async def analyze_spam(self, email: EmailMessage) -> SpamAnalysis:
@@ -375,6 +483,9 @@ class SpamDetector:
         """
         start_time = datetime.now()
         self.logger.info(f"Analyzing spam for email from {email.sender}")
+
+        # Ensure spam patterns are loaded from memory
+        await self._ensure_patterns_loaded()
 
         try:
             # Initialize analysis with defaults
@@ -433,9 +544,12 @@ class SpamDetector:
                 self.logger.warning(f"Blacklist hits: {len(blacklist_results)}")
 
             # Step 5: Analyze email content
-            content_score, content_flags = self._analyze_content(email)
+            content_score, content_flags, matched_patterns = self._analyze_content(
+                email
+            )
             analysis.spam_score += content_score
             analysis.content_flags.extend(content_flags)
+            analysis.details["patterns_matched"] = matched_patterns
 
             if content_score > 20:
                 analysis.reasons.append(SpamReason.SUSPICIOUS_CONTENT)
@@ -665,43 +779,48 @@ class SpamDetector:
                 self.logger.debug(f"Could not resolve IP for domain {domain}")
                 return hits
 
+            # Ensure patterns are loaded
+            if not self._patterns_loaded:
+                await self._ensure_patterns_loaded()
+
             # Check each blacklist
-            for blacklist in self.blacklists:
+            for blacklist in self.spam_patterns.get("blacklists", []):
                 try:
-                    query = f"{reversed_ip}.{blacklist}"
+                    query = f"{reversed_ip}.{blacklist['server']}"
                     result = dns.resolver.resolve(query, "A")
 
                     # If we get a result, the IP is blacklisted
                     if result:
-                        hits.append(f"{blacklist} (IP: {ip_result})")
+                        hits.append(f"{blacklist['server']} (IP: {ip_result})")
                         self.logger.debug(
-                            f"Blacklist hit: {blacklist} for IP {ip_result}"
+                            f"Blacklist hit: {blacklist['server']} for IP {ip_result}"
                         )
 
                 except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer):
                     # Not found in this blacklist (good)
                     continue
                 except Exception as e:
-                    self.logger.debug(f"Blacklist check failed for {blacklist}: {e}")
+                    self.logger.debug(
+                        f"Blacklist check failed for {blacklist['server']}: {e}"
+                    )
                     continue
 
             # Also check domain-based blacklists
-            domain_blacklists = ["dbl.spamhaus.org", "multi.surbl.org"]
-            for blacklist in domain_blacklists:
+            for blacklist in self.spam_patterns.get("domain_blacklists", []):
                 try:
-                    query = f"{domain}.{blacklist}"
+                    query = f"{domain}.{blacklist['server']}"
                     result = dns.resolver.resolve(query, "A")
                     if result:
-                        hits.append(f"{blacklist} (domain: {domain})")
+                        hits.append(f"{blacklist['server']} (domain: {domain})")
                         self.logger.debug(
-                            f"Domain blacklist hit: {blacklist} for {domain}"
+                            f"Domain blacklist hit: {blacklist['server']} for {domain}"
                         )
 
                 except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer):
                     continue
                 except Exception as e:
                     self.logger.debug(
-                        f"Domain blacklist check failed for {blacklist}: {e}"
+                        f"Domain blacklist check failed for {blacklist['server']}: {e}"
                     )
                     continue
 
@@ -712,7 +831,9 @@ class SpamDetector:
             return []
 
     @log_function()
-    def _analyze_content(self, email: EmailMessage) -> tuple[float, list[str]]:
+    def _analyze_content(
+        self, email: EmailMessage
+    ) -> tuple[float, list[str], list[dict]]:
         """
         Analyze email content for spam indicators.
 
@@ -720,29 +841,45 @@ class SpamDetector:
             email: Email to analyze
 
         Returns:
-            Tuple of (spam_score_increase, content_flags)
+            Tuple of (spam_score_increase, content_flags, matched_patterns)
         """
         content = f"{email.subject} {email.content}".lower()
         flags = []
         score = 0.0
+        matched_patterns = []
 
         # Check for spam words
         spam_word_count = 0
-        for word in self.spam_words:
-            if word in content:
+        for word in self.spam_patterns.get("keywords", []):
+            if word["word"] in content:
                 spam_word_count += 1
-                score += 2.0
+                score += word.get("weight", 2.0) * word.get("confidence", 0.5)
+                matched_patterns.append(
+                    {"type": "keyword", "id": word["word"], "pattern": word}
+                )
 
         if spam_word_count > 3:
             flags.append(f"spam_words_{spam_word_count}")
 
         # Check for suspicious patterns
         pattern_count = 0
-        for pattern in self.suspicious_patterns:
-            matches = len(re.findall(pattern, content, re.IGNORECASE))
+        for pattern in self.spam_patterns.get("regex_patterns", []):
+            matches = len(re.findall(pattern["regex"], content, re.IGNORECASE))
             if matches > 0:
                 pattern_count += matches
-                score += matches * 1.5
+                score += (
+                    matches
+                    * pattern.get("weight", 1.5)
+                    * pattern.get("confidence", 0.5)
+                )
+                matched_patterns.append(
+                    {
+                        "type": "regex",
+                        "id": pattern.get("description", pattern["regex"][:30]),
+                        "pattern": pattern,
+                        "matches": matches,
+                    }
+                )
 
         if pattern_count > 2:
             flags.append(f"suspicious_patterns_{pattern_count}")
@@ -795,7 +932,7 @@ class SpamDetector:
 
         self.logger.debug(f"Content analysis: score={score:.1f}, flags={flags}")
 
-        return score, flags
+        return score, flags, matched_patterns
 
     @log_function()
     def _check_phishing_indicators(self, email: EmailMessage) -> float:
@@ -812,11 +949,17 @@ class SpamDetector:
         score = 0.0
 
         # Check for common phishing patterns
-        for pattern in self.phishing_patterns:
-            matches = len(re.findall(pattern, content, re.IGNORECASE))
+        for pattern in self.spam_patterns.get("phishing_patterns", []):
+            matches = len(re.findall(pattern["regex"], content, re.IGNORECASE))
             if matches > 0:
-                score += matches * 8.0  # High penalty for phishing patterns
-                self.logger.debug(f"Phishing pattern match: {pattern}")
+                score += (
+                    matches
+                    * pattern.get("weight", 8.0)
+                    * pattern.get("confidence", 0.8)
+                )
+                self.logger.debug(
+                    f"Phishing pattern match: {pattern.get('description', pattern['regex'])}"
+                )
 
         # Check for credential harvesting terms
         cred_terms = ["username", "password", "login", "sign in", "verify account"]
@@ -999,8 +1142,76 @@ class SpamDetector:
             await self.episodic_memory.add(content, metadata)
             self.logger.debug(f"Stored spam analysis for {email.sender}")
 
+            # Update pattern effectiveness
+            await self.update_pattern_effectiveness(
+                email, analysis.is_spam, analysis.details.get("patterns_matched", [])
+            )
+
         except Exception as e:
-            self.logger.warning(f"Failed to store spam analysis: {e}")
+            self.logger.error(f"Failed to store spam analysis: {e}")
+
+    @log_function()
+    async def update_pattern_effectiveness(
+        self,
+        email: EmailMessage,
+        was_spam: bool,
+        patterns_matched: List[Dict[str, Any]],
+    ) -> None:
+        """
+        Update the effectiveness of spam patterns based on user feedback.
+
+        When a user marks an email as spam/not spam, this updates the
+        confidence scores of patterns that matched to improve future accuracy.
+
+        Args:
+            email: The email that was classified
+            was_spam: Whether the email was actually spam (user feedback)
+            patterns_matched: List of patterns that matched this email
+        """
+        try:
+            human_feedback_weight = self.spam_patterns.get("learning_config", {}).get(
+                "human_feedback_weight", 1.5
+            )
+
+            for pattern in patterns_matched:
+                pattern_type = pattern.get("type")
+                pattern_id = pattern.get("id")
+
+                if not pattern_type or not pattern_id:
+                    continue
+
+                # Calculate effectiveness adjustment
+                if was_spam:
+                    # Pattern correctly identified spam - increase confidence
+                    adjustment = 0.05 * human_feedback_weight
+                else:
+                    # Pattern incorrectly flagged as spam - decrease confidence
+                    adjustment = -0.1 * human_feedback_weight
+
+                # Store feedback in semantic memory for pattern learning
+                await self.semantic_memory.add(
+                    content=f"Spam pattern feedback: {pattern_type} pattern {pattern_id}",
+                    metadata={
+                        "type": "pattern_feedback",
+                        "pattern_type": pattern_type,
+                        "pattern_id": pattern_id,
+                        "was_spam": was_spam,
+                        "confidence_adjustment": adjustment,
+                        "email_sender": email.sender,
+                        "email_subject": email.subject[:100],
+                        "feedback_date": datetime.now(UTC).isoformat(),
+                    },
+                    knowledge_type=KnowledgeType.INSIGHT,
+                    confidence=KnowledgeConfidence.HIGH,
+                )
+
+                self.logger.info(
+                    f"Updated pattern effectiveness: {pattern_type} {pattern_id} "
+                    f"(adjustment: {adjustment:+.3f})"
+                )
+
+        except Exception as e:
+            self.logger.error(f"Failed to update pattern effectiveness: {e}")
 
     @log_function()
     async def mark_as_spam(self, email: EmailMessage, user_feedback: str = "") -> None:
@@ -1044,6 +1255,13 @@ class SpamDetector:
                     "last_updated": datetime.now(UTC).isoformat(),
                 },
             )
+
+            # Re-analyze to get patterns that would have matched
+            analysis = await self.analyze_spam(email)
+            if "patterns_matched" in analysis.details:
+                await self.update_pattern_effectiveness(
+                    email, True, analysis.details["patterns_matched"]
+                )
 
             self.logger.info(f"User spam feedback recorded for {email.sender}")
 
@@ -1094,6 +1312,13 @@ class SpamDetector:
                     "last_updated": datetime.now(UTC).isoformat(),
                 },
             )
+
+            # Re-analyze to get patterns that would have matched
+            analysis = await self.analyze_spam(email)
+            if "patterns_matched" in analysis.details:
+                await self.update_pattern_effectiveness(
+                    email, False, analysis.details["patterns_matched"]
+                )
 
             self.logger.info(f"User not-spam feedback recorded for {email.sender}")
 
