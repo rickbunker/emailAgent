@@ -2,12 +2,19 @@
 """
 Initialize or reset the Email Agent memory system.
 
+⚠️  WARNING: This script is NOT part of normal application startup!
+
 This script should be run ONLY when:
 1. Setting up the system for the first time
-2. Resetting the memory to baseline patterns
+2. Resetting memory for testing environments
 3. Updating the knowledge base after changes to JSON files
+4. Emergency recovery from corrupted memory
 
-During normal operation, agents read ONLY from memory (Qdrant),
+In production, memory persists across application restarts and continuously
+learns from human feedback. Running this script will reset patterns to
+baseline versions and lose learned optimizations.
+
+During normal operation, agents read ONLY from persistent memory (Qdrant),
 never from the JSON files directly.
 """
 
@@ -30,6 +37,12 @@ async def initialize_memory_system(reset: bool = False) -> int:
     """
     Initialize the Email Agent memory system with baseline patterns.
 
+    ⚠️  WARNING: This is NOT part of normal application startup!
+
+    This operation resets patterns to baseline versions. In production,
+    this means losing learned optimizations and pattern effectiveness
+    improvements gained through human feedback over time.
+
     Args:
         reset: If True, clears existing memory before loading patterns
 
@@ -39,28 +52,46 @@ async def initialize_memory_system(reset: bool = False) -> int:
     logger.info("=" * 70)
     logger.info("EMAIL AGENT MEMORY SYSTEM INITIALIZATION")
     logger.info("=" * 70)
+    logger.warning("⚠️  This is NOT part of normal application startup!")
+    logger.warning("⚠️  This resets patterns to baseline versions!")
 
     if reset:
-        logger.warning("RESET MODE: This will clear existing memory patterns!")
-        logger.warning(
-            "Human feedback and learned patterns will be preserved in episodic memory"
-        )
+        logger.error("🚨 RESET MODE: This will clear existing memory patterns!")
+        logger.error("🚨 Learned optimizations and effectiveness scores will be LOST!")
+        logger.warning("Human feedback in episodic memory will be preserved")
 
-        # In a real implementation, you might want to:
-        # 1. Backup episodic memory
-        # 2. Clear semantic memory patterns with source='knowledge_base'
-        # 3. Reload patterns
-        # 4. Restore episodic memory
+        print("\n" + "=" * 50)
+        print("🚨 DANGER: MEMORY RESET OPERATION")
+        print("=" * 50)
+        print("This will:")
+        print("- Reset all patterns to baseline JSON versions")
+        print("- Lose learned pattern effectiveness improvements")
+        print("- Require the system to re-learn optimizations")
+        print("- Preserve human feedback in episodic memory")
+        print("=" * 50)
 
-        response = input(
-            "\nAre you sure you want to reset the memory system? (yes/no): "
-        )
+        response = input("\nType 'RESET' to confirm this destructive operation: ")
+        if response != "RESET":
+            logger.info("Reset cancelled - memory preserved")
+            return 0
+    else:
+        print("\n" + "=" * 50)
+        print("⚠️  MEMORY INITIALIZATION")
+        print("=" * 50)
+        print("This will load baseline patterns into memory.")
+        print("Only proceed if:")
+        print("- This is initial system setup")
+        print("- You're setting up a test environment")
+        print("- You've updated JSON pattern files")
+        print("=" * 50)
+
+        response = input("\nProceed with memory initialization? (yes/no): ")
         if response.lower() != "yes":
-            logger.info("Reset cancelled by user")
+            logger.info("Initialization cancelled")
             return 0
 
     logger.info("\nLoading knowledge base patterns into memory...")
-    logger.info("This compiles JSON 'source code' into the memory system")
+    logger.info("Compiling JSON 'source code' into the memory system...")
     logger.info("-" * 70)
 
     # Load all patterns
@@ -77,8 +108,11 @@ async def initialize_memory_system(reset: bool = False) -> int:
     logger.info("-" * 70)
     logger.info(f"✅ Memory system initialized successfully!")
     logger.info(f"Total patterns loaded: {total_loaded}")
-    logger.info("\nAgents will now read patterns from memory (Qdrant) during operation")
-    logger.info("JSON files are only used for version control and system resets")
+    logger.info("\n📋 Next steps:")
+    logger.info("1. Start the application normally")
+    logger.info("2. Agents will read patterns from memory (Qdrant)")
+    logger.info("3. System will learn and improve from human feedback")
+    logger.info("4. Memory will persist across application restarts")
     logger.info("=" * 70)
 
     return 0

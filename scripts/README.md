@@ -108,20 +108,39 @@ These scripts are integrated into the development workflow:
 
 ## Memory System Initialization
 
-### Important Architecture Note
+### ⚠️ IMPORTANT: Memory Initialization vs. Application Startup
 
-The Email Agent follows a clear separation between knowledge definition and runtime operation:
+**Memory initialization is SEPARATE from normal application startup:**
 
-1. **Knowledge Definition** (JSON files in `/knowledge`):
-   - These are the "source code" for patterns and rules
-   - Under version control for tracking changes
-   - Only read during system initialization or reset
-   - Never accessed during normal agent operation
+- **Normal Application Startup**: Reads existing patterns from persistent memory (Qdrant)
+- **Memory Initialization**: Only run when explicitly needed to reset or initially populate memory
 
-2. **Runtime Memory** (Qdrant vector database):
-   - All agents read patterns from here during operation
-   - Continuously updated with learning from human feedback
-   - The single source of truth during runtime
+### When to Initialize Memory
+
+Memory initialization should ONLY be run in these specific scenarios:
+
+1. **Initial System Deployment** - First-time setup on a new environment
+2. **Testing Environment Reset** - Clearing test data to start fresh
+3. **Knowledge Base Updates** - After significant changes to JSON pattern files
+4. **Emergency Reset** - Recovering from corrupted memory state
+
+### When NOT to Initialize Memory
+
+**NEVER run initialization in production unless absolutely necessary because:**
+- It will reset patterns to baseline versions
+- All learned improvements from human feedback will be preserved in episodic memory
+- But refined pattern effectiveness scores will be lost
+- The system will need to re-learn optimizations
+
+### Production Memory Persistence
+
+In production, the memory system:
+- **Persists across application restarts** (stored in Qdrant)
+- **Continuously learns** from human feedback
+- **Refines pattern effectiveness** over time
+- **Grows in intelligence** without manual intervention
+
+The JSON files serve as version-controlled baselines, but the living memory in Qdrant becomes increasingly valuable over time.
 
 ### Initialization Scripts
 

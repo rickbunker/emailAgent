@@ -367,16 +367,46 @@ The **Inveniam Email Agent** is now a fully functional, production-ready system 
 
 ### 💡 **Architecture Insights**
 
-The system now follows a clean compilation model:
-1. **Development Time**: Edit JSON files (source code)
-2. **Deployment Time**: Run initialization to compile into memory
-3. **Runtime**: Agents read only from memory, never from files
-4. **Learning Time**: Human feedback updates memory directly
+The system now follows a clean compilation model with persistent runtime memory:
 
-This architecture enables the Email Agent to be both configurable (through JSON files) and adaptive (through memory-based learning), while maintaining clean separation of concerns.
+1. **Development Time**: Edit JSON files (source code)
+2. **Deployment Time**: Run initialization to compile into memory (ONLY when needed)
+3. **Runtime**: Agents read only from persistent memory, never from files
+4. **Learning Time**: Human feedback updates memory directly (continuously)
+5. **Restart Behavior**: Memory persists across application restarts
+
+**Key Principle**: Once in production, memory should NEVER be reset. It becomes increasingly valuable through:
+- Pattern effectiveness learning
+- Human feedback integration  
+- Episodic memory accumulation
+- Continuous optimization refinement
+
+This architecture enables the Email Agent to be both configurable (through JSON files) and adaptive (through memory-based learning), while maintaining clean separation of concerns and preserving learned intelligence.
 
 ---
 
 **Session Result**: ✅ **Major Architecture Enhancement Complete**  
 **System Status**: 🚀 **Ready for Memory Initialization**  
 **Next Steps**: Run initialization script and continue with remaining migrations
+
+### 🏗️ Architecture Established
+
+```
+Development Time          Deployment Time         Runtime
+----------------         ----------------        --------
+Edit JSON files    →     Run initialization  →   Agents read
+(source code)            (compile to memory)     from memory
+```
+
+- **JSON files** = Source code (version controlled)
+- **Memory** = Runtime storage (continuously learning)
+- **No JSON access during normal operation**
+
+### ⚠️ Critical Architectural Note
+
+**Memory initialization is SEPARATE from application startup:**
+
+- **Normal Application Startup**: Reads existing patterns from persistent memory (Qdrant)
+- **Memory Initialization**: Only run when explicitly needed (testing resets, initial setup)
+- **Production**: Memory persists across restarts and continuously improves
+- **Never reset production memory** - it becomes more valuable over time through learning
