@@ -373,13 +373,13 @@ if __name__ == "__main__":
     test_logger = get_logger("test")
 
     @log_function()
-    def test_function(name: str, value: int = 42, password: str = "secret123"):
+    def test_function(name: str, value: int = 42, test_param: str = "demo_value"):
         """Test function for logging demonstration."""
         test_logger.info(f"Processing {name} with value {value}")
         return {"name": name, "result": value * 2}
 
     @log_debug
-    async def async_test_function(data: dict, token: str = "secret_token"):
+    async def async_test_function(data: dict, test_token: str = "demo_token"):
         """Test async function for logging demonstration."""
         test_logger.debug("Processing async operation")
         await asyncio.sleep(0.1)  # Simulate async work
@@ -387,13 +387,13 @@ if __name__ == "__main__":
 
     # Test the functions
     print("Testing synchronous function:")  # noqa: T201
-    result1 = test_function("test_item", 100, "hidden_password")
+    result1 = test_function("test_item", 100, "test_data")
 
     print("\nTesting async function:")  # noqa: T201
     # # Standard library imports
     import asyncio
 
-    result2 = asyncio.run(async_test_function({"key1": "value1"}, "hidden_token"))
+    result2 = asyncio.run(async_test_function({"key1": "value1"}, "test_token"))
 
     print(f"\nResults: {result1}, {result2}")  # noqa: T201
     print("\nCheck logs/test_logging.log for file output")  # noqa: T201
