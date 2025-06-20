@@ -1,0 +1,496 @@
+{
+    "metadata": {
+        "description": "Asset types and document categories for private market asset management",
+        "version": "1.0.0",
+        "created_date": "2025-06-20",
+        "source": "Extracted from hardcoded enums in data_models.py",
+        "notes": "These definitions provide the foundation for asset classification and document categorization"
+    },
+    "asset_types": {
+        "description": "Private market asset types supported by the system",
+        "types": [
+            {
+                "type_id": "commercial_real_estate",
+                "display_name": "Commercial Real Estate",
+                "description": "Commercial properties including office buildings, retail spaces, industrial properties",
+                "common_identifiers": [
+                    "property",
+                    "building",
+                    "real estate",
+                    "CRE"
+                ],
+                "typical_documents": [
+                    "rent_roll",
+                    "appraisal",
+                    "lease_documents",
+                    "property_photos"
+                ]
+            },
+            {
+                "type_id": "private_credit",
+                "display_name": "Private Credit",
+                "description": "Private lending and credit investments",
+                "common_identifiers": [
+                    "loan",
+                    "credit",
+                    "debt",
+                    "lending"
+                ],
+                "typical_documents": [
+                    "loan_documents",
+                    "borrower_financials",
+                    "covenant_compliance",
+                    "credit_memo"
+                ]
+            },
+            {
+                "type_id": "private_equity",
+                "display_name": "Private Equity",
+                "description": "Private equity investments and portfolio companies",
+                "common_identifiers": [
+                    "equity",
+                    "portfolio",
+                    "PE",
+                    "investment"
+                ],
+                "typical_documents": [
+                    "portfolio_reports",
+                    "investor_updates",
+                    "board_materials",
+                    "valuation_reports"
+                ]
+            },
+            {
+                "type_id": "infrastructure",
+                "display_name": "Infrastructure",
+                "description": "Infrastructure investments including utilities, transportation, energy",
+                "common_identifiers": [
+                    "infrastructure",
+                    "utility",
+                    "energy",
+                    "transportation"
+                ],
+                "typical_documents": [
+                    "engineering_reports",
+                    "construction_updates",
+                    "regulatory_documents",
+                    "operations_reports"
+                ]
+            }
+        ]
+    },
+    "document_categories": {
+        "description": "Document classification categories across all asset types",
+        "categories": [
+            {
+                "category_id": "rent_roll",
+                "display_name": "Rent Roll",
+                "asset_types": [
+                    "commercial_real_estate"
+                ],
+                "keywords": [
+                    "rent",
+                    "roll",
+                    "tenant",
+                    "lease",
+                    "occupancy"
+                ],
+                "description": "Tenant and rental income information"
+            },
+            {
+                "category_id": "financial_statements",
+                "display_name": "Financial Statements",
+                "asset_types": [
+                    "commercial_real_estate",
+                    "private_credit",
+                    "private_equity",
+                    "infrastructure"
+                ],
+                "keywords": [
+                    "financial",
+                    "statement",
+                    "income",
+                    "balance",
+                    "cash flow",
+                    "P&L"
+                ],
+                "description": "Financial performance and position documents"
+            },
+            {
+                "category_id": "property_photos",
+                "display_name": "Property Photos",
+                "asset_types": [
+                    "commercial_real_estate"
+                ],
+                "keywords": [
+                    "photo",
+                    "image",
+                    "picture",
+                    "property"
+                ],
+                "description": "Visual documentation of properties"
+            },
+            {
+                "category_id": "appraisal",
+                "display_name": "Appraisal",
+                "asset_types": [
+                    "commercial_real_estate"
+                ],
+                "keywords": [
+                    "appraisal",
+                    "valuation",
+                    "assessment",
+                    "value"
+                ],
+                "description": "Property valuation documents"
+            },
+            {
+                "category_id": "lease_documents",
+                "display_name": "Lease Documents",
+                "asset_types": [
+                    "commercial_real_estate"
+                ],
+                "keywords": [
+                    "lease",
+                    "rental",
+                    "agreement",
+                    "tenant"
+                ],
+                "description": "Lease agreements and related documents"
+            },
+            {
+                "category_id": "property_management",
+                "display_name": "Property Management",
+                "asset_types": [
+                    "commercial_real_estate"
+                ],
+                "keywords": [
+                    "management",
+                    "maintenance",
+                    "property",
+                    "operations"
+                ],
+                "description": "Property management reports and documents"
+            },
+            {
+                "category_id": "loan_documents",
+                "display_name": "Loan Documents",
+                "asset_types": [
+                    "private_credit"
+                ],
+                "keywords": [
+                    "loan",
+                    "credit",
+                    "agreement",
+                    "note",
+                    "mortgage"
+                ],
+                "description": "Loan agreements and related documentation"
+            },
+            {
+                "category_id": "borrower_financials",
+                "display_name": "Borrower Financials",
+                "asset_types": [
+                    "private_credit"
+                ],
+                "keywords": [
+                    "borrower",
+                    "financial",
+                    "income",
+                    "credit"
+                ],
+                "description": "Financial information about borrowers"
+            },
+            {
+                "category_id": "covenant_compliance",
+                "display_name": "Covenant Compliance",
+                "asset_types": [
+                    "private_credit"
+                ],
+                "keywords": [
+                    "covenant",
+                    "compliance",
+                    "requirement",
+                    "condition"
+                ],
+                "description": "Loan covenant compliance documentation"
+            },
+            {
+                "category_id": "credit_memo",
+                "display_name": "Credit Memo",
+                "asset_types": [
+                    "private_credit"
+                ],
+                "keywords": [
+                    "credit",
+                    "memo",
+                    "analysis",
+                    "underwriting"
+                ],
+                "description": "Credit analysis and underwriting memos"
+            },
+            {
+                "category_id": "loan_monitoring",
+                "display_name": "Loan Monitoring",
+                "asset_types": [
+                    "private_credit"
+                ],
+                "keywords": [
+                    "monitoring",
+                    "performance",
+                    "tracking",
+                    "loan"
+                ],
+                "description": "Ongoing loan performance monitoring"
+            },
+            {
+                "category_id": "portfolio_reports",
+                "display_name": "Portfolio Reports",
+                "asset_types": [
+                    "private_equity"
+                ],
+                "keywords": [
+                    "portfolio",
+                    "report",
+                    "performance",
+                    "holdings"
+                ],
+                "description": "Portfolio company performance reports"
+            },
+            {
+                "category_id": "investor_updates",
+                "display_name": "Investor Updates",
+                "asset_types": [
+                    "private_equity"
+                ],
+                "keywords": [
+                    "investor",
+                    "update",
+                    "LP",
+                    "quarterly",
+                    "report"
+                ],
+                "description": "Updates to investors and limited partners"
+            },
+            {
+                "category_id": "board_materials",
+                "display_name": "Board Materials",
+                "asset_types": [
+                    "private_equity"
+                ],
+                "keywords": [
+                    "board",
+                    "meeting",
+                    "minutes",
+                    "presentation"
+                ],
+                "description": "Board meeting materials and minutes"
+            },
+            {
+                "category_id": "deal_documents",
+                "display_name": "Deal Documents",
+                "asset_types": [
+                    "private_equity"
+                ],
+                "keywords": [
+                    "deal",
+                    "transaction",
+                    "acquisition",
+                    "merger"
+                ],
+                "description": "Transaction and deal documentation"
+            },
+            {
+                "category_id": "valuation_reports",
+                "display_name": "Valuation Reports",
+                "asset_types": [
+                    "private_equity",
+                    "infrastructure"
+                ],
+                "keywords": [
+                    "valuation",
+                    "assessment",
+                    "fair value",
+                    "NAV"
+                ],
+                "description": "Asset and portfolio valuation reports"
+            },
+            {
+                "category_id": "engineering_reports",
+                "display_name": "Engineering Reports",
+                "asset_types": [
+                    "infrastructure"
+                ],
+                "keywords": [
+                    "engineering",
+                    "technical",
+                    "assessment",
+                    "inspection"
+                ],
+                "description": "Technical and engineering assessments"
+            },
+            {
+                "category_id": "construction_updates",
+                "display_name": "Construction Updates",
+                "asset_types": [
+                    "infrastructure"
+                ],
+                "keywords": [
+                    "construction",
+                    "progress",
+                    "development",
+                    "building"
+                ],
+                "description": "Construction progress and updates"
+            },
+            {
+                "category_id": "regulatory_documents",
+                "display_name": "Regulatory Documents",
+                "asset_types": [
+                    "infrastructure"
+                ],
+                "keywords": [
+                    "regulatory",
+                    "compliance",
+                    "permit",
+                    "license"
+                ],
+                "description": "Regulatory filings and compliance documents"
+            },
+            {
+                "category_id": "operations_reports",
+                "display_name": "Operations Reports",
+                "asset_types": [
+                    "infrastructure"
+                ],
+                "keywords": [
+                    "operations",
+                    "performance",
+                    "maintenance",
+                    "efficiency"
+                ],
+                "description": "Operational performance reports"
+            },
+            {
+                "category_id": "legal_documents",
+                "display_name": "Legal Documents",
+                "asset_types": [
+                    "commercial_real_estate",
+                    "private_credit",
+                    "private_equity",
+                    "infrastructure"
+                ],
+                "keywords": [
+                    "legal",
+                    "contract",
+                    "agreement",
+                    "litigation"
+                ],
+                "description": "Legal agreements and documentation"
+            },
+            {
+                "category_id": "tax_documents",
+                "display_name": "Tax Documents",
+                "asset_types": [
+                    "commercial_real_estate",
+                    "private_credit",
+                    "private_equity",
+                    "infrastructure"
+                ],
+                "keywords": [
+                    "tax",
+                    "return",
+                    "K-1",
+                    "schedule"
+                ],
+                "description": "Tax returns and related documents"
+            },
+            {
+                "category_id": "insurance",
+                "display_name": "Insurance",
+                "asset_types": [
+                    "commercial_real_estate",
+                    "private_credit",
+                    "private_equity",
+                    "infrastructure"
+                ],
+                "keywords": [
+                    "insurance",
+                    "policy",
+                    "coverage",
+                    "claim"
+                ],
+                "description": "Insurance policies and claims"
+            },
+            {
+                "category_id": "correspondence",
+                "display_name": "Correspondence",
+                "asset_types": [
+                    "commercial_real_estate",
+                    "private_credit",
+                    "private_equity",
+                    "infrastructure"
+                ],
+                "keywords": [
+                    "letter",
+                    "email",
+                    "correspondence",
+                    "communication"
+                ],
+                "description": "General correspondence and communications"
+            },
+            {
+                "category_id": "unknown",
+                "display_name": "Unknown",
+                "asset_types": [
+                    "commercial_real_estate",
+                    "private_credit",
+                    "private_equity",
+                    "infrastructure"
+                ],
+                "keywords": [],
+                "description": "Uncategorized or unknown document type"
+            }
+        ]
+    },
+    "file_type_validation": {
+        "description": "Allowed file types and size limits for document processing",
+        "allowed_extensions": [
+            ".pdf",
+            ".doc",
+            ".docx",
+            ".xls",
+            ".xlsx",
+            ".ppt",
+            ".pptx",
+            ".txt",
+            ".csv",
+            ".rtf",
+            ".odt",
+            ".ods",
+            ".odp",
+            ".jpg",
+            ".jpeg",
+            ".png",
+            ".gif",
+            ".bmp",
+            ".tiff"
+        ],
+        "max_file_size_mb": 100,
+        "suspicious_extensions": [
+            ".exe",
+            ".bat",
+            ".cmd",
+            ".com",
+            ".scr",
+            ".vbs",
+            ".js",
+            ".jar",
+            ".app",
+            ".dmg",
+            ".pkg",
+            ".deb",
+            ".rpm"
+        ]
+    }
+}

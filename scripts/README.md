@@ -105,3 +105,82 @@ These scripts are integrated into the development workflow:
 - Microsoft Graph setup: `../docs/MSGRAPH_SETUP.md`
 - Testing documentation: `../docs/TESTING_GUIDE.md`
 - Development setup: `../docs/DEVELOPMENT_SETUP.md`
+
+## Memory System Initialization
+
+### Important Architecture Note
+
+The Email Agent follows a clear separation between knowledge definition and runtime operation:
+
+1. **Knowledge Definition** (JSON files in `/knowledge`):
+   - These are the "source code" for patterns and rules
+   - Under version control for tracking changes
+   - Only read during system initialization or reset
+   - Never accessed during normal agent operation
+
+2. **Runtime Memory** (Qdrant vector database):
+   - All agents read patterns from here during operation
+   - Continuously updated with learning from human feedback
+   - The single source of truth during runtime
+
+### Initialization Scripts
+
+#### `initialize_memory.py`
+Main script for setting up or resetting the memory system.
+
+```bash
+# First-time setup
+python scripts/initialize_memory.py
+
+# Reset to baseline patterns (preserves episodic learning)
+python scripts/initialize_memory.py --reset
+```
+
+**When to use:**
+- Initial system deployment
+- After updating JSON pattern files
+- To reset to baseline patterns while preserving learned feedback
+
+#### Individual Pattern Loaders
+
+These scripts load specific pattern types into memory:
+
+- `load_spam_patterns.py` - Spam detection patterns
+- `load_contact_patterns.py` - Contact extraction patterns  
+- `load_asset_types.py` - Asset types and document categories
+- `load_all_patterns.py` - Loads all patterns (used by initialize_memory.py)
+
+**Note:** These are typically called by `initialize_memory.py`, not directly.
+
+## Development Workflow
+
+### Adding New Patterns
+
+1. Update the appropriate JSON file in `/knowledge`
+2. Test the changes locally
+3. Commit the JSON changes to version control
+4. Run `python scripts/initialize_memory.py` to load into memory
+5. Agents will now use the new patterns from memory
+
+### Testing Pattern Changes
+
+```bash
+# Load patterns into a test environment
+python scripts/load_spam_patterns.py  # or other specific loader
+
+# Verify patterns loaded correctly
+# Check the script output for confirmation
+```
+
+## Architecture Principles
+
+1. **JSON files = Source Code**: Version controlled, human-readable pattern definitions
+2. **Memory = Runtime**: Where agents read patterns during operation
+3. **Initialization = Compilation**: Converting JSON to memory entries
+4. **Learning = Runtime Updates**: Human feedback updates memory, not JSON files
+
+This separation ensures:
+- Clean version control of baseline patterns
+- Runtime learning without modifying source files
+- Easy reset to baseline when needed
+- Clear audit trail of pattern changes

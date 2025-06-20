@@ -52,14 +52,14 @@ import sys
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import Enum
-from typing import Any
+from typing import Any, Dict
 
 from ..memory.contact import ContactMemory
 from ..memory.episodic import EpisodicMemory
 
 # Memory system integration
 from ..memory.procedural import ProceduralMemory
-from ..memory.semantic import SemanticMemory
+from ..memory.semantic import SemanticMemory, KnowledgeType
 
 # Email message structure
 from .supervisor import EmailMessage
@@ -239,81 +239,28 @@ class ContactExtractor:
         self.logger = get_logger(f"{__name__}.{self.__class__.__name__}")
         self.logger.info("Initializing Contact Extraction Agent")
 
-        # Patterns for identifying automated/bulk emails
-        self.no_reply_patterns = [
-            r"no[-_]?reply",
-            r"noreply",
-            r"donotreply",
-            r"do[-_]?not[-_]?reply",
-            r"automated",
-            r"auto[-_]?generated",
-            r"system",
-            r"daemon",
-            r"mailer[-_]?daemon",
-            r"postmaster",
-            r"webmaster",
-            r"admin",
-            r"robot",
-            r"bounce",
-        ]
+        # Initialize semantic memory for contact patterns
+        self.semantic_memory = SemanticMemory()
 
-        # Common bulk/marketing domains to exclude
-        self.bulk_domains = {
-            "mailchimp.com",
-            "constantcontact.com",
-            "sendgrid.net",
-            "amazonses.com",
-            "mailgun.org",
-            "sparkpostmail.com",
-            "email.amazon.com",
-            "bounce.email",
-            "unsubscribe.email",
-            "campaign-monitor.com",
-            "aweber.com",
-            "getresponse.com",
-            "madmimi.com",
-            "verticalresponse.com",
-            "icontact.com",
-            "benchmarkemail.com",
-            "emailbrain.com",
-            "silverpop.com",
+        # Initialize pattern storage - will be loaded from memory
+        self.contact_patterns: Dict[str, Any] = {
+            "no_reply_patterns": [],
+            "bulk_domains": set(),
+            "personal_indicators": [],
+            "automated_indicators": [],
+            "local_part_indicators": [],
+            "extraction_config": {},
         }
 
-        # Patterns for extracting contact information
+        # Load patterns asynchronously (will be populated on first use)
+        self._patterns_loaded = False
+        self.logger.info("Contact patterns will be loaded from memory on first use")
+
+        # Patterns for extracting contact information (keep these as they're for data extraction, not filtering)
         self.phone_pattern = re.compile(
             r"\b(?:\+?1[-.\s]?)?\(?([0-9]{3})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})\b"
         )
         self.name_pattern = re.compile(r"\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b")
-
-        # Patterns for identifying personal vs automated content
-        self.personal_indicators = [
-            r"\bthanks?\b",
-            r"\bthank you\b",
-            r"\bregards\b",
-            r"\bbest\b",
-            r"\bsincerely\b",
-            r"\bcheers\b",
-            r"\bhope\b",
-            r"\bwish\b",
-            r"\bfyi\b",
-            r"\bbtw\b",
-            r"\blmk\b",
-            r"\basap\b",
-        ]
-
-        self.automated_indicators = [
-            r"\bautomatic\b",
-            r"\bgenerated\b",
-            r"\bsystem\b",
-            r"\bnotification\b",
-            r"\balert\b",
-            r"\breminder\b",
-            r"\bconfirm\b",
-            r"\bverify\b",
-            r"\bunsubscribe\b",
-            r"\bclick here\b",
-            r"\bvisit our\b",
-        ]
 
         self.logger.info("Contact Extraction Agent initialized successfully")
 
@@ -338,6 +285,9 @@ class ContactExtractor:
             raise ValueError("Email and sender information are required")
 
         self.logger.info(f"Extracting contacts from email: {email.sender}")
+
+        # Ensure contact patterns are loaded from memory
+        await self._ensure_patterns_loaded()
 
         try:
             # Step 1: Analyze if sender is likely a real person
@@ -399,7 +349,7 @@ class ContactExtractor:
         local_part, domain = sender_email.split("@", 1)
 
         # Check for no-reply patterns
-        for pattern in self.no_reply_patterns:
+        for pattern in self.contact_patterns["no_reply_patterns"]:
             if re.search(pattern, sender_email, re.IGNORECASE):
                 return {
                     "confidence": ContactConfidence.NONE,
@@ -407,35 +357,21 @@ class ContactExtractor:
                 }
 
         # Check for bulk email domains
-        if domain in self.bulk_domains:
+        if domain in self.contact_patterns["bulk_domains"]:
             return {
                 "confidence": ContactConfidence.NONE,
                 "reasoning": f"Known bulk email domain: {domain}",
             }
 
         # Check for automated system patterns in local part
-        automated_indicators = [
-            "notification",
-            "alert",
-            "system",
-            "admin",
-            "support",
-            "info",
-            "sales",
-            "marketing",
-            "newsletter",
-            "updates",
-            "service",
-            "help",
-            "contact",
-            "team",
-        ]
-
-        for indicator in automated_indicators:
+        for indicator_data in self.contact_patterns["local_part_indicators"]:
+            indicator = indicator_data["indicator"]
             if indicator in local_part:
                 # Still might be a person, check content for personal indicators
                 personal_score = self._calculate_personal_score(email)
-                if personal_score < 0.3:
+                if personal_score < self.contact_patterns["extraction_config"].get(
+                    "personal_score_threshold", 0.3
+                ):
                     return {
                         "confidence": ContactConfidence.NONE,
                         "reasoning": f"Automated system pattern in address: {indicator}",
@@ -464,14 +400,19 @@ class ContactExtractor:
         # Calculate personal content score
         personal_score = self._calculate_personal_score(email)
 
+        # Get thresholds from configuration
+        thresholds = self.contact_patterns["extraction_config"].get(
+            "confidence_thresholds", {"high": 0.7, "medium": 0.4, "low": 0.2}
+        )
+
         # Determine confidence based on multiple factors
-        if personal_score >= 0.7:
+        if personal_score >= thresholds["high"]:
             confidence = ContactConfidence.HIGH
             reasoning = f"High personal content score: {personal_score:.2f}"
-        elif personal_score >= 0.4:
+        elif personal_score >= thresholds["medium"]:
             confidence = ContactConfidence.MEDIUM
             reasoning = f"Medium personal content score: {personal_score:.2f}"
-        elif personal_score >= 0.2:
+        elif personal_score >= thresholds["low"]:
             confidence = ContactConfidence.LOW
             reasoning = f"Low personal content score: {personal_score:.2f}"
         else:
@@ -505,13 +446,13 @@ class ContactExtractor:
         # Count personal indicators
         personal_count = sum(
             len(re.findall(pattern, content, re.IGNORECASE))
-            for pattern in self.personal_indicators
+            for pattern in self.contact_patterns["personal_indicators"]
         )
 
         # Count automated indicators
         automated_count = sum(
             len(re.findall(pattern, content, re.IGNORECASE))
-            for pattern in self.automated_indicators
+            for pattern in self.contact_patterns["automated_indicators"]
         )
 
         # Check for personal pronouns and conversational language
@@ -1070,6 +1011,105 @@ class ContactExtractor:
                 "by_confidence": {},
                 "recent_extractions": 0,
             }
+
+    @log_function()
+    async def _ensure_patterns_loaded(self) -> None:
+        """Ensure contact patterns are loaded from memory."""
+        if self._patterns_loaded:
+            return
+
+        await self._load_contact_patterns_from_memory()
+        self._patterns_loaded = True
+
+    @log_function()
+    async def _load_contact_patterns_from_memory(self) -> None:
+        """
+        Load contact patterns from semantic memory.
+
+        Searches semantic memory for contact patterns and organizes them
+        by type for efficient use during analysis.
+        """
+        self.logger.info("Loading contact patterns from semantic memory")
+
+        try:
+            # Search for all contact patterns
+            pattern_results = await self.semantic_memory.search(
+                query="contact pattern", limit=200, knowledge_type=KnowledgeType.PATTERN
+            )
+
+            # Clear existing patterns
+            self.contact_patterns = {
+                "no_reply_patterns": [],
+                "bulk_domains": set(),
+                "personal_indicators": [],
+                "automated_indicators": [],
+                "local_part_indicators": [],
+                "extraction_config": {},
+            }
+
+            for item in pattern_results:
+                metadata = item.metadata
+                pattern_type = metadata.get("pattern_type", "unknown")
+
+                if pattern_type == "no_reply":
+                    self.contact_patterns["no_reply_patterns"].append(
+                        metadata.get("pattern", "")
+                    )
+                elif pattern_type == "bulk_domain":
+                    self.contact_patterns["bulk_domains"].add(
+                        metadata.get("domain", "")
+                    )
+                elif pattern_type == "personal_indicator":
+                    self.contact_patterns["personal_indicators"].append(
+                        metadata.get("pattern", "")
+                    )
+                elif pattern_type == "automated_indicator":
+                    self.contact_patterns["automated_indicators"].append(
+                        metadata.get("pattern", "")
+                    )
+                elif pattern_type == "local_part_indicator":
+                    self.contact_patterns["local_part_indicators"].append(
+                        {
+                            "indicator": metadata.get("indicator", ""),
+                            "confidence": metadata.get("confidence", 0.5),
+                            "description": metadata.get("description", ""),
+                        }
+                    )
+
+            # Search for extraction configuration
+            config_results = await self.semantic_memory.search(
+                query="contact extraction configuration",
+                limit=1,
+                knowledge_type=KnowledgeType.PROCESS,
+            )
+
+            if config_results:
+                config_metadata = config_results[0].metadata
+                self.contact_patterns["extraction_config"] = config_metadata.get(
+                    "configuration", {}
+                )
+
+            self.logger.info(f"Loaded contact patterns from memory:")
+            self.logger.info(
+                f"  No-reply patterns: {len(self.contact_patterns['no_reply_patterns'])}"
+            )
+            self.logger.info(
+                f"  Bulk domains: {len(self.contact_patterns['bulk_domains'])}"
+            )
+            self.logger.info(
+                f"  Personal indicators: {len(self.contact_patterns['personal_indicators'])}"
+            )
+            self.logger.info(
+                f"  Automated indicators: {len(self.contact_patterns['automated_indicators'])}"
+            )
+            self.logger.info(
+                f"  Local part indicators: {len(self.contact_patterns['local_part_indicators'])}"
+            )
+
+        except Exception as e:
+            self.logger.error(f"Failed to load contact patterns from memory: {e}")
+            # Fall back to empty patterns rather than crash
+            self.logger.warning("Using empty contact patterns as fallback")
 
 
 @log_function()

@@ -1,6 +1,75 @@
-# Knowledge Base for Email Agent Memory System
+# Knowledge Base Directory
 
-This directory contains JSON files that serve as the knowledge base for the Email Agent's memory systems. These files are used to seed the semantic memory with essential patterns, rules, and configurations that the system needs to operate effectively.
+This directory contains JSON files that store base rule sets and patterns for the Email Agent's memory systems. These files serve as the foundation for initializing the memory systems and can be used to reset or re-seed the memory when needed.
+
+## Memory Type Guidelines
+
+- **Semantic Memory**: Facts about asset types, file types, spam keywords, and other general factual information
+- **Procedural Memory**: General "how to do things" information and processes
+- **Episodic Memory**: Feedback from processing, primarily from human interaction, used to fine-tune the combination of procedural and semantic memory
+
+## Pattern Files
+
+### spam_patterns.json
+- **Memory Type**: Semantic (factual patterns about spam)
+- **Description**: Spam detection patterns including keywords, regex patterns, phishing indicators, blacklists, and suspicious TLDs
+- **Load Script**: `scripts/load_spam_patterns.py`
+- **Used By**: `src/agents/spam_detector.py`
+
+### contact_patterns.json
+- **Memory Type**: Semantic (factual patterns about contacts)
+- **Description**: Contact extraction patterns for identifying real humans vs. automated systems, including no-reply patterns, bulk domains, and personal/automated indicators
+- **Load Script**: `scripts/load_contact_patterns.py`
+- **Used By**: `src/agents/contact_extractor.py`
+
+### asset_types.json
+- **Memory Type**: Semantic (facts about asset types and categories)
+- **Description**: Asset types, document categories, and file validation rules for the private market asset management system
+- **Load Script**: `scripts/load_asset_types.py`
+- **Used By**: Asset management system components
+
+## Loading Patterns
+
+To load all patterns into memory:
+
+```bash
+# Load spam patterns
+python scripts/load_spam_patterns.py
+
+# Load contact patterns
+python scripts/load_contact_patterns.py
+
+# Load asset types
+python scripts/load_asset_types.py
+```
+
+## Pattern Structure
+
+Each JSON file follows a consistent structure:
+
+```json
+{
+    "metadata": {
+        "description": "...",
+        "version": "1.0.0",
+        "created_date": "YYYY-MM-DD",
+        "source": "...",
+        "notes": "..."
+    },
+    "pattern_category": {
+        "description": "...",
+        "patterns": [...]
+    }
+}
+```
+
+## Version Control
+
+These JSON files are under source control because they represent the base configuration of the system. Changes to these files should be carefully reviewed as they affect the fundamental behavior of the Email Agent.
+
+## Human Feedback
+
+While these files provide the initial patterns, the system learns and improves through human feedback stored in episodic memory. The patterns in these files serve as a baseline that can be enhanced over time through use.
 
 ## Overview
 
