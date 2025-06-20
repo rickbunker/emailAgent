@@ -1,0 +1,411 @@
+{% extends "base.html" %}
+
+{% block title %}Human Review Queue - Email Agent{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h2>Human Review Queue</h2>
+        <p class="text-muted">Review and correct document classifications to improve system accuracy.</p>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row mt-4">
+    <div class="col-md-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body text-center">
+                <div class="fs-3" id="pending-count">{{ stats.pending }}</div>
+                <small>Pending Review</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body text-center">
+                <div class="fs-3" id="in-review-count">{{ stats.in_review }}</div>
+                <small>In Review</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body text-center">
+                <div class="fs-3" id="completed-count">{{ stats.completed }}</div>
+                <small>Completed</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body text-center">
+                <div class="fs-3" id="completion-rate">{{ "%.1f"|format(stats.completion_rate) }}%</div>
+                <small>Completion Rate</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Review Queue -->
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-list-check"></i> Pending Reviews
+                    <span class="badge bg-warning" id="queue-count">{{ stats.pending }}</span>
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="review-queue-container">
+                    <div class="text-center text-muted py-5" id="no-items-message">
+                        <i class="bi bi-check-circle" style="font-size: 4rem;"></i>
+                        <h4>No items pending review</h4>
+                        <p>All processed documents have been reviewed or are awaiting processing.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Review Modal -->
+<div class="modal fade" id="reviewModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Document Review</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="reviewModalContent">
+                <!-- Review content will be loaded here -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentReviewId = null;
+
+    // Load review queue on page load
+    document.addEventListener('DOMContentLoaded', function () {
+        loadReviewQueue();
+        loadStats();
+    });
+
+    // Load review queue items
+    async function loadReviewQueue() {
+        try {
+            const response = await fetch('/api/v1/human-review/items?status=pending');
+            const items = await response.json();
+
+            const container = document.getElementById('review-queue-container');
+
+            if (items.length === 0) {
+                container.innerHTML = `
+                <div class="text-center text-muted py-5">
+                    <i class="bi bi-check-circle" style="font-size: 4rem;"></i>
+                    <h4>No items pending review</h4>
+                    <p>All processed documents have been reviewed or are awaiting processing.</p>
+                </div>
+            `;
+            } else {
+                let tableHTML = `
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Attachment</th>
+                                <th>Email</th>
+                                <th>Sender</th>
+                                <th>System Analysis</th>
+                                <th>Confidence</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+                items.forEach(item => {
+                    const confidenceClass = item.system_confidence < 0.5 ? 'danger' :
+                        item.system_confidence < 0.7 ? 'warning' : 'success';
+                    const confidencePercent = Math.round(item.system_confidence * 100);
+
+                    tableHTML += `
+                    <tr id="review-${item.review_id}">
+                        <td>
+                            <i class="bi bi-file-earmark-text"></i>
+                            ${item.attachment_filename}
+                        </td>
+                        <td>
+                            <div class="fw-bold">${truncateText(item.email_subject, 50)}</div>
+                            <small class="text-muted">${item.email_date.split('T')[0]}</small>
+                        </td>
+                        <td>${item.sender_email}</td>
+                        <td>
+                            ${item.document_category ?
+                            `<span class="badge bg-light text-dark">${item.document_category}</span>` :
+                            '<span class="text-muted">No category</span>'}
+                            <div class="small text-muted">${truncateText(item.system_reasoning, 100)}</div>
+                        </td>
+                        <td>
+                            <span class="badge bg-${confidenceClass}">${confidencePercent}%</span>
+                        </td>
+                        <td>${item.created_at.split('T')[0]}</td>
+                        <td>
+                            <button class="btn btn-sm btn-primary" onclick="reviewItem('${item.review_id}')">
+                                <i class="bi bi-eye"></i> Review
+                            </button>
+                        </td>
+                    </tr>
+                `;
+                });
+
+                tableHTML += '</tbody></table></div>';
+                container.innerHTML = tableHTML;
+            }
+
+            // Update queue count
+            document.getElementById('queue-count').textContent = items.length;
+
+        } catch (error) {
+            console.error('Error loading review queue:', error);
+            showAlert('Failed to load review queue', 'danger');
+        }
+    }
+
+    // Load statistics
+    async function loadStats() {
+        try {
+            const response = await fetch('/api/v1/human-review/stats');
+            const stats = await response.json();
+
+            document.getElementById('pending-count').textContent = stats.pending;
+            document.getElementById('in-review-count').textContent = stats.in_review;
+            document.getElementById('completed-count').textContent = stats.completed;
+            document.getElementById('completion-rate').textContent = stats.completion_rate.toFixed(1) + '%';
+
+        } catch (error) {
+            console.error('Error loading stats:', error);
+        }
+    }
+
+    // Review specific item
+    async function reviewItem(reviewId) {
+        console.log('reviewItem called with ID:', reviewId); // Debug log
+        currentReviewId = reviewId;
+
+        try {
+            console.log('Fetching review item...'); // Debug log
+            const response = await fetch(`/api/v1/human-review/items/${reviewId}`);
+            const item = await response.json();
+
+            // Get assets for dropdown
+            const assetsResponse = await fetch('/api/v1/assets/');
+            const assets = await assetsResponse.json();
+
+            // Build review form
+            const modalContent = document.getElementById('reviewModalContent');
+            modalContent.innerHTML = `
+            <form id="reviewForm">
+                <!-- Item Details -->
+                <div class="mb-4">
+                    <h6>Document Information</h6>
+                    <dl class="row">
+                        <dt class="col-sm-3">Filename</dt>
+                        <dd class="col-sm-9">${item.attachment_filename}</dd>
+                        
+                        <dt class="col-sm-3">Email Subject</dt>
+                        <dd class="col-sm-9">${item.email_subject}</dd>
+                        
+                        <dt class="col-sm-3">Sender</dt>
+                        <dd class="col-sm-9">${item.sender_email}</dd>
+                        
+                        <dt class="col-sm-3">System Confidence</dt>
+                        <dd class="col-sm-9">
+                            <span class="badge bg-${item.system_confidence < 0.5 ? 'danger' : item.system_confidence < 0.7 ? 'warning' : 'success'}">
+                                ${Math.round(item.system_confidence * 100)}%
+                            </span>
+                        </dd>
+                    </dl>
+                </div>
+                
+                <!-- System Analysis -->
+                ${item.system_asset_suggestions.length > 0 ? `
+                    <div class="mb-4">
+                        <h6>System Suggestions</h6>
+                        <div class="list-group">
+                            ${item.system_asset_suggestions.map(suggestion => `
+                                <div class="list-group-item d-flex justify-content-between align-items-center">
+                                    ${suggestion.asset_id}
+                                    <span class="badge bg-primary">${Math.round((suggestion.confidence || 0) * 100)}%</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                ` : ''}
+                
+                <!-- Human Review Form -->
+                <div class="mb-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="isAssetRelated" checked>
+                        <label class="form-check-label" for="isAssetRelated">
+                            This document is asset-related
+                        </label>
+                    </div>
+                </div>
+                
+                <div id="assetRelatedFields">
+                    <div class="mb-3">
+                        <label for="humanAssetId" class="form-label">Asset <span class="text-danger">*</span></label>
+                        <select class="form-select" id="humanAssetId" required>
+                            <option value="">Select an asset...</option>
+                            ${assets.map(asset => `
+                                <option value="${asset.deal_id}">${asset.name} (${asset.asset_type})</option>
+                            `).join('')}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="humanDocumentCategory" class="form-label">Document Category <span class="text-danger">*</span></label>
+                        <select class="form-select" id="humanDocumentCategory" required>
+                            <option value="">Select category...</option>
+                            <option value="financial_statements">Financial Statements</option>
+                            <option value="legal_documents">Legal Documents</option>
+                            <option value="loan_documents">Loan Documents</option>
+                            <option value="operating_reports">Operating Reports</option>
+                            <option value="compliance_documents">Compliance Documents</option>
+                            <option value="correspondence">Correspondence</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div id="nonAssetFields" style="display: none;">
+                    <div class="mb-3">
+                        <label for="nonAssetCategory" class="form-label">Document Type</label>
+                        <select class="form-select" id="nonAssetCategory">
+                            <option value="spam">Spam/Unwanted</option>
+                            <option value="personal">Personal Document</option>
+                            <option value="unrelated">Business but Unrelated</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="humanReasoning" class="form-label">Reasoning <span class="text-danger">*</span></label>
+                    <textarea class="form-control" id="humanReasoning" rows="3" required 
+                        placeholder="Explain why you chose this classification..."></textarea>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="humanFeedback" class="form-label">Additional Feedback</label>
+                    <textarea class="form-control" id="humanFeedback" rows="2" 
+                        placeholder="Any additional feedback to help improve the system..."></textarea>
+                </div>
+                
+                <div class="d-flex justify-content-end gap-2">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Submit Review</button>
+                </div>
+            </form>
+        `;
+
+            // Add event listener for asset-related checkbox
+            document.getElementById('isAssetRelated').addEventListener('change', function () {
+                const assetFields = document.getElementById('assetRelatedFields');
+                const nonAssetFields = document.getElementById('nonAssetFields');
+
+                if (this.checked) {
+                    assetFields.style.display = 'block';
+                    nonAssetFields.style.display = 'none';
+                    document.getElementById('humanAssetId').required = true;
+                    document.getElementById('humanDocumentCategory').required = true;
+                } else {
+                    assetFields.style.display = 'none';
+                    nonAssetFields.style.display = 'block';
+                    document.getElementById('humanAssetId').required = false;
+                    document.getElementById('humanDocumentCategory').required = false;
+                }
+            });
+
+            // Add form submit handler
+            document.getElementById('reviewForm').addEventListener('submit', submitReview);
+
+            // Show modal
+            const modal = new bootstrap.Modal(document.getElementById('reviewModal'));
+            modal.show();
+
+        } catch (error) {
+            console.error('Error loading review item:', error);
+            showAlert('Failed to load review item', 'danger');
+        }
+    }
+
+    // Submit review
+    async function submitReview(e) {
+        e.preventDefault();
+
+        const isAssetRelated = document.getElementById('isAssetRelated').checked;
+
+        const reviewData = {
+            is_asset_related: isAssetRelated,
+            human_reasoning: document.getElementById('humanReasoning').value,
+            human_feedback: document.getElementById('humanFeedback').value,
+        };
+
+        if (isAssetRelated) {
+            reviewData.human_asset_id = document.getElementById('humanAssetId').value;
+            reviewData.human_document_category = document.getElementById('humanDocumentCategory').value;
+        } else {
+            reviewData.human_document_category = document.getElementById('nonAssetCategory').value;
+        }
+
+        try {
+            const response = await fetch(`/api/v1/human-review/items/${currentReviewId}/submit`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(reviewData)
+            });
+
+            if (!response.ok) {
+                throw new Error('Review submission failed');
+            }
+
+            const result = await response.json();
+
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('reviewModal'));
+            modal.hide();
+
+            // Show success message
+            showAlert('Review submitted successfully', 'success');
+
+            // Reload queue and stats
+            loadReviewQueue();
+            loadStats();
+
+        } catch (error) {
+            console.error('Error submitting review:', error);
+            showAlert('Failed to submit review: ' + error.message, 'danger');
+        }
+    }
+
+    // Utility functions
+    function truncateText(text, maxLength) {
+        return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+    }
+
+    function showAlert(message, type) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+        alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+        document.querySelector('.container').insertBefore(alertDiv, document.querySelector('.row'));
+    }
+</script>
+{% endblock %}

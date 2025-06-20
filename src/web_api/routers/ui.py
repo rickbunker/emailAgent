@@ -7,7 +7,7 @@ for dynamic behavior without a full SPA framework.
 
 # # Standard library imports
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict, List
 
 # # Third-party imports
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
@@ -18,8 +18,14 @@ from fastapi.templating import Jinja2Templates
 from src.asset_management import AssetType
 from src.asset_management.memory_integration.sender_mappings import SenderMappingService
 from src.asset_management.services.asset_service import AssetService
+from src.utils.config import config
 from src.utils.logging_system import get_logger
-from src.web_api.dependencies import get_asset_service, get_sender_mapping_service
+from src.web_api.dependencies import (
+    get_asset_service,
+    get_sender_mapping_service,
+    get_templates,
+    get_document_processor,
+)
 
 logger = get_logger(__name__)
 
@@ -657,3 +663,80 @@ async def delete_sender_mapping_ui(
                 "error": str(e),
             },
         )
+
+
+@router.get("/email-processing", response_class=HTMLResponse)
+async def email_processing_ui(
+    request: Request,
+) -> HTMLResponse:
+    """
+    Email processing UI page.
+    """
+    # Get configured mailboxes from config
+    mailboxes = []
+
+    # Check for Gmail configuration
+    if (
+        hasattr(config, "gmail_credentials_path")
+        and Path(config.gmail_credentials_path).exists()
+    ):
+        mailboxes.append(
+            {
+                "id": "gmail",
+                "name": "Gmail",
+                "type": "gmail",
+                "icon": "bi-envelope-fill",
+            }
+        )
+
+    # Check for Microsoft Graph configuration
+    if (
+        hasattr(config, "msgraph_credentials_path")
+        and Path(config.msgraph_credentials_path).exists()
+    ):
+        mailboxes.append(
+            {
+                "id": "msgraph",
+                "name": "Microsoft 365",
+                "type": "microsoft_graph",
+                "icon": "bi-microsoft",
+            }
+        )
+
+    return templates.TemplateResponse(
+        "email_processing.html",
+        {
+            "request": request,
+            "mailboxes": mailboxes,
+            "recent_runs": [],  # Will be populated dynamically via API
+            "total_runs": 0,
+        },
+    )
+
+
+@router.get("/human-review", response_class=HTMLResponse)
+async def human_review_ui(
+    request: Request,
+    asset_service: AssetService = Depends(get_asset_service),
+) -> HTMLResponse:
+    """
+    Human review queue UI page.
+    """
+    # Get available assets for dropdowns
+    assets = await asset_service.list_assets()
+
+    return templates.TemplateResponse(
+        "human_review.html",
+        {
+            "request": request,
+            "pending_items": [],  # Will be populated dynamically via API
+            "assets": assets,
+            "stats": {
+                "total_items": 0,
+                "pending": 0,
+                "completed": 0,
+                "in_review": 0,
+                "completion_rate": 0,
+            },
+        },
+    )

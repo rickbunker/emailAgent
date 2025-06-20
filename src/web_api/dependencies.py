@@ -7,9 +7,11 @@ dependency functions for FastAPI routes.
 
 # # Standard library imports
 from typing import Optional
+from functools import lru_cache
 
 # # Third-party imports
 from qdrant_client import QdrantClient
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 # # Local application imports
 from src.asset_management import (
@@ -179,3 +181,20 @@ async def get_qdrant_client() -> Optional[QdrantClient]:
         The Qdrant client if available, None otherwise
     """
     return qdrant_client
+
+
+# Create template environment
+templates = Environment(
+    loader=FileSystemLoader("src/web_api/templates"),
+    autoescape=select_autoescape(["html", "xml"]),
+)
+
+
+def get_templates() -> Environment:
+    """
+    Get the Jinja2 template environment.
+
+    Returns:
+        The configured Jinja2 Environment instance
+    """
+    return templates

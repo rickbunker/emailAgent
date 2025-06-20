@@ -1,12 +1,11 @@
 """
-Main FastAPI application for Asset Management System.
+FastAPI main application for Inveniam Email Agent.
 
-This module sets up the FastAPI application with all routers,
-middleware, and configuration.
+This module creates and configures the FastAPI application with all routers,
+middleware, and lifecycle management.
 """
 
 # # Standard library imports
-from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -15,43 +14,46 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+import uvicorn
 
 # # Local application imports
+from src.utils.config import config
 from src.utils.logging_system import get_logger
-
-# Import services setup
-from src.web_api.dependencies import cleanup_services, initialize_services
+from src.web_api.dependencies import (
+    initialize_services,
+    cleanup_services,
+    get_templates,
+)
 
 # Import routers
-from src.web_api.routers import assets, health, senders, ui
+from src.web_api.routers import (
+    assets,
+    health,
+    senders,
+    ui,
+    email_processing,
+    human_review,
+)
 
 logger = get_logger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    """
-    Manage application lifecycle.
-
-    Initialize services on startup and cleanup on shutdown.
-    """
-    # Startup
-    logger.info("Starting Asset Management API...")
+async def lifespan(app: FastAPI):
+    """Application lifespan handler."""
+    logger.info("Starting Inveniam Email Agent API...")
     await initialize_services()
     logger.info("✅ API started successfully")
-
     yield
-
-    # Shutdown
-    logger.info("Shutting down Asset Management API...")
+    logger.info("Shutting down Inveniam Email Agent API...")
     await cleanup_services()
     logger.info("API shutdown complete")
 
 
 # Create FastAPI app
 app = FastAPI(
-    title="Asset Management API",
-    description="API for managing private market investment documents",
+    title="Inveniam Email Agent API",
+    description="Intelligent email processing and asset management system",
     version="1.0.0",
     lifespan=lifespan,
     docs_url="/api/docs",
@@ -68,19 +70,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount static files
-static_path = Path(__file__).parent / "static"
-if static_path.exists():
-    app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
+# Mount static files for logo and other assets
+app.mount("/static", StaticFiles(directory="src/web_api/static"), name="static")
 
-# Configure templates
-templates_path = Path(__file__).parent / "templates"
-templates = Jinja2Templates(directory=str(templates_path))
+# Templates are handled via dependency injection (get_templates)
 
 # Include API routers
-app.include_router(health.router, prefix="/api/v1", tags=["system"])
+app.include_router(health.router, prefix="/api/v1", tags=["health"])
 app.include_router(assets.router, prefix="/api/v1", tags=["assets"])
 app.include_router(senders.router, prefix="/api/v1", tags=["senders"])
+app.include_router(email_processing.router, prefix="/api/v1", tags=["email_processing"])
+app.include_router(human_review.router, prefix="/api/v1", tags=["human_review"])
 
 # Include UI router (for demo frontend)
 app.include_router(ui.router, tags=["ui"])
@@ -94,9 +94,6 @@ async def root() -> dict[str, str]:
 
 
 if __name__ == "__main__":
-    # # Third-party imports
-    import uvicorn
-
     uvicorn.run(
         "src.web_api.main:app",
         host="0.0.0.0",
