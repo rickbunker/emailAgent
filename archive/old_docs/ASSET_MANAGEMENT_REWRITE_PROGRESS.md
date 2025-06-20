@@ -19,7 +19,7 @@ src/asset_management/
 │   └── asset_identifier.py    # ✅ Asset identification service
 ├── classification/
 │   ├── __init__.py
-│   └── document_classifier.py # ✅ Document classification service  
+│   └── document_classifier.py # ✅ Document classification service
 ├── memory_integration/
 │   ├── __init__.py
 │   ├── sender_mappings.py     # ✅ Sender mapping integration
@@ -127,7 +127,7 @@ src/asset_management/
 - Memory systems properly separated
 
 ### **2. Correct Memory Roles**
-- **Procedural Memory**: HOW to match (algorithms, rules) 
+- **Procedural Memory**: HOW to match (algorithms, rules)
 - **Semantic Memory**: FACTS about assets and documents ✅
 - **Episodic Memory**: Learning from experience ✅
 - **Contact Memory**: Sender mappings (existing system) ✅
@@ -155,7 +155,7 @@ src/asset_management/
 # src/asset_management/core/asset_repository.py
 class AssetRepository:
     """Manages asset CRUD operations."""
-    
+
     async def list_assets() -> list[Asset]
     async def get_asset(asset_id: str) -> Asset
     async def create_asset(...) -> str
@@ -167,7 +167,7 @@ class AssetRepository:
 # src/asset_management/processing/web_integration.py
 class WebIntegration:
     """Compatibility layer for existing web UI."""
-    
+
     # Expose same APIs as old asset_document_agent.py
     # But delegate to new modular components
 ```
@@ -197,7 +197,7 @@ class WebIntegration:
 
 - ✅ No false positives
 - ✅ Correct document classification
-- ✅ Proper memory separation  
+- ✅ Proper memory separation
 - ✅ Clean, maintainable code
 - ✅ No hardcoded facts
 - ✅ Modular architecture

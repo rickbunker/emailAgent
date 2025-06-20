@@ -43,7 +43,7 @@ def main():
 
     # Import and run the Flask app
     try:
-        # # Local application imports
+        # # Third-party imports
         from web_ui.app import create_app
 
         app = create_app()

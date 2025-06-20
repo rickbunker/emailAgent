@@ -34,7 +34,7 @@ We completely rewrote the asset document management system from scratch with a *
 src/asset_management/
 ├── core/                      # Data models and exceptions
 ├── identification/            # Asset identification service
-├── classification/            # Document classification service  
+├── classification/            # Document classification service
 ├── memory_integration/        # Memory system integration
 ├── processing/               # Main processing pipeline
 └── utils/                    # Security and storage services
@@ -113,4 +113,4 @@ We took a fundamentally broken system and rebuilt it correctly:
 - From false positives to accurate matching
 - From static to continuously learning
 
-The new system is not just better - it's architecturally correct. 
+The new system is not just better - it's architecturally correct.

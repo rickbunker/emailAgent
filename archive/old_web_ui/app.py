@@ -96,7 +96,7 @@ try:
     from src.web_ui.human_review import review_queue
 except ImportError:
     try:
-        # # Local application imports
+        # # Third-party imports
         from web_ui.human_review import review_queue
     except ImportError:
         # Direct import from current directory

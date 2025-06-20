@@ -1,17 +1,17 @@
 {
   "errors": [],
-  "generated_at": "2025-06-19T23:57:40Z",
+  "generated_at": "2025-06-20T00:15:35Z",
   "metrics": {
     "_totals": {
-      "CONFIDENCE.HIGH": 15,
+      "CONFIDENCE.HIGH": 14,
       "CONFIDENCE.LOW": 3,
       "CONFIDENCE.MEDIUM": 3,
       "CONFIDENCE.UNDEFINED": 0,
       "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 16,
+      "SEVERITY.LOW": 15,
       "SEVERITY.MEDIUM": 5,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 23342,
+      "loc": 18819,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -625,45 +625,6 @@
       "loc": 520,
       "nosec": 0,
       "skipped_tests": 0
-    },
-    "src/web_ui/__init__.py": {
-      "CONFIDENCE.HIGH": 0,
-      "CONFIDENCE.LOW": 0,
-      "CONFIDENCE.MEDIUM": 0,
-      "CONFIDENCE.UNDEFINED": 0,
-      "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 0,
-      "SEVERITY.MEDIUM": 0,
-      "SEVERITY.UNDEFINED": 0,
-      "loc": 13,
-      "nosec": 0,
-      "skipped_tests": 0
-    },
-    "src/web_ui/app.py": {
-      "CONFIDENCE.HIGH": 1,
-      "CONFIDENCE.LOW": 0,
-      "CONFIDENCE.MEDIUM": 0,
-      "CONFIDENCE.UNDEFINED": 0,
-      "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 1,
-      "SEVERITY.MEDIUM": 0,
-      "SEVERITY.UNDEFINED": 0,
-      "loc": 4081,
-      "nosec": 0,
-      "skipped_tests": 0
-    },
-    "src/web_ui/human_review.py": {
-      "CONFIDENCE.HIGH": 0,
-      "CONFIDENCE.LOW": 0,
-      "CONFIDENCE.MEDIUM": 0,
-      "CONFIDENCE.UNDEFINED": 0,
-      "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 0,
-      "SEVERITY.MEDIUM": 0,
-      "SEVERITY.UNDEFINED": 0,
-      "loc": 429,
-      "nosec": 0,
-      "skipped_tests": 0
     }
   },
   "results": [
@@ -1115,27 +1076,6 @@
       "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b608_hardcoded_sql_expressions.html",
       "test_id": "B608",
       "test_name": "hardcoded_sql_expressions"
-    },
-    {
-      "code": "5186                     break\n5187             except Exception:\n5188                 continue\n5189 \n",
-      "col_offset": 12,
-      "end_col_offset": 24,
-      "filename": "src/web_ui/app.py",
-      "issue_confidence": "HIGH",
-      "issue_cwe": {
-        "id": 703,
-        "link": "https://cwe.mitre.org/data/definitions/703.html"
-      },
-      "issue_severity": "LOW",
-      "issue_text": "Try, Except, Continue detected.",
-      "line_number": 5187,
-      "line_range": [
-        5187,
-        5188
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b112_try_except_continue.html",
-      "test_id": "B112",
-      "test_name": "try_except_continue"
     }
   ]
 }
