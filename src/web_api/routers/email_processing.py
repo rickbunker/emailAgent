@@ -5,24 +5,24 @@ This module provides endpoints for processing emails from configured mailboxes,
 viewing processing history, and managing email processing runs.
 """
 
-from datetime import datetime, timezone, timedelta
-from typing import Any, Dict, List, Optional
-from uuid import uuid4
+# # Standard library imports
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any, Optional
+from uuid import uuid4
 
+# # Third-party imports
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
+# # Local application imports
 from src.asset_management.processing.document_processor import DocumentProcessor
 from src.asset_management.services.asset_service import AssetService
 from src.email_interface.base import EmailSearchCriteria
 from src.email_interface.factory import EmailInterfaceFactory
 from src.utils.config import config
 from src.utils.logging_system import get_logger, log_function
-from src.web_api.dependencies import (
-    get_asset_service,
-    get_document_processor,
-)
+from src.web_api.dependencies import get_asset_service, get_document_processor
 
 logger = get_logger(__name__)
 
@@ -63,11 +63,11 @@ class ProcessingRunResult(BaseModel):
     emails_processed: int
     attachments_processed: int
     errors: int
-    results: List[EmailProcessingResult] = []
+    results: list[EmailProcessingResult] = []
 
 
 # In-memory storage for processing runs (will be replaced with proper persistence)
-processing_runs: Dict[str, ProcessingRunResult] = {}
+processing_runs: dict[str, ProcessingRunResult] = {}
 processing_cancelled = False
 
 
@@ -107,7 +107,7 @@ async def process_emails(
         run_id=run_id,
         mailbox_id=request.mailbox_id,
         status="running",
-        started_at=datetime.now(timezone.utc).isoformat(),
+        started_at=datetime.now(UTC).isoformat(),
         emails_processed=0,
         attachments_processed=0,
         errors=0,
@@ -129,7 +129,7 @@ async def process_emails(
             )
 
         # Get emails from the last N hours
-        since_date = datetime.now(timezone.utc) - timedelta(hours=request.hours_back)
+        since_date = datetime.now(UTC) - timedelta(hours=request.hours_back)
 
         criteria = EmailSearchCriteria(
             date_after=since_date,
@@ -151,9 +151,9 @@ async def process_emails(
 
             # Check if already processed (unless force reprocess)
             if not request.force_reprocess and _is_email_processed(
-                email.email_id, request.mailbox_id
+                email.id, request.mailbox_id
             ):
-                logger.debug(f"Skipping already processed email: {email.email_id}")
+                logger.debug(f"Skipping already processed email: {email.id}")
                 continue
 
             email_result = await _process_single_email(
@@ -168,9 +168,9 @@ async def process_emails(
                 run_result.errors += 1
 
             # Mark as processed
-            _mark_email_processed(email.email_id, request.mailbox_id)
+            _mark_email_processed(email.id, request.mailbox_id)
 
-        run_result.completed_at = datetime.now(timezone.utc).isoformat()
+        run_result.completed_at = datetime.now(UTC).isoformat()
         run_result.status = "completed" if not processing_cancelled else "cancelled"
 
     except Exception as e:
@@ -189,7 +189,7 @@ async def process_emails(
 
 @router.post("/stop")
 @log_function()
-async def stop_processing() -> Dict[str, str]:
+async def stop_processing() -> dict[str, str]:
     """Stop ongoing email processing."""
     global processing_cancelled
     processing_cancelled = True
@@ -199,7 +199,7 @@ async def stop_processing() -> Dict[str, str]:
 
 @router.get("/runs")
 @log_function()
-async def get_processing_runs(limit: int = 20) -> List[ProcessingRunResult]:
+async def get_processing_runs(limit: int = 20) -> list[ProcessingRunResult]:
     """Get recent processing runs."""
     runs = sorted(processing_runs.values(), key=lambda x: x.started_at, reverse=True)[
         :limit
@@ -218,13 +218,13 @@ async def get_processing_run(run_id: str) -> ProcessingRunResult:
 
 @router.get("/mailboxes")
 @log_function()
-async def get_mailboxes() -> List[Dict[str, Any]]:
+async def get_mailboxes() -> list[dict[str, Any]]:
     """Get configured mailboxes."""
     return _get_configured_mailboxes()
 
 
 # Helper functions
-def _get_configured_mailboxes() -> List[Dict[str, Any]]:
+def _get_configured_mailboxes() -> list[dict[str, Any]]:
     """
     Get list of configured mailboxes from config.
 
@@ -267,7 +267,7 @@ def _get_configured_mailboxes() -> List[Dict[str, Any]]:
 
 
 # Simple in-memory tracking of processed emails (will be replaced with proper persistence)
-processed_emails: Dict[str, Dict[str, Any]] = {}
+processed_emails: dict[str, dict[str, Any]] = {}
 
 
 def _is_email_processed(email_id: str, mailbox_id: str) -> bool:
@@ -280,7 +280,7 @@ def _mark_email_processed(email_id: str, mailbox_id: str) -> None:
     """Mark an email as processed."""
     key = f"{mailbox_id}:{email_id}"
     processed_emails[key] = {
-        "processed_at": datetime.now(timezone.utc).isoformat(),
+        "processed_at": datetime.now(UTC).isoformat(),
     }
 
 
@@ -288,7 +288,7 @@ async def _process_single_email(
     email: Any,  # Email object from email_interface
     email_interface: Any,
     document_processor: DocumentProcessor,
-    assets: List[Any],
+    assets: list[Any],
     mailbox_id: str,
 ) -> EmailProcessingResult:
     """
@@ -314,7 +314,7 @@ async def _process_single_email(
             try:
                 # Get attachment content
                 content = await email_interface.get_attachment_content(
-                    email.email_id, attachment.attachment_id
+                    email.id, attachment.attachment_id
                 )
 
                 # Prepare attachment data
@@ -327,11 +327,11 @@ async def _process_single_email(
 
                 # Prepare email data for context
                 email_data = {
-                    "id": email.email_id,
-                    "sender_email": email.sender,
+                    "id": email.id,
+                    "sender_email": email.sender.address,
                     "subject": email.subject,
-                    "body": email.body,
-                    "date": email.date.isoformat() if email.date else None,
+                    "body": email.body_content,
+                    "date": email.sent_date.isoformat() if email.sent_date else None,
                 }
 
                 # Process the attachment
@@ -350,18 +350,18 @@ async def _process_single_email(
         processing_time = (datetime.now() - start_time).total_seconds()
 
         return EmailProcessingResult(
-            email_id=email.email_id,
+            email_id=email.id,
             success=True,
             attachments_processed=attachments_processed,
             processing_time=processing_time,
         )
 
     except Exception as e:
-        logger.error(f"Failed to process email {email.email_id}: {e}")
+        logger.error(f"Failed to process email {email.id}: {e}")
         processing_time = (datetime.now() - start_time).total_seconds()
 
         return EmailProcessingResult(
-            email_id=email.email_id,
+            email_id=email.id,
             success=False,
             attachments_processed=0,
             error_message=str(e),
