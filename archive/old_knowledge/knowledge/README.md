@@ -39,7 +39,7 @@ print(f"Loaded {stats['pattern_count']} classification patterns")
 When running Smart Memory Reset, expect these pattern counts:
 - **Classification patterns**: 24 pattern groups (4 asset types × 6 categories avg)
 - **Asset keywords**: 4 keyword sets
-- **Business rules**: 9 rules (4 confidence + 5 routing)  
+- **Business rules**: 9 rules (4 confidence + 5 routing)
 - **Asset configs**: 4 configurations
 - **Total**: ~41 patterns loaded into procedural memory
 
@@ -50,7 +50,7 @@ When running Smart Memory Reset, expect these pattern counts:
 # Count classification patterns
 cat knowledge/classification_patterns.json | jq '.classification_patterns | to_entries | map(.value | to_entries | map(.value | length)) | flatten | add'
 
-# Count asset keywords  
+# Count asset keywords
 cat knowledge/asset_keywords.json | jq '.asset_keywords | keys | length'
 
 # Count business rules
@@ -62,7 +62,7 @@ cat knowledge/asset_configs.json | jq '.asset_configs | keys | length'
 
 ### Expected Counts
 - Classification patterns: **112 regex patterns**
-- Asset keywords: **4 asset types** 
+- Asset keywords: **4 asset types**
 - Business rules: **9 rules**
 - Asset configs: **4 configurations**
 - **Total items**: 129
