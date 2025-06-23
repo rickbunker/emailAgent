@@ -773,8 +773,8 @@ class MicrosoftGraphInterface(BaseEmailInterface):
                 "$orderby": "receivedDateTime desc",
             }
 
-            # If searching for attachments, expand to include attachment data
-            if criteria.has_attachments:
+            # Always expand attachments to include attachment data (unless explicitly excluding them)
+            if criteria.has_attachments is not False:
                 params["$expand"] = "attachments"
 
             if filters:
@@ -821,8 +821,8 @@ class MicrosoftGraphInterface(BaseEmailInterface):
                 # Convert to Email objects
                 emails = []
                 include_attachments = (
-                    criteria.has_attachments
-                )  # Include attachments if we searched for them
+                    criteria.has_attachments is not False
+                )  # Include attachments unless explicitly excluded
                 for msg in messages:
                     try:
                         email_obj = self._parse_graph_message(msg, include_attachments)
@@ -832,6 +832,27 @@ class MicrosoftGraphInterface(BaseEmailInterface):
                             "Failed to parse message %s: %s", msg.get("id"), e
                         )
                         continue
+
+                # Download attachment content for all emails
+                if include_attachments:
+                    for email in emails:
+                        for attachment in email.attachments:
+                            if (
+                                not attachment.content
+                                and hasattr(attachment, "_message_id")
+                                and attachment.attachment_id
+                            ):
+                                try:
+                                    attachment.content = await self.download_attachment(
+                                        attachment._message_id, attachment.attachment_id
+                                    )
+                                    self.logger.info(
+                                        f"Downloaded content for {attachment.filename}: {len(attachment.content)} bytes"
+                                    )
+                                except Exception as e:
+                                    self.logger.warning(
+                                        f"Failed to download attachment {attachment.filename}: {e}"
+                                    )
 
                 return emails
 
@@ -1218,7 +1239,10 @@ class MicrosoftGraphInterface(BaseEmailInterface):
                     attachment_id=att.get("id"),
                 )
 
-                # If content is included
+                # Store message ID for later content download
+                attachment._message_id = message.get("id")
+
+                # If content is included in response (rare)
                 if att.get("contentBytes"):
                     with contextlib.suppress(ValueError, TypeError, binascii.Error):
                         attachment.content = base64.b64decode(att["contentBytes"])

@@ -74,6 +74,20 @@ class FeedbackIntegratorNode:
         feedback_type = feedback_data["feedback_type"]
         logger.info(f"Processing {feedback_type} feedback")
 
+        # CRITICAL: Only process ACTUAL human feedback, not automatic flags
+        if feedback_type == "human_review_required":
+            # This is just a flag that review is needed, not actual feedback
+            # Do NOT record to episodic memory
+            logger.info("Email flagged for human review - awaiting actual feedback")
+            return {
+                "feedback_type": feedback_type,
+                "timestamp": datetime.now().isoformat(),
+                "status": "awaiting_human_feedback",
+                "memory_updates": {},
+                "learning_impact": {"expected_accuracy_improvement": 0.0},
+                "success": True,
+            }
+
         integration_results = {
             "feedback_type": feedback_type,
             "timestamp": datetime.now().isoformat(),

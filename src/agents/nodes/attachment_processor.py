@@ -58,7 +58,7 @@ class AttachmentProcessorNode:
         asset_matches: list[dict[str, Any]],
         email_data: dict[str, Any],
         attachments: list[dict[str, Any]],
-    ) -> list[dict[str, Any]]:
+    ) -> dict[str, Any]:
         """
         Process and save attachments based on asset matches.
 
@@ -75,15 +75,40 @@ class AttachmentProcessorNode:
         """
         if not asset_matches:
             logger.info("No asset matches to process")
-            return []
+            return {
+                "results": [],
+                "decision_factors": ["No asset matches to process"],
+                "memory_queries": [],
+                "rule_applications": [],
+                "confidence_factors": [],
+            }
 
         logger.info(f"Processing {len(asset_matches)} asset matches")
 
         # Get file handling procedures from procedural memory
         processing_rules = await self.query_processing_procedures(email_data)
 
-        results = []
+        # DEFENSIVE: Ensure each attachment is processed only once (SELECT DISTINCT)
+        processed_attachments = set()
+        unique_matches = []
+
         for match in asset_matches:
+            filename = match.get("attachment_filename")
+            if filename not in processed_attachments:
+                processed_attachments.add(filename)
+                unique_matches.append(match)
+            else:
+                logger.warning(
+                    f"Duplicate match for {filename} - skipping to maintain attachment-centric processing"
+                )
+
+        if len(unique_matches) < len(asset_matches):
+            logger.warning(
+                f"Reduced {len(asset_matches)} matches to {len(unique_matches)} unique attachments"
+            )
+
+        results = []
+        for match in unique_matches:
             try:
                 result = await self._process_single_attachment(
                     match, email_data, attachments, processing_rules
@@ -287,44 +312,65 @@ class AttachmentProcessorNode:
         processing_rules: dict[str, Any],
     ) -> str:
         """
-        Generate standardized filename.
-
-        Simple format: YYYYMMDD_HHMMSS_AssetID_Sender_Original
+        Keep original filename - folder structure provides organization.
         """
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        sender = email_data.get("sender", "unknown").split("@")[0]
-
-        # Extract file extension
-        file_ext = Path(original_filename).suffix
-
-        # Generate standardized name: YYYYMMDD_HHMMSS_AssetID_Sender_Original
-        base_name = Path(original_filename).stem
-        standardized_name = f"{timestamp}_{asset_id}_{sender}_{base_name}{file_ext}"
-
-        # Clean filename (remove invalid characters)
+        # Clean filename (remove invalid characters) but keep original name
+        clean_filename = original_filename
         invalid_chars = ["<", ">", ":", '"', "|", "?", "*", "\\", "/"]
         for char in invalid_chars:
-            standardized_name = standardized_name.replace(char, "_")
+            clean_filename = clean_filename.replace(char, "_")
 
-        return standardized_name
+        return clean_filename
 
     async def _save_attachment(
         self, attachment_data: dict[str, Any], target_path: Path
     ) -> None:
         """
         Save attachment to file system.
-
-        In real implementation, this would handle actual file I/O.
         """
-        # For now, just simulate saving by creating an empty file
-        target_path.touch()
-        logger.info(f"Simulated saving attachment to: {target_path}")
+        try:
+            # Get attachment content
+            content = attachment_data.get("content")
+            if not content:
+                logger.warning(
+                    f"No content found for attachment {attachment_data.get('filename')}"
+                )
+                return
 
-        # In real implementation:
-        # - Decode attachment content
-        # - Write to target_path
-        # - Set appropriate file permissions
-        # - Calculate and store file hash for integrity
+            # Ensure parent directory exists
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+
+            # Write content to file
+            if isinstance(content, bytes):
+                # Content is already bytes
+                with open(target_path, "wb") as f:
+                    f.write(content)
+            elif isinstance(content, str):
+                # Content might be base64 encoded
+                # # Standard library imports
+                import base64
+
+                try:
+                    decoded_content = base64.b64decode(content)
+                    with open(target_path, "wb") as f:
+                        f.write(decoded_content)
+                except Exception as e:
+                    logger.error(f"Failed to decode base64 content: {e}")
+                    # Try writing as text
+                    with open(target_path, "w", encoding="utf-8") as f:
+                        f.write(content)
+            else:
+                logger.error(f"Unknown content type: {type(content)}")
+                return
+
+            # Set file permissions (read/write for owner only)
+            target_path.chmod(0o600)
+
+            logger.info(f"Successfully saved attachment to: {target_path}")
+
+        except Exception as e:
+            logger.error(f"Failed to save attachment to {target_path}: {e}")
+            raise
 
     async def query_processing_procedures(
         self, context: dict[str, Any]

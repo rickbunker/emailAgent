@@ -16,6 +16,7 @@ import json
 import sqlite3
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -27,6 +28,15 @@ logger = get_logger(__name__)
 # Create memory data directory
 MEMORY_DATA_DIR = Path("data/memory")
 MEMORY_DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def json_serialize(obj):
+    """Custom JSON serializer to handle datetime and bytes objects"""
+    if isinstance(obj, datetime):
+        return obj.isoformat()
+    if isinstance(obj, bytes):
+        return f"<bytes: {len(obj)} bytes>"  # Don't store actual bytes content
+    raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
 
 
 @dataclass
@@ -126,14 +136,31 @@ class SimpleSemanticMemory:
         query_lower = query.lower()
 
         for asset_id, profile in self.data.get("asset_profiles", {}).items():
-            # Simple keyword matching
+            # Check if query term matches asset keywords or name
             score = 0.0
-            for keyword in profile.get("keywords", []):
-                if keyword.lower() in query_lower:
-                    score += 0.3
 
-            if profile.get("name", "").lower() in query_lower:
-                score += 0.5
+            # Check if query is in any keyword
+            for keyword in profile.get("keywords", []):
+                if query_lower in keyword.lower():
+                    score += 0.5  # Strong match when query is in keyword
+
+            # Check if query is in asset name
+            asset_name = profile.get("name", "").lower()
+            if query_lower in asset_name:
+                score += 0.5  # Strong match when query is in name
+
+            # Also give partial credit for individual word matches
+            query_words = query_lower.split()
+            for word in query_words:
+                if len(word) > 1:  # Skip single letters
+                    for keyword in profile.get("keywords", []):
+                        if (
+                            word in keyword.lower()
+                            and query_lower not in keyword.lower()
+                        ):
+                            score += 0.1  # Partial match for individual words
+                    if word in asset_name and query_lower not in asset_name:
+                        score += 0.1
 
             if score > 0:
                 results.append(
@@ -390,7 +417,7 @@ class SimpleEpisodicMemory:
                     category,  # Will be None if not provided
                     confidence,
                     decision,
-                    json.dumps(metadata or {}),
+                    json.dumps(metadata or {}, default=json_serialize),
                 ),
             )
             conn.commit()

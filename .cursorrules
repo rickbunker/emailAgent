@@ -10,6 +10,14 @@ When making changes, make and test one change at a time, rather than making swee
 
 Be sceptical!  Don't announce that everything is perfect before it is.  Test, verify, check with a human.
 
+# Communication Style
+- Use direct, professional language
+- No celebratory language, emojis, or excessive enthusiasm
+- No phrases like "sophisticated", "brilliantly", "perfectly", "amazing", etc.
+- Focus on technical facts and next steps
+- Keep responses concise and actionable
+- Report status objectively without editorial commentary
+
 ## 🚨 Critical Enforcement Points
 
 ### Type Safety & Documentation
