@@ -65,12 +65,12 @@ import msal
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 # # Standard library imports
-import contextlib
+import contextlib  # noqa: E402
 
 # # Local application imports
-from utils.logging_system import get_logger, log_function
+from utils.logging_system import get_logger, log_function  # noqa: E402
 
-from .base import (
+from .base import (  # noqa: E402
     AuthenticationError,
     BaseEmailInterface,
     ConnectionError,

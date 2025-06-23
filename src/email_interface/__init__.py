@@ -46,9 +46,9 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 # # Local application imports
-from utils.logging_system import get_logger, log_function
+from utils.logging_system import get_logger, log_function  # noqa: E402
 
-from .base import (  # Exception hierarchy
+from .base import (  # Exception hierarchy  # noqa: E402
     AuthenticationError,
     BaseEmailInterface,
     ConnectionError,
@@ -62,9 +62,9 @@ from .base import (  # Exception hierarchy
     EmailSystemError,
     PermissionError,
 )
-from .factory import EmailInterfaceFactory, EmailSystemType
-from .gmail import GmailInterface
-from .msgraph import MicrosoftGraphInterface
+from .factory import EmailInterfaceFactory, EmailSystemType  # noqa: E402
+from .gmail import GmailInterface  # noqa: E402
+from .msgraph import MicrosoftGraphInterface  # noqa: E402
 
 # Initialize package logger
 logger = get_logger(__name__)

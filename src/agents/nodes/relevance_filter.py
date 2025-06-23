@@ -147,18 +147,6 @@ class RelevanceFilterNode:
                     f"{rule.get('description', 'Rule')}: {pattern_matches} patterns matched (score: {rule_score:.2f})"
                 )
 
-        # Check document categories from semantic memory
-        doc_categories = self.semantic_memory.search_document_categories(combined_text)
-        if doc_categories:
-            category_score = 0.0
-            for doc_cat in doc_categories[:2]:  # Top 2 categories
-                cat_score = doc_cat.get("score", 0.0) * 0.3
-                category_score += cat_score
-                reasoning["decision_factors"].append(
-                    f"Document category '{doc_cat['category']}' match (score: {cat_score:.2f})"
-                )
-            score += category_score
-
         # Check attachments using semantic memory file rules
         if attachments:
             attachment_score = 0.0
@@ -222,11 +210,6 @@ class RelevanceFilterNode:
 
         # Combine email content for analysis
         content = f"{email_data.get('subject', '')} {email_data.get('body', '')}"
-
-        # Query document categories
-        doc_categories = self.semantic_memory.search_document_categories(content)
-        for doc_cat in doc_categories:
-            patterns[f"doc_category_{doc_cat['category']}"] = doc_cat.get("score", 0.0)
 
         # Query asset profiles
         asset_profiles = self.semantic_memory.search_asset_profiles(content)

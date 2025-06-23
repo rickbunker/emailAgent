@@ -13,16 +13,16 @@ Memory Types:
 """
 
 # # Standard library imports
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 # # Local application imports
-from src.utils.config import config
-from src.utils.logging_system import get_logger
+from src.utils.config import config  # noqa: E402
+from src.utils.logging_system import get_logger  # noqa: E402
 
 logger = get_logger(__name__)
 
 # Import the simplified memory implementations
-from .simple_memory import (
+from .simple_memory import (  # noqa: E402
     SimpleEpisodicMemory,
     SimpleProceduralMemory,
     SimpleSemanticMemory,

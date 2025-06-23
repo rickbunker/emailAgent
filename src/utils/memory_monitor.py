@@ -11,7 +11,7 @@ Phase 6.2 Implementation: Configuration & Memory Limits
 import asyncio
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Any, Optional, Protocol
+from typing import Any, Protocol
 
 from .config import config
 from .logging_system import get_logger, log_function
@@ -28,7 +28,7 @@ class MemoryUsageStats:
     max_items: int
     usage_percentage: float
     estimated_size_mb: float
-    last_cleanup: Optional[datetime]
+    last_cleanup: datetime | None
     cleanup_count: int
     performance_metrics: dict[str, float]
 
@@ -87,7 +87,7 @@ class MemoryMonitor:
         logger.info(f"Registered memory system for monitoring: {name}")
 
     @log_function()
-    def get_memory_usage_stats(self, name: str) -> Optional[MemoryUsageStats]:
+    def get_memory_usage_stats(self, name: str) -> MemoryUsageStats | None:
         """
         Get current memory usage statistics for a specific memory system.
 
@@ -294,7 +294,7 @@ class MemoryMonitor:
         try:
             while self.is_running:
                 # Check and cleanup memory
-                cleanup_results = await self.check_and_cleanup_memory()
+                _ = await self.check_and_cleanup_memory()
 
                 # Log statistics if interval has passed
                 now = datetime.now()

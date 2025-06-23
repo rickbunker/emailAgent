@@ -56,7 +56,7 @@ from typing import Any
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 # # Local application imports
-from utils.logging_system import get_logger, log_function
+from utils.logging_system import get_logger, log_function  # noqa: E402
 
 # Initialize logger
 logger = get_logger(__name__)

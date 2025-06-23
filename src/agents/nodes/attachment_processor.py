@@ -145,14 +145,9 @@ class AttachmentProcessorNode:
         if not attachment_data:
             raise ValueError(f"Attachment data not found for {filename}")
 
-        # Determine document category using processing rules
-        document_category = await self._categorize_document(
-            filename, email_data, processing_rules
-        )
-
-        # Generate target path using procedural memory rules
+        # Generate target path for asset (no categorization)
         target_path = await self._generate_target_path(
-            asset_id, document_category, filename, processing_rules
+            asset_id, filename, processing_rules
         )
 
         # Apply security checks using procedural memory rules
@@ -171,7 +166,7 @@ class AttachmentProcessorNode:
 
         # Generate final filename using procedural memory rules
         final_filename = await self._generate_filename(
-            filename, asset_id, document_category, email_data, processing_rules
+            filename, asset_id, email_data, processing_rules
         )
 
         final_path = target_path / final_filename
@@ -182,7 +177,6 @@ class AttachmentProcessorNode:
         return {
             "attachment_filename": filename,
             "asset_id": asset_id,
-            "document_category": document_category,
             "saved_path": str(final_path),
             "status": "saved",
             "timestamp": datetime.now().isoformat(),
@@ -190,88 +184,19 @@ class AttachmentProcessorNode:
             "confidence": match.get("confidence", 0.0),
         }
 
-    async def _categorize_document(
-        self,
-        filename: str,
-        email_data: dict[str, Any],
-        processing_rules: dict[str, Any],
-    ) -> str:
-        """
-        Categorize document type using semantic memory patterns.
-
-        Args:
-            filename: Document filename
-            email_data: Email context
-            processing_rules: Processing rules from procedural memory
-
-        Returns:
-            Document category string
-        """
-        if not self.semantic_memory:
-            logger.warning(
-                "Semantic memory not available, using default categorization"
-            )
-            return self._default_categorization(filename)
-
-        try:
-            # Search semantic memory for document categories based on filename and subject
-            search_text = f"{filename} {email_data.get('subject', '')}"
-            categories = self.semantic_memory.search_document_categories(search_text)
-
-            if categories:
-                # Use the highest scoring category
-                best_category = categories[0]
-                category_name = best_category["category"]
-                confidence = best_category["score"]
-
-                logger.debug(
-                    f"Document categorized as '{category_name}' (confidence: {confidence:.2f})"
-                )
-
-                # Map semantic memory category names to our standard names
-                category_mapping = {
-                    "financial": "financial_statements",
-                    "legal": "compliance_documents",
-                    "performance": "performance_reports",
-                    "general": "general_documents",
-                }
-
-                return category_mapping.get(category_name, "general_documents")
-            else:
-                logger.debug("No category matches found in semantic memory")
-                return self._default_categorization(filename)
-
-        except Exception as e:
-            logger.error(f"Failed to categorize document using semantic memory: {e}")
-            return self._default_categorization(filename)
-
-    def _default_categorization(self, filename: str) -> str:
-        """Default categorization when semantic memory is unavailable."""
-        filename_lower = filename.lower()
-
-        if "financial" in filename_lower or "statement" in filename_lower:
-            return "financial_statements"
-        elif "compliance" in filename_lower or "audit" in filename_lower:
-            return "compliance_documents"
-        elif "performance" in filename_lower or "report" in filename_lower:
-            return "performance_reports"
-        else:
-            return "general_documents"
-
     async def _generate_target_path(
         self,
         asset_id: str,
-        document_category: str,
         filename: str,
         processing_rules: dict[str, Any],
     ) -> Path:
         """
-        Generate target directory path using procedural memory rules.
+        Generate target directory path for asset.
 
-        This would query procedural memory for folder structure rules.
+        Simple structure: base_path/asset_id/
         """
-        # Create directory structure: base_path/asset_id/document_category/
-        target_dir = self.base_path / asset_id / document_category
+        # Create directory structure: base_path/asset_id/
+        target_dir = self.base_path / asset_id
 
         # Ensure directory exists
         target_dir.mkdir(parents=True, exist_ok=True)
@@ -358,14 +283,13 @@ class AttachmentProcessorNode:
         self,
         original_filename: str,
         asset_id: str,
-        document_category: str,
         email_data: dict[str, Any],
         processing_rules: dict[str, Any],
     ) -> str:
         """
-        Generate standardized filename using procedural memory rules.
+        Generate standardized filename.
 
-        This would query procedural memory for naming conventions.
+        Simple format: YYYYMMDD_HHMMSS_AssetID_Sender_Original
         """
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         sender = email_data.get("sender", "unknown").split("@")[0]
@@ -373,11 +297,9 @@ class AttachmentProcessorNode:
         # Extract file extension
         file_ext = Path(original_filename).suffix
 
-        # Generate standardized name: YYYYMMDD_HHMMSS_AssetID_Category_Sender_Original
+        # Generate standardized name: YYYYMMDD_HHMMSS_AssetID_Sender_Original
         base_name = Path(original_filename).stem
-        standardized_name = (
-            f"{timestamp}_{asset_id}_{document_category}_{sender}_{base_name}{file_ext}"
-        )
+        standardized_name = f"{timestamp}_{asset_id}_{sender}_{base_name}{file_ext}"
 
         # Clean filename (remove invalid characters)
         invalid_chars = ["<", ">", ":", '"', "|", "?", "*", "\\", "/"]
@@ -427,12 +349,11 @@ class AttachmentProcessorNode:
             # Organize rules by type for easy access
             organized_rules = {
                 "file_type_rules": {},
-                "naming_convention": "timestamp_asset_category_sender_original",
-                "directory_structure": "asset_id/document_category/",
+                "naming_convention": "timestamp_asset_sender_original",
+                "directory_structure": "asset_id/",
                 "duplicate_handling": "rename_with_suffix",
                 "security_scan_required": config.enable_virus_scanning,
                 "backup_enabled": False,
-                "categorization_method": "semantic_memory_search",
             }
 
             # Process file processing rules
@@ -463,12 +384,11 @@ class AttachmentProcessorNode:
             return self._get_default_processing_rules()
 
     def _get_default_processing_rules(self) -> dict[str, Any]:
-        """Default processing rules until procedural memory is available."""
+        """Default processing rules."""
         return {
-            "naming_convention": "timestamp_asset_category_sender_original",
-            "directory_structure": "asset_id/document_category/",
+            "naming_convention": "timestamp_asset_sender_original",
+            "directory_structure": "asset_id/",
             "duplicate_handling": "rename_with_suffix",
             "security_scan_required": config.enable_virus_scanning,
             "backup_enabled": False,
-            "categorization_method": "filename_pattern_matching",
         }

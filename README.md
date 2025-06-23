@@ -11,7 +11,7 @@ Transform email attachment chaos into organized, actionable intelligence for inv
 **Critical Design Principle**: Clean separation between **what we know** (memory) and **what we do** (agents).
 
 ### 🧠 **Memory Systems** (Knowledge/Intelligence)
-- **Semantic Memory**: Asset profiles, keywords, document patterns, **sender mappings & contact data**
+- **Semantic Memory**: Asset profiles, keywords, **sender mappings & contact data**
 - **Procedural Memory**: Rules and algorithms for HOW to do things (matching, processing, decisions)
 - **Episodic Memory**: Historical decisions, human feedback, experiences for learning
 
@@ -62,7 +62,6 @@ Email Ingestion → Relevance Filter → Asset Matcher → Attachment Processor 
 3. **`AttachmentProcessorNode`**:
    - ✅ Processes and saves files using memory-driven rules
    - ✅ Queries procedural memory for file handling procedures **LIVE & WORKING**
-   - ✅ Queries semantic memory for document categorization **LIVE & WORKING**
    - ✅ Memory-driven security checks and file type validation
    - ✅ Standardized naming conventions and directory structure
    - ✅ Actual file operations with error handling
@@ -78,8 +77,8 @@ Email Ingestion → Relevance Filter → Asset Matcher → Attachment Processor 
 - ✅ Complete end-to-end email processing pipeline
 - ✅ Memory-driven decision making with fallbacks
 - ✅ Human feedback integration and learning
-- ✅ File saving with standardized naming: `YYYYMMDD_HHMMSS_AssetID_Category_Sender_Original.ext`
-- ✅ Directory structure: `assets/ASSET_ID/document_category/`
+- ✅ File saving with standardized naming: `YYYYMMDD_HHMMSS_AssetID_Sender_Original.ext`
+- ✅ Directory structure: `assets/ASSET_ID/`
 - ✅ Transparent decision reasoning at every step
 - ✅ Error handling and graceful degradation
 

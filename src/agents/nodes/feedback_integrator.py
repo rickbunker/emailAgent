@@ -375,11 +375,6 @@ class FeedbackIntegratorNode:
 
             # If email was incorrectly classified as irrelevant when it should be relevant
             if corrected_decision == "relevant":
-                # Extract keywords from subject and add to document categories
-                subject_words = [
-                    word.lower() for word in email_subject.split() if len(word) > 3
-                ]
-
                 # Update financial document patterns if this is investment-related
                 investment_keywords = [
                     "investment",
@@ -530,7 +525,7 @@ class FeedbackIntegratorNode:
             )
 
         except Exception as e:
-            logger.error(f"Failed to update asset associations: {e}")
+            logger.error(f"Failed to update asset associations: {e}")  # nosec B608
             updates_made["error"] = str(e)
 
         return updates_made
@@ -668,7 +663,6 @@ class FeedbackIntegratorNode:
 
     def _calculate_confidence_impact(self, feedback_data: dict[str, Any]) -> float:
         """Calculate how this feedback should impact confidence scores."""
-        feedback_type = feedback_data.get("feedback_type", "")
         correction_severity = feedback_data.get("severity", "medium")
 
         # Calculate impact based on type and severity

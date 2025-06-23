@@ -65,9 +65,9 @@ from googleapiclient.errors import HttpError
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 # # Local application imports
-from utils.logging_system import get_logger, log_function
+from utils.logging_system import get_logger, log_function  # noqa: E402
 
-from .base import (
+from .base import (  # noqa: E402
     AuthenticationError,
     BaseEmailInterface,
     ConnectionError,
@@ -670,8 +670,8 @@ class GmailInterface(BaseEmailInterface):
 
                     # Get email addresses
                     emails = person.get("emailAddresses", [])
-                    for email in emails:
-                        email_addr = email.get("value", "").lower()
+                    for email_data in emails:
+                        email_addr = email_data.get("value", "").lower()
                         if email_addr:
                             contact["emails"].append(email_addr)
 

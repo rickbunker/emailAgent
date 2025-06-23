@@ -293,7 +293,7 @@ class EmailAgentConfig:
             flask_secret_key=os.getenv(
                 "FLASK_SECRET_KEY", "dev-secret-key-change-in-production"
             ),
-            flask_host=os.getenv("FLASK_HOST", "0.0.0.0"),
+            flask_host=os.getenv("FLASK_HOST", "0.0.0.0"),  # nosec B104
             flask_port=int(os.getenv("FLASK_PORT", "5001")),
             # Processing Configuration
             assets_base_path=os.getenv(

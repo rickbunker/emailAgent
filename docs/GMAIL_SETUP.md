@@ -378,7 +378,7 @@ echo "config/*token*.json" >> .gitignore
 export GMAIL_CREDENTIALS_PATH="/secure/path/gmail_credentials.json"
 export GMAIL_TOKEN_PATH="/secure/path/gmail_token.json"
 export FLASK_ENV=production
-export FLASK_SECRET_KEY="your-secure-secret-key"
+export FLASK_SECRET_KEY="your-secure-secret-key"  # pragma: allowlist secret
 
 # Use secure credential storage (e.g., AWS Secrets Manager, Azure Key Vault)
 ```

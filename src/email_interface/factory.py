@@ -47,11 +47,11 @@ from typing import Any
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 # # Local application imports
-from utils.logging_system import get_logger, log_function
+from utils.logging_system import get_logger, log_function  # noqa: E402
 
-from .base import BaseEmailInterface, EmailSystemError
-from .gmail import GmailInterface
-from .msgraph import MicrosoftGraphInterface
+from .base import BaseEmailInterface, EmailSystemError  # noqa: E402
+from .gmail import GmailInterface  # noqa: E402
+from .msgraph import MicrosoftGraphInterface  # noqa: E402
 
 # Initialize logger
 logger = get_logger(__name__)
@@ -326,7 +326,7 @@ class EmailInterfaceFactory:
                         "refresh_token": "1//04...",
                         "token_uri": "https://oauth2.googleapis.com/token",
                         "client_id": "123...apps.googleusercontent.com",
-                        "client_secret": "ABC...",
+                        "client_secret": "ABC...",  # pragma: allowlist secret
                         "scopes": ["https://www.googleapis.com/auth/gmail.readonly"],
                     },
                     "note": "Use for programmatic token management",

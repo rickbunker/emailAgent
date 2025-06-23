@@ -17,7 +17,7 @@ import sqlite3
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 # # Local application imports
 from src.utils.logging_system import get_logger, log_function
@@ -79,27 +79,8 @@ class SimpleSemanticMemory:
                 "SAMPLE_ASSET": {
                     "name": "Sample Investment Asset",
                     "keywords": ["sample", "investment", "asset"],
-                    "document_types": ["financial", "report", "statement"],
                     "confidence": 0.8,
                 }
-            },
-            "document_categories": {
-                "financial": {
-                    "patterns": [
-                        "financial",
-                        "statement",
-                        "report",
-                        "balance",
-                        "income",
-                    ],
-                    "file_extensions": ["pdf", "xlsx", "docx"],
-                    "confidence": 0.7,
-                },
-                "legal": {
-                    "patterns": ["contract", "agreement", "legal", "terms"],
-                    "file_extensions": ["pdf", "docx"],
-                    "confidence": 0.8,
-                },
             },
             "file_type_rules": {
                 "pdf": {"allowed": True, "max_size_mb": 50},
@@ -164,27 +145,7 @@ class SimpleSemanticMemory:
         return results[:limit]
 
     @log_function()
-    def search_document_categories(self, query: str) -> list[dict[str, Any]]:
-        """Search for document categories matching the query"""
-        results = []
-        query_lower = query.lower()
-
-        for category, info in self.data.get("document_categories", {}).items():
-            score = 0.0
-            for pattern in info.get("patterns", []):
-                if pattern.lower() in query_lower:
-                    score += 0.4
-
-            if score > 0:
-                results.append(
-                    {"category": category, "info": info, "score": min(score, 1.0)}
-                )
-
-        results.sort(key=lambda x: x["score"], reverse=True)
-        return results
-
-    @log_function()
-    def get_file_type_rules(self, file_extension: str) -> Optional[dict[str, Any]]:
+    def get_file_type_rules(self, file_extension: str) -> dict[str, Any] | None:
         """Get file type rules for an extension"""
         return self.data.get("file_type_rules", {}).get(file_extension.lower())
 
@@ -199,7 +160,7 @@ class SimpleSemanticMemory:
         logger.info(f"Added asset profile: {asset_id}")
 
     @log_function()
-    def get_sender_mapping(self, email: str) -> Optional[dict[str, Any]]:
+    def get_sender_mapping(self, email: str) -> dict[str, Any] | None:
         """Get sender mapping for an email address"""
         return self.data.get("sender_mappings", {}).get(email.lower())
 
@@ -232,7 +193,7 @@ class SimpleSemanticMemory:
         logger.info(f"Added sender mapping: {email}")
 
     @log_function()
-    def get_organization_data(self, organization: str) -> Optional[dict[str, Any]]:
+    def get_organization_data(self, organization: str) -> dict[str, Any] | None:
         """Get organization contact data"""
         return self.data.get("organization_contacts", {}).get(organization)
 
@@ -408,10 +369,10 @@ class SimpleEpisodicMemory:
         sender: str,
         subject: str,
         asset_id: str,
-        category: str,
         confidence: float,
         decision: str,
         metadata: dict[str, Any] = None,
+        category: str = None,  # Optional for backward compatibility
     ):
         """Add a processing record to episodic memory"""
         with self._get_connection() as conn:
@@ -426,7 +387,7 @@ class SimpleEpisodicMemory:
                     sender,
                     subject,
                     asset_id,
-                    category,
+                    category,  # Will be None if not provided
                     confidence,
                     decision,
                     json.dumps(metadata or {}),
@@ -495,7 +456,7 @@ class SimpleEpisodicMemory:
         params.append(limit)
 
         with self._get_connection() as conn:
-            cursor = conn.execute(
+            cursor = conn.execute(  # nosec B608
                 f"""
                 SELECT * FROM processing_history
                 WHERE {where_clause}
@@ -539,7 +500,7 @@ class SimpleEpisodicMemory:
         params.append(limit)
 
         with self._get_connection() as conn:
-            cursor = conn.execute(
+            cursor = conn.execute(  # nosec B608
                 f"""
                 SELECT * FROM human_feedback
                 {where_clause}

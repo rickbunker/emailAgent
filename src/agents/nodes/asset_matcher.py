@@ -177,8 +177,6 @@ class AssetMatcherNode:
         Returns:
             Dictionary mapping asset_id to score data
         """
-        filename = attachment.get("filename", "").lower()
-        subject = email_data.get("subject", "").lower()
         sender = email_data.get("sender", "").lower()
 
         asset_scores = {}
