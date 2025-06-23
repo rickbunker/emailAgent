@@ -24,20 +24,27 @@ class AssetMatcherNode:
     Separates HOW (procedural memory) from WHAT (semantic memory).
     """
 
-    def __init__(
-        self, semantic_memory=None, procedural_memory=None, episodic_memory=None
-    ) -> None:
+    def __init__(self, memory_systems=None) -> None:
         """
         Initialize asset matcher with memory system connections.
 
         Args:
-            semantic_memory: Semantic memory for asset profiles and relationships
-            procedural_memory: Procedural memory for matching algorithms and rules
-            episodic_memory: Episodic memory for learning from past matches
+            memory_systems: Dictionary with all memory systems (semantic, procedural, episodic)
         """
-        self.semantic_memory = semantic_memory
-        self.procedural_memory = procedural_memory
-        self.episodic_memory = episodic_memory
+        if memory_systems:
+            self.semantic_memory = memory_systems.get("semantic")
+            self.procedural_memory = memory_systems.get("procedural")
+            self.episodic_memory = memory_systems.get("episodic")
+        else:
+            # Initialize memory systems directly if not provided
+            # # Local application imports
+            from src.memory import create_memory_systems
+
+            systems = create_memory_systems()
+            self.semantic_memory = systems["semantic"]
+            self.procedural_memory = systems["procedural"]
+            self.episodic_memory = systems["episodic"]
+
         self.asset_match_threshold = config.requires_review_threshold
 
         logger.info(
@@ -87,7 +94,17 @@ class AssetMatcherNode:
         await self._record_matching_session(email_data, attachments, matches)
 
         logger.info(f"Generated {len(matches)} asset matches")
-        return matches
+
+        # Return in expected format with additional metadata
+        return {
+            "matches": matches,
+            "decision_factors": [f"Processed {len(attachments)} attachments"],
+            "memory_queries": [
+                f"Queried {len(available_assets)} assets from semantic memory"
+            ],
+            "rule_applications": [f"Applied {len(matching_rules)} matching rules"],
+            "confidence_factors": [f"Generated {len(matches)} matches"],
+        }
 
     async def _match_single_attachment(
         self,

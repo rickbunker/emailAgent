@@ -26,16 +26,25 @@ class AttachmentProcessorNode:
     Queries procedural memory for HOW to process and semantic memory for categorization.
     """
 
-    def __init__(self, procedural_memory=None, semantic_memory=None) -> None:
+    def __init__(self, memory_systems=None) -> None:
         """
         Initialize attachment processor with memory system connections.
 
         Args:
-            procedural_memory: Procedural memory for file handling rules and procedures
-            semantic_memory: Semantic memory for document categorization patterns
+            memory_systems: Dictionary with all memory systems (semantic, procedural)
         """
-        self.procedural_memory = procedural_memory
-        self.semantic_memory = semantic_memory
+        if memory_systems:
+            self.procedural_memory = memory_systems.get("procedural")
+            self.semantic_memory = memory_systems.get("semantic")
+        else:
+            # Initialize memory systems directly if not provided
+            # # Local application imports
+            from src.memory import create_memory_systems
+
+            systems = create_memory_systems()
+            self.procedural_memory = systems["procedural"]
+            self.semantic_memory = systems["semantic"]
+
         self.base_path = Path(config.assets_base_path)
         self.max_file_size = (
             config.max_attachment_size_mb * 1024 * 1024
@@ -94,7 +103,17 @@ class AttachmentProcessorNode:
                 )
 
         logger.info(f"Completed processing: {len(results)} results")
-        return results
+
+        # Return in expected format with additional metadata
+        return {
+            "results": results,
+            "decision_factors": [f"Processed {len(asset_matches)} asset matches"],
+            "memory_queries": ["Queried procedural memory for processing rules"],
+            "rule_applications": [f"Applied security checks to {len(results)} files"],
+            "confidence_factors": [
+                f"Successfully processed {len([r for r in results if r.get('status') == 'saved'])} files"
+            ],
+        }
 
     async def _process_single_attachment(
         self,

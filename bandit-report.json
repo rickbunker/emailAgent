@@ -1,6 +1,6 @@
 {
   "errors": [],
-  "generated_at": "2025-06-23T15:51:30Z",
+  "generated_at": "2025-06-23T16:18:17Z",
   "metrics": {
     "_totals": {
       "CONFIDENCE.HIGH": 0,
@@ -11,7 +11,7 @@
       "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 4,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 6609,
+      "loc": 6727,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -50,7 +50,7 @@
       "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 229,
+      "loc": 320,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -76,7 +76,7 @@
       "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 414,
+      "loc": 425,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -89,7 +89,7 @@
       "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 344,
+      "loc": 357,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -102,7 +102,7 @@
       "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 1,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 547,
+      "loc": 550,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -265,7 +265,7 @@
   },
   "results": [
     {
-      "code": "526         except Exception as e:\n527             logger.error(f\"Failed to update asset associations: {e}\")\n528             updates_made[\"error\"] = str(e)\n",
+      "code": "532         except Exception as e:\n533             logger.error(f\"Failed to update asset associations: {e}\")\n534             updates_made[\"error\"] = str(e)\n",
       "col_offset": 27,
       "end_col_offset": 64,
       "filename": "src/agents/nodes/feedback_integrator.py",
@@ -276,9 +276,9 @@
       },
       "issue_severity": "MEDIUM",
       "issue_text": "Possible SQL injection vector through string-based query construction.",
-      "line_number": 527,
+      "line_number": 533,
       "line_range": [
-        527
+        533
       ],
       "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b608_hardcoded_sql_expressions.html",
       "test_id": "B608",

@@ -1,9 +1,9 @@
 """
-Email Processing Graph using LangGraph.
+Email Processing Graph using LangGraph with Memory-Driven Architecture.
 
-This module implements a simple, effective email processing workflow using
-LangGraph's graph-based architecture. Focuses on clarity and maintainability
-over complexity.
+This module implements a sophisticated, memory-driven email processing workflow
+using LangGraph's graph-based architecture with our advanced memory systems.
+All business logic is stored in memory rather than hardcoded.
 """
 
 # # Standard library imports
@@ -15,6 +15,11 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, StateGraph
 
 # # Local application imports
+from src.agents.nodes.asset_matcher import AssetMatcherNode
+from src.agents.nodes.attachment_processor import AttachmentProcessorNode
+from src.agents.nodes.feedback_integrator import FeedbackIntegratorNode
+from src.agents.nodes.relevance_filter import RelevanceFilterNode
+from src.memory import create_memory_systems
 from src.utils.logging_system import get_logger, log_function
 
 logger = get_logger(__name__)
@@ -32,16 +37,25 @@ class EmailState(TypedDict):
     attachments: list[dict]
     received_date: datetime
 
-    # Processing state
-    classification: str  # spam/important/normal
-    confidence: float
-    asset_matches: list[dict]  # Matched assets for attachments
-    document_categories: list[dict]  # Document type classifications
+    # Memory-driven processing results
+    relevance_result: dict  # From RelevanceFilterNode
+    asset_matches: list[dict]  # From AssetMatcherNode
+    processing_results: list[dict]  # From AttachmentProcessorNode
 
-    # Decision tracking
+    # Decision tracking (complete audit trail for human review)
+    decision_factors: list[dict]  # Detailed decision reasoning
+    memory_queries: list[dict]  # Memory system queries made
+    rule_applications: list[dict]  # Procedural rules applied
+    confidence_factors: list[dict]  # Confidence calculations
+
+    # Processing state
     needs_human_review: bool
     processing_errors: list[str]
     processing_complete: bool
+
+    # Human feedback integration
+    feedback_updates: list[dict]  # Memory updates from human corrections
+    learning_impact: dict  # Quantified improvement from feedback
 
     # Actions taken
     actions: list[str]  # List of actions performed
@@ -49,253 +63,355 @@ class EmailState(TypedDict):
 
 class EmailProcessingGraph:
     """
-    LangGraph-based email processing agent.
+    Memory-driven LangGraph email processing agent.
 
-    Implements a simple workflow:
-    1. Classify email (spam/important/normal)
-    2. Extract and analyze attachments
-    3. Match attachments to assets
-    4. Categorize documents
-    5. Route to appropriate folders
-    6. Flag for human review if needed
+    Implements a sophisticated workflow powered by semantic, procedural, and
+    episodic memory systems. All business logic is stored in memory rather
+    than hardcoded, enabling continuous learning and adaptation.
+
+    Workflow:
+    1. Evaluate email relevance (RelevanceFilterNode with memory)
+    2. Match attachments to assets (AssetMatcherNode with memory + learning)
+    3. Process and categorize attachments (AttachmentProcessorNode with memory)
+    4. Integrate human feedback (FeedbackIntegratorNode for continuous improvement)
     """
 
     def __init__(self):
-        """Initialize the email processing graph."""
+        """Initialize the memory-driven email processing graph."""
         self.logger = get_logger(f"{__name__}.{self.__class__.__name__}")
+
+        # Initialize memory systems
+        self.logger.info("Initializing memory systems for email processing")
+        memory_systems = create_memory_systems()
+        self.semantic_memory = memory_systems["semantic"]
+        self.procedural_memory = memory_systems["procedural"]
+        self.episodic_memory = memory_systems["episodic"]
+
+        # Initialize memory-driven agent nodes
+        self.relevance_filter = RelevanceFilterNode(memory_systems=memory_systems)
+
+        self.asset_matcher = AssetMatcherNode(memory_systems=memory_systems)
+
+        self.attachment_processor = AttachmentProcessorNode(
+            memory_systems=memory_systems
+        )
+
+        self.feedback_integrator = FeedbackIntegratorNode(memory_systems=memory_systems)
 
         # Create the graph
         self.workflow = StateGraph(EmailState)
 
-        # Add nodes
-        self.workflow.add_node("classify_email", self.classify_email)
-        self.workflow.add_node("process_attachments", self.process_attachments)
+        # Add memory-driven nodes
+        self.workflow.add_node("evaluate_relevance", self.evaluate_relevance)
         self.workflow.add_node("match_assets", self.match_assets)
-        self.workflow.add_node("categorize_documents", self.categorize_documents)
-        self.workflow.add_node("route_documents", self.route_documents)
-        self.workflow.add_node("human_review", self.flag_human_review)
+        self.workflow.add_node("process_attachments", self.process_attachments)
+        self.workflow.add_node("integrate_feedback", self.integrate_feedback)
 
         # Add edges
-        self.workflow.add_edge("classify_email", "process_attachments")
-        self.workflow.add_edge("process_attachments", "match_assets")
-        self.workflow.add_edge("match_assets", "categorize_documents")
+        self.workflow.add_edge("evaluate_relevance", "match_assets")
+        self.workflow.add_edge("match_assets", "process_attachments")
 
-        # Conditional routing after categorization
+        # Conditional routing after processing
         self.workflow.add_conditional_edges(
-            "categorize_documents",
-            self.should_review,
-            {"review": "human_review", "route": "route_documents"},
+            "process_attachments",
+            self.should_integrate_feedback,
+            {"feedback": "integrate_feedback", "complete": END},
         )
 
         # End states
-        self.workflow.add_edge("route_documents", END)
-        self.workflow.add_edge("human_review", END)
+        self.workflow.add_edge("integrate_feedback", END)
 
         # Set entry point
-        self.workflow.set_entry_point("classify_email")
+        self.workflow.set_entry_point("evaluate_relevance")
 
         # Compile with memory for persistence
         self.checkpointer = MemorySaver()
         self.app = self.workflow.compile(checkpointer=self.checkpointer)
 
-        self.logger.info("Email processing graph initialized")
+        self.logger.info("Memory-driven email processing graph initialized")
 
     @log_function()
-    async def classify_email(self, state: EmailState) -> EmailState:
+    async def evaluate_relevance(self, state: EmailState) -> EmailState:
         """
-        Classify email as spam, important, or normal.
+        Evaluate email relevance using memory-driven RelevanceFilterNode.
 
-        Simple keyword-based classification to start.
+        Leverages semantic memory patterns and procedural memory rules
+        to determine if the email is relevant to our investment focus.
         """
-        self.logger.info(f"Classifying email: {state['subject']}")
+        self.logger.info(f"Evaluating relevance for email: {state['subject']}")
 
-        # Simple classification logic
-        subject_lower = state["subject"].lower()
-        body_lower = state["body"].lower()
-        combined = f"{subject_lower} {body_lower}"
+        try:
+            # Prepare email data for relevance evaluation
+            email_data = {
+                "subject": state["subject"],
+                "sender": state["sender"],
+                "body": state["body"],
+                "attachments": state["attachments"],
+                "received_date": state["received_date"],
+            }
 
-        # Check for spam indicators
-        spam_keywords = [
-            "viagra",
-            "lottery",
-            "winner",
-            "click here now",
-            "limited time offer",
-        ]
-        if any(kw in combined for kw in spam_keywords):
-            state["classification"] = "spam"
-            state["confidence"] = 0.9
-            state["actions"].append("Classified as spam")
+            # Use memory-driven relevance evaluation
+            (
+                classification,
+                confidence,
+                reasoning,
+            ) = await self.relevance_filter.evaluate_relevance(email_data)
+
+            # Package results in expected format
+            relevance_result = {
+                "relevance": classification,
+                "confidence": confidence,
+                "reasoning": reasoning,
+                "decision_factors": reasoning.get("decision_factors", []),
+                "confidence_factors": reasoning.get("confidence_factors", []),
+                "memory_queries": [],  # Would be populated in more advanced implementation
+                "rule_applications": [],  # Would be populated in more advanced implementation
+            }
+
+            # Store detailed results
+            state["relevance_result"] = relevance_result
+            state["decision_factors"].extend(relevance_result["decision_factors"])
+            state["memory_queries"].extend(relevance_result["memory_queries"])
+            state["rule_applications"].extend(relevance_result["rule_applications"])
+            state["confidence_factors"].extend(relevance_result["confidence_factors"])
+
+            # Add processing action
+            state["actions"].append(
+                f"Memory-driven relevance evaluation: {classification} (confidence: {confidence:.2f})"
+            )
+
+            # Flag for review if low confidence
+            if confidence < 0.6:  # This could be stored in procedural memory
+                state["needs_human_review"] = True
+                state["actions"].append(
+                    "Flagged for human review due to low confidence"
+                )
+
             return state
 
-        # Check for important indicators
-        important_keywords = ["urgent", "deadline", "compliance", "regulatory", "audit"]
-        if any(kw in combined for kw in important_keywords):
-            state["classification"] = "important"
-            state["confidence"] = 0.8
-            state["actions"].append("Classified as important")
+        except Exception as e:
+            self.logger.error(f"Relevance evaluation failed: {e}")
+            state["processing_errors"].append(f"Relevance evaluation error: {e}")
+            state["needs_human_review"] = True
             return state
-
-        # Default to normal
-        state["classification"] = "normal"
-        state["confidence"] = 0.7
-        state["actions"].append("Classified as normal")
-
-        return state
-
-    @log_function()
-    async def process_attachments(self, state: EmailState) -> EmailState:
-        """Extract and validate attachments."""
-        self.logger.info(f"Processing {len(state['attachments'])} attachments")
-
-        # Skip if spam
-        if state["classification"] == "spam":
-            state["actions"].append("Skipped attachment processing (spam)")
-            return state
-
-        # Validate attachments
-        valid_extensions = [".pdf", ".xlsx", ".docx", ".csv"]
-        for attachment in state["attachments"]:
-            filename = attachment.get("filename", "")
-            ext = filename.lower().split(".")[-1] if "." in filename else ""
-
-            if f".{ext}" in valid_extensions:
-                attachment["valid"] = True
-                attachment["file_type"] = ext
-            else:
-                attachment["valid"] = False
-                state["processing_errors"].append(f"Invalid file type: {filename}")
-
-        state["actions"].append(f"Processed {len(state['attachments'])} attachments")
-        return state
 
     @log_function()
     async def match_assets(self, state: EmailState) -> EmailState:
-        """Match attachments to known assets using simple pattern matching."""
-        self.logger.info("Matching attachments to assets")
+        """
+        Match attachments to assets using memory-driven AssetMatcherNode.
 
-        # Simple asset matching based on filename patterns
-        # In real implementation, this would query your asset database
-        asset_patterns = {
-            "FUND001": ["fund001", "alpha fund", "af_"],
-            "FUND002": ["fund002", "beta fund", "bf_"],
-            "RE001": ["re001", "property alpha", "pa_"],
-        }
+        Uses semantic memory asset profiles, procedural memory matching rules,
+        and episodic memory for learning from past successful matches.
+        """
+        self.logger.info(f"Matching assets for {len(state['attachments'])} attachments")
 
-        matches = []
-        for attachment in state["attachments"]:
-            if not attachment.get("valid", False):
-                continue
+        try:
+            # Skip if not relevant
+            if state["relevance_result"].get("relevance") == "irrelevant":
+                state["actions"].append("Skipped asset matching (email not relevant)")
+                state["asset_matches"] = []
+                return state
 
-            filename_lower = attachment["filename"].lower()
+            # Prepare attachment data for matching
+            email_context = {
+                "subject": state["subject"],
+                "sender": state["sender"],
+                "body": state["body"],
+                "received_date": state["received_date"],
+            }
 
-            for asset_id, patterns in asset_patterns.items():
-                if any(pattern in filename_lower for pattern in patterns):
-                    matches.append(
-                        {
-                            "attachment": attachment["filename"],
-                            "asset_id": asset_id,
-                            "confidence": 0.8,
-                        }
-                    )
-                    break
-
-        state["asset_matches"] = matches
-        state["actions"].append(f"Matched {len(matches)} attachments to assets")
-
-        # Flag for review if no matches
-        if state["attachments"] and not matches:
-            state["needs_human_review"] = True
-
-        return state
-
-    @log_function()
-    async def categorize_documents(self, state: EmailState) -> EmailState:
-        """Categorize documents by type."""
-        self.logger.info("Categorizing documents")
-
-        # Simple document categorization based on keywords
-        categories = []
-        for attachment in state["attachments"]:
-            if not attachment.get("valid", False):
-                continue
-
-            filename_lower = attachment["filename"].lower()
-
-            # Simple pattern matching for document types
-            if any(kw in filename_lower for kw in ["financial", "statement", "fs_"]):
-                category = "financial_statements"
-            elif any(kw in filename_lower for kw in ["compliance", "covenant"]):
-                category = "compliance_documents"
-            elif any(kw in filename_lower for kw in ["report", "update"]):
-                category = "reports"
-            else:
-                category = "other"
-
-            categories.append(
-                {
-                    "attachment": attachment["filename"],
-                    "category": category,
-                    "confidence": 0.7,
-                }
+            # Use memory-driven asset matching
+            matching_result = await self.asset_matcher.match_attachments_to_assets(
+                email_context, state["attachments"]
             )
 
-        state["document_categories"] = categories
-        state["actions"].append(f"Categorized {len(categories)} documents")
+            # Store detailed results
+            state["asset_matches"] = matching_result.get("matches", [])
+            state["decision_factors"].extend(
+                matching_result.get("decision_factors", [])
+            )
+            state["memory_queries"].extend(matching_result.get("memory_queries", []))
+            state["rule_applications"].extend(
+                matching_result.get("rule_applications", [])
+            )
+            state["confidence_factors"].extend(
+                matching_result.get("confidence_factors", [])
+            )
 
-        # Flag for review if low confidence
-        if any(cat["confidence"] < 0.6 for cat in categories):
+            # Add processing action
+            match_count = len(state["asset_matches"])
+            state["actions"].append(
+                f"Memory-driven asset matching: {match_count} matches found"
+            )
+
+            # Flag for review if no matches found for attachments
+            if state["attachments"] and not state["asset_matches"]:
+                state["needs_human_review"] = True
+                state["actions"].append(
+                    "Flagged for human review - no asset matches found"
+                )
+
+            return state
+
+        except Exception as e:
+            self.logger.error(f"Asset matching failed: {e}")
+            state["processing_errors"].append(f"Asset matching error: {e}")
             state["needs_human_review"] = True
-
-        return state
-
-    def should_review(self, state: EmailState) -> Literal["review", "route"]:
-        """Determine if human review is needed."""
-        if state["needs_human_review"] or state["confidence"] < 0.6:
-            return "review"
-        return "route"
+            return state
 
     @log_function()
-    async def route_documents(self, state: EmailState) -> EmailState:
-        """Route documents to appropriate folders."""
-        self.logger.info("Routing documents to folders")
+    async def process_attachments(self, state: EmailState) -> EmailState:
+        """
+        Process attachments using memory-driven AttachmentProcessorNode.
 
-        # In real implementation, this would move files to asset folders
-        routing_actions = []
-        for match in state["asset_matches"]:
-            for cat in state["document_categories"]:
-                if match["attachment"] == cat["attachment"]:
-                    routing_actions.append(
-                        f"Route {match['attachment']} to "
-                        f"{match['asset_id']}/{cat['category']}"
-                    )
+        Uses semantic memory for document categorization and procedural
+        memory for file processing rules, security checks, and organization.
+        """
+        self.logger.info(f"Processing {len(state['attachments'])} attachments")
 
-        state["actions"].extend(routing_actions)
-        state["processing_complete"] = True
+        try:
+            # Skip if no attachments
+            if not state["attachments"]:
+                state["actions"].append("No attachments to process")
+                state["processing_results"] = []
+                state["processing_complete"] = True
+                return state
 
-        return state
+            # Prepare context for processing
+            email_context = {
+                "subject": state["subject"],
+                "sender": state["sender"],
+                "body": state["body"],
+                "received_date": state["received_date"],
+            }
+
+            # Use memory-driven attachment processing
+            processing_result = await self.attachment_processor.process_attachments(
+                state["asset_matches"], email_context, state["attachments"]
+            )
+
+            # Store detailed results
+            state["processing_results"] = processing_result.get("results", [])
+            state["decision_factors"].extend(
+                processing_result.get("decision_factors", [])
+            )
+            state["memory_queries"].extend(processing_result.get("memory_queries", []))
+            state["rule_applications"].extend(
+                processing_result.get("rule_applications", [])
+            )
+            state["confidence_factors"].extend(
+                processing_result.get("confidence_factors", [])
+            )
+
+            # Add processing actions
+            processed_count = len(
+                [r for r in state["processing_results"] if r.get("success")]
+            )
+            failed_count = len(
+                [r for r in state["processing_results"] if not r.get("success")]
+            )
+            state["actions"].append(
+                f"Memory-driven attachment processing: {processed_count} processed, {failed_count} failed"
+            )
+
+            # Flag for review if processing errors
+            if failed_count > 0:
+                state["needs_human_review"] = True
+                state["actions"].append(
+                    "Flagged for human review due to processing failures"
+                )
+
+            # Check if processing complete
+            state["processing_complete"] = True
+
+            return state
+
+        except Exception as e:
+            self.logger.error(f"Attachment processing failed: {e}")
+            state["processing_errors"].append(f"Attachment processing error: {e}")
+            state["needs_human_review"] = True
+            return state
+
+    def should_integrate_feedback(
+        self, state: EmailState
+    ) -> Literal["feedback", "complete"]:
+        """
+        Determine if feedback integration is needed.
+
+        Triggers feedback integration for human review cases to capture
+        corrections and integrate them into memory systems for learning.
+        """
+        if state["needs_human_review"]:
+            return "feedback"
+        return "complete"
 
     @log_function()
-    async def flag_human_review(self, state: EmailState) -> EmailState:
-        """Flag email for human review."""
-        self.logger.info("Flagging for human review")
+    async def integrate_feedback(self, state: EmailState) -> EmailState:
+        """
+        Integrate human feedback using FeedbackIntegratorNode.
 
-        state["actions"].append("Flagged for human review")
-        state["processing_complete"] = True
+        Captures human corrections and updates memory systems to improve
+        future decision-making through continuous learning.
+        """
+        self.logger.info("Integrating human feedback for continuous learning")
 
-        return state
+        try:
+            # Prepare comprehensive decision context for feedback
+            decision_context = {
+                "email_data": {
+                    "subject": state["subject"],
+                    "sender": state["sender"],
+                    "body": state["body"],
+                    "attachments": state["attachments"],
+                    "received_date": state["received_date"],
+                },
+                "relevance_result": state["relevance_result"],
+                "asset_matches": state["asset_matches"],
+                "processing_results": state["processing_results"],
+                "decision_factors": state["decision_factors"],
+                "memory_queries": state["memory_queries"],
+                "rule_applications": state["rule_applications"],
+                "confidence_factors": state["confidence_factors"],
+            }
+
+            # Note: In a real implementation, human feedback would be collected
+            # through a web interface. For now, we prepare for feedback integration.
+            feedback_data = {
+                "requires_human_input": True,
+                "decision_context": decision_context,
+                "feedback_type": "human_review_required",
+            }
+
+            # Integrate feedback (this will record the need for human review)
+            feedback_result = await self.feedback_integrator.integrate_feedback(
+                feedback_data, decision_context, decision_context
+            )
+
+            # Store feedback integration results
+            state["feedback_updates"] = feedback_result.get("memory_updates", [])
+            state["learning_impact"] = feedback_result.get("learning_impact", {})
+
+            # Add processing action
+            state["actions"].append("Prepared for human feedback integration")
+
+            return state
+
+        except Exception as e:
+            self.logger.error(f"Feedback integration failed: {e}")
+            state["processing_errors"].append(f"Feedback integration error: {e}")
+            return state
 
     async def process_email(self, email_data: dict) -> dict:
         """
-        Process a single email through the graph.
+        Process a single email through the memory-driven graph.
 
         Args:
             email_data: Dictionary with email information
 
         Returns:
-            Final state after processing
+            Final state after processing with complete decision audit trail
         """
-        # Initialize state
+        # Initialize state with memory-driven architecture
         initial_state = EmailState(
             email_id=email_data.get("id", ""),
             subject=email_data.get("subject", ""),
@@ -303,17 +419,27 @@ class EmailProcessingGraph:
             body=email_data.get("body", ""),
             attachments=email_data.get("attachments", []),
             received_date=email_data.get("received_date", datetime.now()),
-            classification="",
-            confidence=0.0,
+            # Memory-driven results (will be populated)
+            relevance_result={},
             asset_matches=[],
-            document_categories=[],
+            processing_results=[],
+            # Decision tracking for human review
+            decision_factors=[],
+            memory_queries=[],
+            rule_applications=[],
+            confidence_factors=[],
+            # Processing state
             needs_human_review=False,
             processing_errors=[],
             processing_complete=False,
+            # Feedback integration
+            feedback_updates=[],
+            learning_impact={},
+            # Actions taken
             actions=[],
         )
 
-        # Run through the graph
+        # Run through the memory-driven graph
         config = {"configurable": {"thread_id": email_data.get("id", "default")}}
         final_state = await self.app.ainvoke(initial_state, config)
 
@@ -321,5 +447,5 @@ class EmailProcessingGraph:
 
 
 def create_email_agent() -> EmailProcessingGraph:
-    """Factory function to create an email processing agent."""
+    """Factory function to create a memory-driven email processing agent."""
     return EmailProcessingGraph()

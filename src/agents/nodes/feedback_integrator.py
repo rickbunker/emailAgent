@@ -24,20 +24,26 @@ class FeedbackIntegratorNode:
     Updates semantic, procedural, and episodic memory based on corrections.
     """
 
-    def __init__(
-        self, semantic_memory=None, procedural_memory=None, episodic_memory=None
-    ) -> None:
+    def __init__(self, memory_systems=None) -> None:
         """
         Initialize feedback integrator with memory system connections.
 
         Args:
-            semantic_memory: Semantic memory for pattern updates
-            procedural_memory: Procedural memory for rule adjustments
-            episodic_memory: Episodic memory for experience recording
+            memory_systems: Dictionary with all memory systems (semantic, procedural, episodic)
         """
-        self.semantic_memory = semantic_memory
-        self.procedural_memory = procedural_memory
-        self.episodic_memory = episodic_memory
+        if memory_systems:
+            self.semantic_memory = memory_systems.get("semantic")
+            self.procedural_memory = memory_systems.get("procedural")
+            self.episodic_memory = memory_systems.get("episodic")
+        else:
+            # Initialize memory systems directly if not provided
+            # # Local application imports
+            from src.memory import create_memory_systems
+
+            systems = create_memory_systems()
+            self.semantic_memory = systems["semantic"]
+            self.procedural_memory = systems["procedural"]
+            self.episodic_memory = systems["episodic"]
 
         logger.info("Feedback integrator initialized with memory connections")
 
