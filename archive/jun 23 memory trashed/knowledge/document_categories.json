@@ -1,0 +1,128 @@
+{
+    "metadata": {
+        "description": "Document categories for semantic memory - defines what categories each asset type supports",
+        "version": "2.0.0",
+        "created_date": "2025-06-20",
+        "memory_type": "semantic",
+        "notes": "Categories are constrained by asset type to ensure proper filing"
+    },
+    "document_categories": [
+        {
+            "category_id": "loan_documents",
+            "display_name": "Loan Documents",
+            "description": "Credit agreements, term sheets, and loan documentation",
+            "asset_types": [
+                "private_credit"
+            ],
+            "classification_hints": [
+                "Files with 'RLV' are usually loan documents",
+                "Files with 'TD' indicate term documents",
+                "Credit agreement PDFs belong here",
+                "Amendment documents go in this category"
+            ]
+        },
+        {
+            "category_id": "borrower_financials",
+            "display_name": "Borrower Financials",
+            "description": "Financial statements and reports from borrowers",
+            "asset_types": [
+                "private_credit"
+            ],
+            "classification_hints": [
+                "P&L statements from borrowers",
+                "Balance sheets belong here",
+                "Cash flow statements",
+                "Financial performance reports"
+            ]
+        },
+        {
+            "category_id": "covenant_compliance",
+            "display_name": "Covenant Compliance",
+            "description": "Compliance certificates and covenant testing documents",
+            "asset_types": [
+                "private_credit"
+            ],
+            "classification_hints": [
+                "Compliance certificates",
+                "Covenant calculation spreadsheets",
+                "Quarterly compliance reports"
+            ]
+        },
+        {
+            "category_id": "credit_memo",
+            "display_name": "Credit Memos",
+            "description": "Internal credit analysis and underwriting documents",
+            "asset_types": [
+                "private_credit"
+            ],
+            "classification_hints": [
+                "Investment committee memos",
+                "Credit analysis documents",
+                "Risk assessment reports"
+            ]
+        },
+        {
+            "category_id": "loan_monitoring",
+            "display_name": "Loan Monitoring",
+            "description": "Ongoing monitoring and performance tracking",
+            "asset_types": [
+                "private_credit"
+            ],
+            "classification_hints": [
+                "Monthly monitoring reports",
+                "Performance tracking spreadsheets",
+                "Payment history documents"
+            ]
+        },
+        {
+            "category_id": "legal_documents",
+            "display_name": "Legal Documents",
+            "description": "Legal agreements, contracts, and related documents",
+            "asset_types": [
+                "private_credit",
+                "private_equity",
+                "commercial_real_estate",
+                "infrastructure"
+            ],
+            "classification_hints": [
+                "Security agreements",
+                "Guarantees",
+                "Legal opinions",
+                "Side letters"
+            ]
+        },
+        {
+            "category_id": "correspondence",
+            "display_name": "Correspondence",
+            "description": "General communications and letters",
+            "asset_types": [
+                "private_credit",
+                "private_equity",
+                "commercial_real_estate",
+                "infrastructure"
+            ],
+            "classification_hints": [
+                "Email communications",
+                "Letters between parties",
+                "General updates",
+                "Default category for unclear documents"
+            ]
+        },
+        {
+            "category_id": "financial_statements",
+            "display_name": "Financial Statements",
+            "description": "Entity-level financial reports",
+            "asset_types": [
+                "private_credit",
+                "private_equity",
+                "commercial_real_estate",
+                "infrastructure"
+            ],
+            "classification_hints": [
+                "Annual financial statements",
+                "Quarterly reports",
+                "Audited financials"
+            ]
+        }
+    ]
+}

@@ -1,0 +1,131 @@
+{
+    "metadata": {
+        "description": "Asset definitions for semantic memory - core facts about assets",
+        "version": "2.0.0",
+        "created_date": "2025-06-20",
+        "memory_type": "semantic",
+        "notes": "Clean asset data with proper identifiers for reliable matching"
+    },
+    "assets": [
+        {
+            "asset_id": "gray_iv_001",
+            "deal_name": "Gray IV",
+            "asset_name": "Gray IV Wells Fargo Credit Facility",
+            "asset_type": "private_credit",
+            "identifiers": [
+                "Gray IV",
+                "Gray 4",
+                "Gray Wells",
+                "Gray WF"
+            ],
+            "business_context": {
+                "lender": "Wells Fargo",
+                "facility_type": "Revolver and Term Loan",
+                "key_contacts": [
+                    "lending@wellsfargo.com",
+                    "credit.ops@wellsfargo.com"
+                ],
+                "document_identifiers": [
+                    "GRAY",
+                    "WF",
+                    "WELLS"
+                ],
+                "common_filename_patterns": [
+                    "Gray",
+                    "G4",
+                    "GrayIV"
+                ]
+            }
+        },
+        {
+            "asset_id": "i3_revolver_001",
+            "deal_name": "i3 Revolver",
+            "asset_name": "i3 Verticals JPMorgan Credit Facility",
+            "asset_type": "private_credit",
+            "identifiers": [
+                "i3",
+                "i3 Verticals",
+                "i3 JPM",
+                "i3 Chase"
+            ],
+            "business_context": {
+                "lender": "JPMorgan Chase",
+                "facility_type": "Revolver",
+                "key_contacts": [
+                    "lending@jpmorgan.com",
+                    "i3.team@jpmorgan.com"
+                ],
+                "document_identifiers": [
+                    "I3",
+                    "JPM",
+                    "CHASE"
+                ],
+                "common_filename_patterns": [
+                    "i3",
+                    "I3V",
+                    "i3vert"
+                ]
+            }
+        },
+        {
+            "asset_id": "idt_revolver_001",
+            "deal_name": "IDT Revolver",
+            "asset_name": "IDT Telecom TD Bank Credit Facility",
+            "asset_type": "private_credit",
+            "identifiers": [
+                "IDT",
+                "IDT Telecom",
+                "IDT TD",
+                "IDT Revolver"
+            ],
+            "business_context": {
+                "lender": "TD Bank",
+                "facility_type": "Revolver",
+                "key_contacts": [
+                    "commercial@td.com",
+                    "idt.lending@td.com"
+                ],
+                "document_identifiers": [
+                    "IDT",
+                    "TD",
+                    "TELECOM"
+                ],
+                "common_filename_patterns": [
+                    "IDT",
+                    "idt_rlv",
+                    "IDT_TD"
+                ]
+            }
+        },
+        {
+            "asset_id": "trimble_boa_001",
+            "deal_name": "Trimble BoA",
+            "asset_name": "Trimble Inc Bank of America Credit Agreement",
+            "asset_type": "private_credit",
+            "identifiers": [
+                "Trimble",
+                "Trimble BoA",
+                "Trimble Bank of America",
+                "Trimble Credit"
+            ],
+            "business_context": {
+                "lender": "Bank of America",
+                "facility_type": "Credit Agreement",
+                "key_contacts": [
+                    "syndications@bofa.com",
+                    "trimble.team@bofa.com"
+                ],
+                "document_identifiers": [
+                    "TRIMBLE",
+                    "BOA",
+                    "BOFA"
+                ],
+                "common_filename_patterns": [
+                    "Trimble",
+                    "TRMB",
+                    "TrimbleBoA"
+                ]
+            }
+        }
+    ]
+}

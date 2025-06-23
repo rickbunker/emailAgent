@@ -1,17 +1,17 @@
 {
   "errors": [],
-  "generated_at": "2025-06-20T19:37:30Z",
+  "generated_at": "2025-06-23T13:59:14Z",
   "metrics": {
     "_totals": {
-      "CONFIDENCE.HIGH": 14,
-      "CONFIDENCE.LOW": 3,
-      "CONFIDENCE.MEDIUM": 2,
+      "CONFIDENCE.HIGH": 0,
+      "CONFIDENCE.LOW": 0,
+      "CONFIDENCE.MEDIUM": 1,
       "CONFIDENCE.UNDEFINED": 0,
       "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 14,
-      "SEVERITY.MEDIUM": 5,
+      "SEVERITY.LOW": 0,
+      "SEVERITY.MEDIUM": 1,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 21106,
+      "loc": 5447,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -28,7 +28,7 @@
       "nosec": 0,
       "skipped_tests": 0
     },
-    "src/agents/contact_extractor.py": {
+    "src/agents/__init__.py": {
       "CONFIDENCE.HIGH": 0,
       "CONFIDENCE.LOW": 0,
       "CONFIDENCE.MEDIUM": 0,
@@ -37,11 +37,11 @@
       "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 910,
+      "loc": 7,
       "nosec": 0,
       "skipped_tests": 0
     },
-    "src/agents/email_agent.py": {
+    "src/agents/email_graph.py": {
       "CONFIDENCE.HIGH": 0,
       "CONFIDENCE.LOW": 0,
       "CONFIDENCE.MEDIUM": 0,
@@ -50,11 +50,11 @@
       "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 12,
+      "loc": 229,
       "nosec": 0,
       "skipped_tests": 0
     },
-    "src/agents/spam_detector.py": {
+    "src/agents/nodes/__init__.py": {
       "CONFIDENCE.HIGH": 0,
       "CONFIDENCE.LOW": 0,
       "CONFIDENCE.MEDIUM": 0,
@@ -63,11 +63,11 @@
       "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 1136,
+      "loc": 23,
       "nosec": 0,
       "skipped_tests": 0
     },
-    "src/agents/supervisor.py": {
+    "src/agents/nodes/asset_matcher.py": {
       "CONFIDENCE.HIGH": 0,
       "CONFIDENCE.LOW": 0,
       "CONFIDENCE.MEDIUM": 0,
@@ -76,11 +76,11 @@
       "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 935,
+      "loc": 173,
       "nosec": 0,
       "skipped_tests": 0
     },
-    "src/asset_management/__init__.py": {
+    "src/agents/nodes/attachment_processor.py": {
       "CONFIDENCE.HIGH": 0,
       "CONFIDENCE.LOW": 0,
       "CONFIDENCE.MEDIUM": 0,
@@ -89,11 +89,11 @@
       "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 77,
+      "loc": 240,
       "nosec": 0,
       "skipped_tests": 0
     },
-    "src/asset_management/classification/__init__.py": {
+    "src/agents/nodes/feedback_integrator.py": {
       "CONFIDENCE.HIGH": 0,
       "CONFIDENCE.LOW": 0,
       "CONFIDENCE.MEDIUM": 0,
@@ -102,11 +102,11 @@
       "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 0,
+      "loc": 283,
       "nosec": 0,
       "skipped_tests": 0
     },
-    "src/asset_management/classification/document_classifier.py": {
+    "src/agents/nodes/relevance_filter.py": {
       "CONFIDENCE.HIGH": 0,
       "CONFIDENCE.LOW": 0,
       "CONFIDENCE.MEDIUM": 0,
@@ -115,202 +115,7 @@
       "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 292,
-      "nosec": 0,
-      "skipped_tests": 0
-    },
-    "src/asset_management/core/__init__.py": {
-      "CONFIDENCE.HIGH": 0,
-      "CONFIDENCE.LOW": 0,
-      "CONFIDENCE.MEDIUM": 0,
-      "CONFIDENCE.UNDEFINED": 0,
-      "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 0,
-      "SEVERITY.MEDIUM": 0,
-      "SEVERITY.UNDEFINED": 0,
-      "loc": 0,
-      "nosec": 0,
-      "skipped_tests": 0
-    },
-    "src/asset_management/core/data_models.py": {
-      "CONFIDENCE.HIGH": 0,
-      "CONFIDENCE.LOW": 0,
-      "CONFIDENCE.MEDIUM": 0,
-      "CONFIDENCE.UNDEFINED": 0,
-      "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 0,
-      "SEVERITY.MEDIUM": 0,
-      "SEVERITY.UNDEFINED": 0,
-      "loc": 226,
-      "nosec": 0,
-      "skipped_tests": 0
-    },
-    "src/asset_management/core/exceptions.py": {
-      "CONFIDENCE.HIGH": 0,
-      "CONFIDENCE.LOW": 0,
-      "CONFIDENCE.MEDIUM": 0,
-      "CONFIDENCE.UNDEFINED": 0,
-      "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 0,
-      "SEVERITY.MEDIUM": 0,
-      "SEVERITY.UNDEFINED": 0,
-      "loc": 47,
-      "nosec": 0,
-      "skipped_tests": 0
-    },
-    "src/asset_management/identification/__init__.py": {
-      "CONFIDENCE.HIGH": 0,
-      "CONFIDENCE.LOW": 0,
-      "CONFIDENCE.MEDIUM": 0,
-      "CONFIDENCE.UNDEFINED": 0,
-      "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 0,
-      "SEVERITY.MEDIUM": 0,
-      "SEVERITY.UNDEFINED": 0,
-      "loc": 0,
-      "nosec": 0,
-      "skipped_tests": 0
-    },
-    "src/asset_management/identification/asset_identifier.py": {
-      "CONFIDENCE.HIGH": 0,
-      "CONFIDENCE.LOW": 0,
-      "CONFIDENCE.MEDIUM": 0,
-      "CONFIDENCE.UNDEFINED": 0,
-      "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 0,
-      "SEVERITY.MEDIUM": 0,
-      "SEVERITY.UNDEFINED": 0,
-      "loc": 217,
-      "nosec": 0,
-      "skipped_tests": 0
-    },
-    "src/asset_management/memory_integration/__init__.py": {
-      "CONFIDENCE.HIGH": 0,
-      "CONFIDENCE.LOW": 0,
-      "CONFIDENCE.MEDIUM": 0,
-      "CONFIDENCE.UNDEFINED": 0,
-      "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 0,
-      "SEVERITY.MEDIUM": 0,
-      "SEVERITY.UNDEFINED": 0,
-      "loc": 0,
-      "nosec": 0,
-      "skipped_tests": 0
-    },
-    "src/asset_management/memory_integration/episodic_learner.py": {
-      "CONFIDENCE.HIGH": 0,
-      "CONFIDENCE.LOW": 0,
-      "CONFIDENCE.MEDIUM": 0,
-      "CONFIDENCE.UNDEFINED": 0,
-      "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 0,
-      "SEVERITY.MEDIUM": 0,
-      "SEVERITY.UNDEFINED": 0,
-      "loc": 320,
-      "nosec": 0,
-      "skipped_tests": 0
-    },
-    "src/asset_management/memory_integration/sender_mappings.py": {
-      "CONFIDENCE.HIGH": 0,
-      "CONFIDENCE.LOW": 0,
-      "CONFIDENCE.MEDIUM": 0,
-      "CONFIDENCE.UNDEFINED": 0,
-      "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 0,
-      "SEVERITY.MEDIUM": 0,
-      "SEVERITY.UNDEFINED": 0,
-      "loc": 418,
-      "nosec": 0,
-      "skipped_tests": 0
-    },
-    "src/asset_management/processing/__init__.py": {
-      "CONFIDENCE.HIGH": 0,
-      "CONFIDENCE.LOW": 0,
-      "CONFIDENCE.MEDIUM": 0,
-      "CONFIDENCE.UNDEFINED": 0,
-      "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 0,
-      "SEVERITY.MEDIUM": 0,
-      "SEVERITY.UNDEFINED": 0,
-      "loc": 0,
-      "nosec": 0,
-      "skipped_tests": 0
-    },
-    "src/asset_management/processing/document_processor.py": {
-      "CONFIDENCE.HIGH": 0,
-      "CONFIDENCE.LOW": 0,
-      "CONFIDENCE.MEDIUM": 0,
-      "CONFIDENCE.UNDEFINED": 0,
-      "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 0,
-      "SEVERITY.MEDIUM": 0,
-      "SEVERITY.UNDEFINED": 0,
-      "loc": 325,
-      "nosec": 0,
-      "skipped_tests": 0
-    },
-    "src/asset_management/services/__init__.py": {
-      "CONFIDENCE.HIGH": 0,
-      "CONFIDENCE.LOW": 0,
-      "CONFIDENCE.MEDIUM": 0,
-      "CONFIDENCE.UNDEFINED": 0,
-      "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 0,
-      "SEVERITY.MEDIUM": 0,
-      "SEVERITY.UNDEFINED": 0,
-      "loc": 1,
-      "nosec": 0,
-      "skipped_tests": 0
-    },
-    "src/asset_management/services/asset_service.py": {
-      "CONFIDENCE.HIGH": 0,
-      "CONFIDENCE.LOW": 1,
-      "CONFIDENCE.MEDIUM": 0,
-      "CONFIDENCE.UNDEFINED": 0,
-      "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 0,
-      "SEVERITY.MEDIUM": 1,
-      "SEVERITY.UNDEFINED": 0,
-      "loc": 291,
-      "nosec": 0,
-      "skipped_tests": 0
-    },
-    "src/asset_management/utils/__init__.py": {
-      "CONFIDENCE.HIGH": 0,
-      "CONFIDENCE.LOW": 0,
-      "CONFIDENCE.MEDIUM": 0,
-      "CONFIDENCE.UNDEFINED": 0,
-      "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 0,
-      "SEVERITY.MEDIUM": 0,
-      "SEVERITY.UNDEFINED": 0,
-      "loc": 0,
-      "nosec": 0,
-      "skipped_tests": 0
-    },
-    "src/asset_management/utils/security.py": {
-      "CONFIDENCE.HIGH": 4,
-      "CONFIDENCE.LOW": 0,
-      "CONFIDENCE.MEDIUM": 0,
-      "CONFIDENCE.UNDEFINED": 0,
-      "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 4,
-      "SEVERITY.MEDIUM": 0,
-      "SEVERITY.UNDEFINED": 0,
-      "loc": 230,
-      "nosec": 0,
-      "skipped_tests": 0
-    },
-    "src/asset_management/utils/storage.py": {
-      "CONFIDENCE.HIGH": 0,
-      "CONFIDENCE.LOW": 0,
-      "CONFIDENCE.MEDIUM": 0,
-      "CONFIDENCE.UNDEFINED": 0,
-      "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 0,
-      "SEVERITY.MEDIUM": 0,
-      "SEVERITY.UNDEFINED": 0,
-      "loc": 288,
+      "loc": 166,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -362,7 +167,7 @@
       "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 680,
+      "loc": 683,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -376,123 +181,6 @@
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
       "loc": 980,
-      "nosec": 0,
-      "skipped_tests": 0
-    },
-    "src/memory/__init__.py": {
-      "CONFIDENCE.HIGH": 0,
-      "CONFIDENCE.LOW": 0,
-      "CONFIDENCE.MEDIUM": 0,
-      "CONFIDENCE.UNDEFINED": 0,
-      "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 0,
-      "SEVERITY.MEDIUM": 0,
-      "SEVERITY.UNDEFINED": 0,
-      "loc": 313,
-      "nosec": 0,
-      "skipped_tests": 0
-    },
-    "src/memory/base.py": {
-      "CONFIDENCE.HIGH": 0,
-      "CONFIDENCE.LOW": 0,
-      "CONFIDENCE.MEDIUM": 0,
-      "CONFIDENCE.UNDEFINED": 0,
-      "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 0,
-      "SEVERITY.MEDIUM": 0,
-      "SEVERITY.UNDEFINED": 0,
-      "loc": 569,
-      "nosec": 0,
-      "skipped_tests": 0
-    },
-    "src/memory/contact.py": {
-      "CONFIDENCE.HIGH": 1,
-      "CONFIDENCE.LOW": 0,
-      "CONFIDENCE.MEDIUM": 0,
-      "CONFIDENCE.UNDEFINED": 0,
-      "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 1,
-      "SEVERITY.MEDIUM": 0,
-      "SEVERITY.UNDEFINED": 0,
-      "loc": 1511,
-      "nosec": 0,
-      "skipped_tests": 0
-    },
-    "src/memory/episodic.py": {
-      "CONFIDENCE.HIGH": 0,
-      "CONFIDENCE.LOW": 0,
-      "CONFIDENCE.MEDIUM": 0,
-      "CONFIDENCE.UNDEFINED": 0,
-      "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 0,
-      "SEVERITY.MEDIUM": 0,
-      "SEVERITY.UNDEFINED": 0,
-      "loc": 1146,
-      "nosec": 0,
-      "skipped_tests": 0
-    },
-    "src/memory/openai_base.py": {
-      "CONFIDENCE.HIGH": 0,
-      "CONFIDENCE.LOW": 0,
-      "CONFIDENCE.MEDIUM": 0,
-      "CONFIDENCE.UNDEFINED": 0,
-      "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 0,
-      "SEVERITY.MEDIUM": 0,
-      "SEVERITY.UNDEFINED": 0,
-      "loc": 113,
-      "nosec": 0,
-      "skipped_tests": 0
-    },
-    "src/memory/procedural.py": {
-      "CONFIDENCE.HIGH": 0,
-      "CONFIDENCE.LOW": 0,
-      "CONFIDENCE.MEDIUM": 0,
-      "CONFIDENCE.UNDEFINED": 0,
-      "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 0,
-      "SEVERITY.MEDIUM": 0,
-      "SEVERITY.UNDEFINED": 0,
-      "loc": 1171,
-      "nosec": 0,
-      "skipped_tests": 0
-    },
-    "src/memory/semantic.py": {
-      "CONFIDENCE.HIGH": 0,
-      "CONFIDENCE.LOW": 1,
-      "CONFIDENCE.MEDIUM": 0,
-      "CONFIDENCE.UNDEFINED": 0,
-      "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 0,
-      "SEVERITY.MEDIUM": 1,
-      "SEVERITY.UNDEFINED": 0,
-      "loc": 2274,
-      "nosec": 0,
-      "skipped_tests": 0
-    },
-    "src/tools/__init__.py": {
-      "CONFIDENCE.HIGH": 0,
-      "CONFIDENCE.LOW": 0,
-      "CONFIDENCE.MEDIUM": 0,
-      "CONFIDENCE.UNDEFINED": 0,
-      "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 0,
-      "SEVERITY.MEDIUM": 0,
-      "SEVERITY.UNDEFINED": 0,
-      "loc": 345,
-      "nosec": 0,
-      "skipped_tests": 0
-    },
-    "src/tools/spamassassin_integration.py": {
-      "CONFIDENCE.HIGH": 9,
-      "CONFIDENCE.LOW": 0,
-      "CONFIDENCE.MEDIUM": 0,
-      "CONFIDENCE.UNDEFINED": 0,
-      "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 9,
-      "SEVERITY.MEDIUM": 0,
-      "SEVERITY.UNDEFINED": 0,
-      "loc": 703,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -518,7 +206,7 @@
       "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 1,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 322,
+      "loc": 507,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -547,520 +235,11 @@
       "loc": 284,
       "nosec": 0,
       "skipped_tests": 0
-    },
-    "src/web_api/__init__.py": {
-      "CONFIDENCE.HIGH": 0,
-      "CONFIDENCE.LOW": 0,
-      "CONFIDENCE.MEDIUM": 0,
-      "CONFIDENCE.UNDEFINED": 0,
-      "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 0,
-      "SEVERITY.MEDIUM": 0,
-      "SEVERITY.UNDEFINED": 0,
-      "loc": 2,
-      "nosec": 0,
-      "skipped_tests": 0
-    },
-    "src/web_api/dependencies.py": {
-      "CONFIDENCE.HIGH": 0,
-      "CONFIDENCE.LOW": 0,
-      "CONFIDENCE.MEDIUM": 0,
-      "CONFIDENCE.UNDEFINED": 0,
-      "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 0,
-      "SEVERITY.MEDIUM": 0,
-      "SEVERITY.UNDEFINED": 0,
-      "loc": 139,
-      "nosec": 0,
-      "skipped_tests": 0
-    },
-    "src/web_api/main.py": {
-      "CONFIDENCE.HIGH": 0,
-      "CONFIDENCE.LOW": 0,
-      "CONFIDENCE.MEDIUM": 1,
-      "CONFIDENCE.UNDEFINED": 0,
-      "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 0,
-      "SEVERITY.MEDIUM": 1,
-      "SEVERITY.UNDEFINED": 0,
-      "loc": 73,
-      "nosec": 0,
-      "skipped_tests": 0
-    },
-    "src/web_api/routers/__init__.py": {
-      "CONFIDENCE.HIGH": 0,
-      "CONFIDENCE.LOW": 0,
-      "CONFIDENCE.MEDIUM": 0,
-      "CONFIDENCE.UNDEFINED": 0,
-      "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 0,
-      "SEVERITY.MEDIUM": 0,
-      "SEVERITY.UNDEFINED": 0,
-      "loc": 1,
-      "nosec": 0,
-      "skipped_tests": 0
-    },
-    "src/web_api/routers/assets.py": {
-      "CONFIDENCE.HIGH": 0,
-      "CONFIDENCE.LOW": 1,
-      "CONFIDENCE.MEDIUM": 0,
-      "CONFIDENCE.UNDEFINED": 0,
-      "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 0,
-      "SEVERITY.MEDIUM": 1,
-      "SEVERITY.UNDEFINED": 0,
-      "loc": 264,
-      "nosec": 0,
-      "skipped_tests": 0
-    },
-    "src/web_api/routers/email_processing.py": {
-      "CONFIDENCE.HIGH": 0,
-      "CONFIDENCE.LOW": 0,
-      "CONFIDENCE.MEDIUM": 0,
-      "CONFIDENCE.UNDEFINED": 0,
-      "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 0,
-      "SEVERITY.MEDIUM": 0,
-      "SEVERITY.UNDEFINED": 0,
-      "loc": 270,
-      "nosec": 0,
-      "skipped_tests": 0
-    },
-    "src/web_api/routers/health.py": {
-      "CONFIDENCE.HIGH": 0,
-      "CONFIDENCE.LOW": 0,
-      "CONFIDENCE.MEDIUM": 0,
-      "CONFIDENCE.UNDEFINED": 0,
-      "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 0,
-      "SEVERITY.MEDIUM": 0,
-      "SEVERITY.UNDEFINED": 0,
-      "loc": 125,
-      "nosec": 0,
-      "skipped_tests": 0
-    },
-    "src/web_api/routers/human_review.py": {
-      "CONFIDENCE.HIGH": 0,
-      "CONFIDENCE.LOW": 0,
-      "CONFIDENCE.MEDIUM": 0,
-      "CONFIDENCE.UNDEFINED": 0,
-      "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 0,
-      "SEVERITY.MEDIUM": 0,
-      "SEVERITY.UNDEFINED": 0,
-      "loc": 383,
-      "nosec": 0,
-      "skipped_tests": 0
-    },
-    "src/web_api/routers/memory.py": {
-      "CONFIDENCE.HIGH": 0,
-      "CONFIDENCE.LOW": 0,
-      "CONFIDENCE.MEDIUM": 0,
-      "CONFIDENCE.UNDEFINED": 0,
-      "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 0,
-      "SEVERITY.MEDIUM": 0,
-      "SEVERITY.UNDEFINED": 0,
-      "loc": 585,
-      "nosec": 0,
-      "skipped_tests": 0
-    },
-    "src/web_api/routers/senders.py": {
-      "CONFIDENCE.HIGH": 0,
-      "CONFIDENCE.LOW": 0,
-      "CONFIDENCE.MEDIUM": 0,
-      "CONFIDENCE.UNDEFINED": 0,
-      "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 0,
-      "SEVERITY.MEDIUM": 0,
-      "SEVERITY.UNDEFINED": 0,
-      "loc": 343,
-      "nosec": 0,
-      "skipped_tests": 0
-    },
-    "src/web_api/routers/ui.py": {
-      "CONFIDENCE.HIGH": 0,
-      "CONFIDENCE.LOW": 0,
-      "CONFIDENCE.MEDIUM": 0,
-      "CONFIDENCE.UNDEFINED": 0,
-      "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 0,
-      "SEVERITY.MEDIUM": 0,
-      "SEVERITY.UNDEFINED": 0,
-      "loc": 913,
-      "nosec": 0,
-      "skipped_tests": 0
     }
   },
   "results": [
     {
-      "code": "335         except Exception as e:\n336             logger.error(f\"Failed to update asset {deal_id}: {e}\")\n337             return False\n",
-      "col_offset": 27,
-      "end_col_offset": 50,
-      "filename": "src/asset_management/services/asset_service.py",
-      "issue_confidence": "LOW",
-      "issue_cwe": {
-        "id": 89,
-        "link": "https://cwe.mitre.org/data/definitions/89.html"
-      },
-      "issue_severity": "MEDIUM",
-      "issue_text": "Possible SQL injection vector through string-based query construction.",
-      "line_number": 336,
-      "line_range": [
-        336
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b608_hardcoded_sql_expressions.html",
-      "test_id": "B608",
-      "test_name": "hardcoded_sql_expressions"
-    },
-    {
-      "code": "14 import os\n15 import subprocess\n16 from pathlib import Path\n",
-      "col_offset": 0,
-      "end_col_offset": 17,
-      "filename": "src/asset_management/utils/security.py",
-      "issue_confidence": "HIGH",
-      "issue_cwe": {
-        "id": 78,
-        "link": "https://cwe.mitre.org/data/definitions/78.html"
-      },
-      "issue_severity": "LOW",
-      "issue_text": "Consider possible security implications associated with the subprocess module.",
-      "line_number": 15,
-      "line_range": [
-        15
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/0.0.0/blacklists/blacklist_imports.html#b404-import-subprocess",
-      "test_id": "B404",
-      "test_name": "blacklist"
-    },
-    {
-      "code": "229                 # Run ClamAV scan\n230                 result = subprocess.run(\n231                     [clamscan_path, \"--no-summary\", temp_path],\n232                     capture_output=True,\n233                     text=True,\n234                     timeout=30,\n235                 )\n236 \n",
-      "col_offset": 25,
-      "end_col_offset": 17,
-      "filename": "src/asset_management/utils/security.py",
-      "issue_confidence": "HIGH",
-      "issue_cwe": {
-        "id": 78,
-        "link": "https://cwe.mitre.org/data/definitions/78.html"
-      },
-      "issue_severity": "LOW",
-      "issue_text": "subprocess call - check for execution of untrusted input.",
-      "line_number": 230,
-      "line_range": [
-        230,
-        231,
-        232,
-        233,
-        234,
-        235
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b603_subprocess_without_shell_equals_true.html",
-      "test_id": "B603",
-      "test_name": "subprocess_without_shell_equals_true"
-    },
-    {
-      "code": "282                 # Check if exists and is executable\n283                 result = subprocess.run(\n284                     [path, \"--version\"], capture_output=True, timeout=5\n285                 )\n286                 if result.returncode == 0:\n",
-      "col_offset": 25,
-      "end_col_offset": 17,
-      "filename": "src/asset_management/utils/security.py",
-      "issue_confidence": "HIGH",
-      "issue_cwe": {
-        "id": 78,
-        "link": "https://cwe.mitre.org/data/definitions/78.html"
-      },
-      "issue_severity": "LOW",
-      "issue_text": "subprocess call - check for execution of untrusted input.",
-      "line_number": 283,
-      "line_range": [
-        283,
-        284,
-        285
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b603_subprocess_without_shell_equals_true.html",
-      "test_id": "B603",
-      "test_name": "subprocess_without_shell_equals_true"
-    },
-    {
-      "code": "288                     return path\n289             except:\n290                 continue\n291 \n",
-      "col_offset": 12,
-      "end_col_offset": 24,
-      "filename": "src/asset_management/utils/security.py",
-      "issue_confidence": "HIGH",
-      "issue_cwe": {
-        "id": 703,
-        "link": "https://cwe.mitre.org/data/definitions/703.html"
-      },
-      "issue_severity": "LOW",
-      "issue_text": "Try, Except, Continue detected.",
-      "line_number": 289,
-      "line_range": [
-        289,
-        290
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b112_try_except_continue.html",
-      "test_id": "B112",
-      "test_name": "try_except_continue"
-    },
-    {
-      "code": "1884 \n1885         assert contact1_id == duplicate_id, \"Deduplication failed\"\n1886         logger.info(\"\u2713 Contact deduplication working correctly\")\n",
-      "col_offset": 8,
-      "end_col_offset": 66,
-      "filename": "src/memory/contact.py",
-      "issue_confidence": "HIGH",
-      "issue_cwe": {
-        "id": 703,
-        "link": "https://cwe.mitre.org/data/definitions/703.html"
-      },
-      "issue_severity": "LOW",
-      "issue_text": "Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.",
-      "line_number": 1885,
-      "line_range": [
-        1885
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b101_assert_used.html",
-      "test_id": "B101",
-      "test_name": "assert_used"
-    },
-    {
-      "code": "2207         except Exception as e:\n2208             error_msg = f\"Failed to update asset knowledge for {asset_id}: {e}\"\n2209             logger.error(error_msg)\n",
-      "col_offset": 26,
-      "end_col_offset": 63,
-      "filename": "src/memory/semantic.py",
-      "issue_confidence": "LOW",
-      "issue_cwe": {
-        "id": 89,
-        "link": "https://cwe.mitre.org/data/definitions/89.html"
-      },
-      "issue_severity": "MEDIUM",
-      "issue_text": "Possible SQL injection vector through string-based query construction.",
-      "line_number": 2208,
-      "line_range": [
-        2208
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b608_hardcoded_sql_expressions.html",
-      "test_id": "B608",
-      "test_name": "hardcoded_sql_expressions"
-    },
-    {
-      "code": "40 import shutil\n41 import subprocess\n42 \n",
-      "col_offset": 0,
-      "end_col_offset": 17,
-      "filename": "src/tools/spamassassin_integration.py",
-      "issue_confidence": "HIGH",
-      "issue_cwe": {
-        "id": 78,
-        "link": "https://cwe.mitre.org/data/definitions/78.html"
-      },
-      "issue_severity": "LOW",
-      "issue_text": "Consider possible security implications associated with the subprocess module.",
-      "line_number": 41,
-      "line_range": [
-        41
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/0.0.0/blacklists/blacklist_imports.html#b404-import-subprocess",
-      "test_id": "B404",
-      "test_name": "blacklist"
-    },
-    {
-      "code": "208             try:\n209                 result = subprocess.run(\n210                     [\"spamassassin\", \"--version\"],\n211                     capture_output=True,\n212                     text=True,\n213                     timeout=10,\n214                 )\n215                 if result.returncode == 0:\n",
-      "col_offset": 25,
-      "end_col_offset": 17,
-      "filename": "src/tools/spamassassin_integration.py",
-      "issue_confidence": "HIGH",
-      "issue_cwe": {
-        "id": 78,
-        "link": "https://cwe.mitre.org/data/definitions/78.html"
-      },
-      "issue_severity": "LOW",
-      "issue_text": "Starting a process with a partial executable path",
-      "line_number": 209,
-      "line_range": [
-        209,
-        210,
-        211,
-        212,
-        213,
-        214
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b607_start_process_with_partial_path.html",
-      "test_id": "B607",
-      "test_name": "start_process_with_partial_path"
-    },
-    {
-      "code": "208             try:\n209                 result = subprocess.run(\n210                     [\"spamassassin\", \"--version\"],\n211                     capture_output=True,\n212                     text=True,\n213                     timeout=10,\n214                 )\n215                 if result.returncode == 0:\n",
-      "col_offset": 25,
-      "end_col_offset": 17,
-      "filename": "src/tools/spamassassin_integration.py",
-      "issue_confidence": "HIGH",
-      "issue_cwe": {
-        "id": 78,
-        "link": "https://cwe.mitre.org/data/definitions/78.html"
-      },
-      "issue_severity": "LOW",
-      "issue_text": "subprocess call - check for execution of untrusted input.",
-      "line_number": 209,
-      "line_range": [
-        209,
-        210,
-        211,
-        212,
-        213,
-        214
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b603_subprocess_without_shell_equals_true.html",
-      "test_id": "B603",
-      "test_name": "subprocess_without_shell_equals_true"
-    },
-    {
-      "code": "235             try:\n236                 result = subprocess.run(\n237                     [\"spamc\", \"--version\"], capture_output=True, text=True, timeout=5\n238                 )\n239                 if result.returncode == 0:\n",
-      "col_offset": 25,
-      "end_col_offset": 17,
-      "filename": "src/tools/spamassassin_integration.py",
-      "issue_confidence": "HIGH",
-      "issue_cwe": {
-        "id": 78,
-        "link": "https://cwe.mitre.org/data/definitions/78.html"
-      },
-      "issue_severity": "LOW",
-      "issue_text": "Starting a process with a partial executable path",
-      "line_number": 236,
-      "line_range": [
-        236,
-        237,
-        238
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b607_start_process_with_partial_path.html",
-      "test_id": "B607",
-      "test_name": "start_process_with_partial_path"
-    },
-    {
-      "code": "235             try:\n236                 result = subprocess.run(\n237                     [\"spamc\", \"--version\"], capture_output=True, text=True, timeout=5\n238                 )\n239                 if result.returncode == 0:\n",
-      "col_offset": 25,
-      "end_col_offset": 17,
-      "filename": "src/tools/spamassassin_integration.py",
-      "issue_confidence": "HIGH",
-      "issue_cwe": {
-        "id": 78,
-        "link": "https://cwe.mitre.org/data/definitions/78.html"
-      },
-      "issue_severity": "LOW",
-      "issue_text": "subprocess call - check for execution of untrusted input.",
-      "line_number": 236,
-      "line_range": [
-        236,
-        237,
-        238
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b603_subprocess_without_shell_equals_true.html",
-      "test_id": "B603",
-      "test_name": "subprocess_without_shell_equals_true"
-    },
-    {
-      "code": "388             # Use complete spamassassin flags for detailed analysis\n389             process = subprocess.Popen(\n390                 [\"spamassassin\", \"-D\", \"-t\", \"--cf\", \"report_safe 0\"],\n391                 stdin=subprocess.PIPE,\n392                 stdout=subprocess.PIPE,\n393                 stderr=subprocess.PIPE,\n394                 text=True,\n395             )\n396 \n",
-      "col_offset": 22,
-      "end_col_offset": 13,
-      "filename": "src/tools/spamassassin_integration.py",
-      "issue_confidence": "HIGH",
-      "issue_cwe": {
-        "id": 78,
-        "link": "https://cwe.mitre.org/data/definitions/78.html"
-      },
-      "issue_severity": "LOW",
-      "issue_text": "Starting a process with a partial executable path",
-      "line_number": 389,
-      "line_range": [
-        389,
-        390,
-        391,
-        392,
-        393,
-        394,
-        395
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b607_start_process_with_partial_path.html",
-      "test_id": "B607",
-      "test_name": "start_process_with_partial_path"
-    },
-    {
-      "code": "388             # Use complete spamassassin flags for detailed analysis\n389             process = subprocess.Popen(\n390                 [\"spamassassin\", \"-D\", \"-t\", \"--cf\", \"report_safe 0\"],\n391                 stdin=subprocess.PIPE,\n392                 stdout=subprocess.PIPE,\n393                 stderr=subprocess.PIPE,\n394                 text=True,\n395             )\n396 \n",
-      "col_offset": 22,
-      "end_col_offset": 13,
-      "filename": "src/tools/spamassassin_integration.py",
-      "issue_confidence": "HIGH",
-      "issue_cwe": {
-        "id": 78,
-        "link": "https://cwe.mitre.org/data/definitions/78.html"
-      },
-      "issue_severity": "LOW",
-      "issue_text": "subprocess call - check for execution of untrusted input.",
-      "line_number": 389,
-      "line_range": [
-        389,
-        390,
-        391,
-        392,
-        393,
-        394,
-        395
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b603_subprocess_without_shell_equals_true.html",
-      "test_id": "B603",
-      "test_name": "subprocess_without_shell_equals_true"
-    },
-    {
-      "code": "435             # Use spamc with report flag for detailed output\n436             process = subprocess.Popen(\n437                 [\"spamc\", \"-R\"],  # -R flag for full report\n438                 stdin=subprocess.PIPE,\n439                 stdout=subprocess.PIPE,\n440                 stderr=subprocess.PIPE,\n441                 text=True,\n442             )\n443 \n",
-      "col_offset": 22,
-      "end_col_offset": 13,
-      "filename": "src/tools/spamassassin_integration.py",
-      "issue_confidence": "HIGH",
-      "issue_cwe": {
-        "id": 78,
-        "link": "https://cwe.mitre.org/data/definitions/78.html"
-      },
-      "issue_severity": "LOW",
-      "issue_text": "Starting a process with a partial executable path",
-      "line_number": 436,
-      "line_range": [
-        436,
-        437,
-        438,
-        439,
-        440,
-        441,
-        442
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b607_start_process_with_partial_path.html",
-      "test_id": "B607",
-      "test_name": "start_process_with_partial_path"
-    },
-    {
-      "code": "435             # Use spamc with report flag for detailed output\n436             process = subprocess.Popen(\n437                 [\"spamc\", \"-R\"],  # -R flag for full report\n438                 stdin=subprocess.PIPE,\n439                 stdout=subprocess.PIPE,\n440                 stderr=subprocess.PIPE,\n441                 text=True,\n442             )\n443 \n",
-      "col_offset": 22,
-      "end_col_offset": 13,
-      "filename": "src/tools/spamassassin_integration.py",
-      "issue_confidence": "HIGH",
-      "issue_cwe": {
-        "id": 78,
-        "link": "https://cwe.mitre.org/data/definitions/78.html"
-      },
-      "issue_severity": "LOW",
-      "issue_text": "subprocess call - check for execution of untrusted input.",
-      "line_number": 436,
-      "line_range": [
-        436,
-        437,
-        438,
-        439,
-        440,
-        441,
-        442
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b603_subprocess_without_shell_equals_true.html",
-      "test_id": "B603",
-      "test_name": "subprocess_without_shell_equals_true"
-    },
-    {
-      "code": "275             ),\n276             flask_host=os.getenv(\"FLASK_HOST\", \"0.0.0.0\"),\n277             flask_port=int(os.getenv(\"FLASK_PORT\", \"5001\")),\n",
+      "code": "295             ),\n296             flask_host=os.getenv(\"FLASK_HOST\", \"0.0.0.0\"),\n297             flask_port=int(os.getenv(\"FLASK_PORT\", \"5001\")),\n",
       "col_offset": 47,
       "end_col_offset": 56,
       "filename": "src/utils/config.py",
@@ -1071,53 +250,13 @@
       },
       "issue_severity": "MEDIUM",
       "issue_text": "Possible binding to all interfaces.",
-      "line_number": 276,
+      "line_number": 296,
       "line_range": [
-        276
+        296
       ],
       "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b104_hardcoded_bind_all_interfaces.html",
       "test_id": "B104",
       "test_name": "hardcoded_bind_all_interfaces"
-    },
-    {
-      "code": "98         \"src.web_api.main:app\",\n99         host=\"0.0.0.0\",\n100         port=8000,\n",
-      "col_offset": 13,
-      "end_col_offset": 22,
-      "filename": "src/web_api/main.py",
-      "issue_confidence": "MEDIUM",
-      "issue_cwe": {
-        "id": 605,
-        "link": "https://cwe.mitre.org/data/definitions/605.html"
-      },
-      "issue_severity": "MEDIUM",
-      "issue_text": "Possible binding to all interfaces.",
-      "line_number": 99,
-      "line_range": [
-        99
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b104_hardcoded_bind_all_interfaces.html",
-      "test_id": "B104",
-      "test_name": "hardcoded_bind_all_interfaces"
-    },
-    {
-      "code": "312     except Exception as e:\n313         logger.error(f\"Failed to update asset {asset_id}: {e}\")\n314         raise HTTPException(status_code=500, detail=f\"Failed to update asset: {str(e)}\")\n",
-      "col_offset": 23,
-      "end_col_offset": 46,
-      "filename": "src/web_api/routers/assets.py",
-      "issue_confidence": "LOW",
-      "issue_cwe": {
-        "id": 89,
-        "link": "https://cwe.mitre.org/data/definitions/89.html"
-      },
-      "issue_severity": "MEDIUM",
-      "issue_text": "Possible SQL injection vector through string-based query construction.",
-      "line_number": 313,
-      "line_range": [
-        313
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b608_hardcoded_sql_expressions.html",
-      "test_id": "B608",
-      "test_name": "hardcoded_sql_expressions"
     }
   ]
 }

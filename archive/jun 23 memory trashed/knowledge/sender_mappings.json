@@ -1,0 +1,118 @@
+{
+    "metadata": {
+        "description": "Sender to asset mappings for contact memory - highest confidence matching",
+        "version": "2.0.0",
+        "created_date": "2025-06-20",
+        "memory_type": "contact",
+        "notes": "Pre-configured sender mappings provide 0.95+ confidence for asset matching"
+    },
+    "sender_mappings": [
+        {
+            "sender_email": "lending@wellsfargo.com",
+            "organization": "Wells Fargo",
+            "asset_id": "gray_iv_001",
+            "asset_name": "Gray IV",
+            "confidence": 0.95,
+            "relationship_type": "lender",
+            "trust_score": 0.90
+        },
+        {
+            "sender_email": "credit.ops@wellsfargo.com",
+            "organization": "Wells Fargo",
+            "asset_id": "gray_iv_001",
+            "asset_name": "Gray IV",
+            "confidence": 0.95,
+            "relationship_type": "lender_operations",
+            "trust_score": 0.90
+        },
+        {
+            "sender_email": "gray.team@wellsfargo.com",
+            "organization": "Wells Fargo",
+            "asset_id": "gray_iv_001",
+            "asset_name": "Gray IV",
+            "confidence": 0.98,
+            "relationship_type": "dedicated_team",
+            "trust_score": 0.95
+        },
+        {
+            "sender_email": "lending@jpmorgan.com",
+            "organization": "JPMorgan Chase",
+            "asset_id": "i3_revolver_001",
+            "asset_name": "i3 Revolver",
+            "confidence": 0.95,
+            "relationship_type": "lender",
+            "trust_score": 0.90
+        },
+        {
+            "sender_email": "i3.team@jpmorgan.com",
+            "organization": "JPMorgan Chase",
+            "asset_id": "i3_revolver_001",
+            "asset_name": "i3 Revolver",
+            "confidence": 0.98,
+            "relationship_type": "dedicated_team",
+            "trust_score": 0.95
+        },
+        {
+            "sender_email": "commercial@td.com",
+            "organization": "TD Bank",
+            "asset_id": "idt_revolver_001",
+            "asset_name": "IDT Revolver",
+            "confidence": 0.95,
+            "relationship_type": "lender",
+            "trust_score": 0.90
+        },
+        {
+            "sender_email": "idt.lending@td.com",
+            "organization": "TD Bank",
+            "asset_id": "idt_revolver_001",
+            "asset_name": "IDT Revolver",
+            "confidence": 0.98,
+            "relationship_type": "dedicated_team",
+            "trust_score": 0.95
+        },
+        {
+            "sender_email": "syndications@bofa.com",
+            "organization": "Bank of America",
+            "asset_id": "trimble_boa_001",
+            "asset_name": "Trimble BoA",
+            "confidence": 0.95,
+            "relationship_type": "lender",
+            "trust_score": 0.90
+        },
+        {
+            "sender_email": "trimble.team@bofa.com",
+            "organization": "Bank of America",
+            "asset_id": "trimble_boa_001",
+            "asset_name": "Trimble BoA",
+            "confidence": 0.98,
+            "relationship_type": "dedicated_team",
+            "trust_score": 0.95
+        }
+    ],
+    "organization_patterns": [
+        {
+            "domain": "wellsfargo.com",
+            "organization": "Wells Fargo",
+            "default_asset_hint": "gray_iv_001",
+            "confidence_boost": 0.10
+        },
+        {
+            "domain": "jpmorgan.com",
+            "organization": "JPMorgan Chase",
+            "default_asset_hint": "i3_revolver_001",
+            "confidence_boost": 0.10
+        },
+        {
+            "domain": "td.com",
+            "organization": "TD Bank",
+            "default_asset_hint": "idt_revolver_001",
+            "confidence_boost": 0.10
+        },
+        {
+            "domain": "bofa.com",
+            "organization": "Bank of America",
+            "default_asset_hint": "trimble_boa_001",
+            "confidence_boost": 0.10
+        }
+    ]
+}

@@ -7,9 +7,11 @@ Includes memory monitoring and system resource validation for production readine
 
 # # Standard library imports
 import os
-import psutil
 from dataclasses import dataclass
 from pathlib import Path
+
+# # Third-party imports
+import psutil
 
 from .logging_system import get_logger
 
@@ -124,6 +126,7 @@ class EmailAgentConfig:
     processing_timeout_seconds: int
 
     # Human Review Thresholds
+    relevance_threshold: float
     low_confidence_threshold: float
     requires_review_threshold: float
 
@@ -318,8 +321,9 @@ class EmailAgentConfig:
                 os.getenv("PROCESSING_TIMEOUT_SECONDS", "300")
             ),
             # Human Review Thresholds
+            relevance_threshold=float(os.getenv("RELEVANCE_THRESHOLD", "0.7")),
             low_confidence_threshold=float(
-                os.getenv("LOW_CONFIDENCE_THRESHOLD", "0.7")
+                os.getenv("LOW_CONFIDENCE_THRESHOLD", "0.6")
             ),
             requires_review_threshold=float(
                 os.getenv("REQUIRES_REVIEW_THRESHOLD", "0.5")
@@ -369,7 +373,7 @@ class EmailAgentConfig:
             ),
             # Phase 6.2: Memory Monitoring Configuration
             memory_monitoring_enabled=parse_bool(
-                os.getenv("MEMORY_MONITORING_ENABLED", "true")
+                os.getenv("MEMORY_MONITORING_ENABLED", "false")
             ),
             memory_cleanup_threshold=float(
                 os.getenv(
@@ -425,6 +429,9 @@ class EmailAgentConfig:
                 errors.append(f"{name} file not found: {path}")
 
         # Validate thresholds
+        if not (0.0 <= self.relevance_threshold <= 1.0):
+            errors.append("Relevance threshold must be between 0.0 and 1.0")
+
         if not (0.0 <= self.low_confidence_threshold <= 1.0):
             errors.append("Low confidence threshold must be between 0.0 and 1.0")
 
