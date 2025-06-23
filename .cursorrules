@@ -14,6 +14,7 @@ Be sceptical!  Don't announce that everything is perfect before it is.  Test, ve
 
 ### Type Safety & Documentation
 - EVERY function MUST have type hints and Google-style docstrings
+- Don't brag in the documentation -- say "an email processor" not "a professional world-class enterprise fully wonderful email processor"
 - Use `from typing import Optional, List, Dict, Any` as needed
 
 ### Configuration & Logging

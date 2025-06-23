@@ -2,15 +2,17 @@
 Attachment Processor Node - Saves and organizes attachments using memory-driven rules.
 
 This node queries procedural memory for HOW to handle files (naming, folder structure,
-security) and performs the actual file system operations.
+security) and semantic memory for document categorization patterns.
 """
 
 # # Standard library imports
+# Standard library imports
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 # # Local application imports
+# Local application imports
 from src.utils.config import config
 from src.utils.logging_system import get_logger, log_function
 
@@ -21,17 +23,19 @@ class AttachmentProcessorNode:
     """
     Processes and saves attachments using memory-driven file handling rules.
 
-    Queries procedural memory for HOW to process, then performs file operations.
+    Queries procedural memory for HOW to process and semantic memory for categorization.
     """
 
-    def __init__(self, procedural_memory=None) -> None:
+    def __init__(self, procedural_memory=None, semantic_memory=None) -> None:
         """
-        Initialize attachment processor with memory system connection.
+        Initialize attachment processor with memory system connections.
 
         Args:
-            procedural_memory: Procedural memory for file handling rules
+            procedural_memory: Procedural memory for file handling rules and procedures
+            semantic_memory: Semantic memory for document categorization patterns
         """
         self.procedural_memory = procedural_memory
+        self.semantic_memory = semantic_memory
         self.base_path = Path(config.assets_base_path)
         self.max_file_size = (
             config.max_attachment_size_mb * 1024 * 1024
@@ -174,13 +178,58 @@ class AttachmentProcessorNode:
         processing_rules: dict[str, Any],
     ) -> str:
         """
-        Categorize document type using procedural memory rules.
+        Categorize document type using semantic memory patterns.
 
-        This would query procedural memory for categorization algorithms.
+        Args:
+            filename: Document filename
+            email_data: Email context
+            processing_rules: Processing rules from procedural memory
+
+        Returns:
+            Document category string
         """
+        if not self.semantic_memory:
+            logger.warning(
+                "Semantic memory not available, using default categorization"
+            )
+            return self._default_categorization(filename)
+
+        try:
+            # Search semantic memory for document categories based on filename and subject
+            search_text = f"{filename} {email_data.get('subject', '')}"
+            categories = self.semantic_memory.search_document_categories(search_text)
+
+            if categories:
+                # Use the highest scoring category
+                best_category = categories[0]
+                category_name = best_category["category"]
+                confidence = best_category["score"]
+
+                logger.debug(
+                    f"Document categorized as '{category_name}' (confidence: {confidence:.2f})"
+                )
+
+                # Map semantic memory category names to our standard names
+                category_mapping = {
+                    "financial": "financial_statements",
+                    "legal": "compliance_documents",
+                    "performance": "performance_reports",
+                    "general": "general_documents",
+                }
+
+                return category_mapping.get(category_name, "general_documents")
+            else:
+                logger.debug("No category matches found in semantic memory")
+                return self._default_categorization(filename)
+
+        except Exception as e:
+            logger.error(f"Failed to categorize document using semantic memory: {e}")
+            return self._default_categorization(filename)
+
+    def _default_categorization(self, filename: str) -> str:
+        """Default categorization when semantic memory is unavailable."""
         filename_lower = filename.lower()
 
-        # Simple categorization until procedural memory is connected
         if "financial" in filename_lower or "statement" in filename_lower:
             return "financial_statements"
         elif "compliance" in filename_lower or "audit" in filename_lower:
@@ -214,29 +263,75 @@ class AttachmentProcessorNode:
         self, attachment_data: dict[str, Any], processing_rules: dict[str, Any]
     ) -> dict[str, Any]:
         """
-        Apply security checks using procedural memory rules.
+        Apply security checks using memory-driven rules.
 
-        This would query procedural memory for security procedures.
+        Args:
+            attachment_data: Attachment metadata including filename and size
+            processing_rules: Security rules from procedural memory
+
+        Returns:
+            Dictionary with 'allowed' boolean and 'reason' string
         """
         filename = attachment_data.get("filename", "")
         file_size = attachment_data.get("size", 0)
-
-        # File size check
-        if file_size > self.max_file_size:
-            return {
-                "allowed": False,
-                "reason": f"File too large: {file_size} bytes (max: {self.max_file_size})",
-            }
-
-        # File extension check
-        allowed_extensions = config.allowed_file_extensions
         file_ext = Path(filename).suffix.lower().lstrip(".")
 
-        if file_ext not in allowed_extensions:
+        # Get file type rules from semantic memory
+        file_type_rules = None
+        if self.semantic_memory:
+            try:
+                file_type_rules = self.semantic_memory.get_file_type_rules(file_ext)
+            except Exception as e:
+                logger.warning(
+                    f"Failed to get file type rules from semantic memory: {e}"
+                )
+
+        # Use memory-driven size limits if available
+        max_size_bytes = self.max_file_size  # Default from config
+        if file_type_rules and "max_size_mb" in file_type_rules:
+            max_size_bytes = file_type_rules["max_size_mb"] * 1024 * 1024
+
+        # File size check with memory-driven limits
+        if file_size > max_size_bytes:
             return {
                 "allowed": False,
-                "reason": f"File extension not allowed: {file_ext}",
+                "reason": f"File too large: {file_size} bytes (max: {max_size_bytes} bytes for {file_ext})",
             }
+
+        # File extension check with memory-driven rules
+        if file_type_rules:
+            # Use semantic memory rules
+            if not file_type_rules.get("allowed", False):
+                return {
+                    "allowed": False,
+                    "reason": f"File type not allowed by memory rules: {file_ext}",
+                }
+        else:
+            # Fallback to config
+            allowed_extensions = config.allowed_file_extensions
+            if file_ext not in allowed_extensions:
+                return {
+                    "allowed": False,
+                    "reason": f"File extension not allowed: {file_ext}",
+                }
+
+        # Get file processing rules from procedural memory
+        if self.procedural_memory:
+            try:
+                file_proc_rules = self.procedural_memory.get_file_processing_rules(
+                    file_ext
+                )
+                if file_proc_rules:
+                    # Apply any additional procedural security checks
+                    for rule in file_proc_rules:
+                        rule_max_size = rule.get("max_size_mb", 100) * 1024 * 1024
+                        if file_size > rule_max_size:
+                            return {
+                                "allowed": False,
+                                "reason": f"File exceeds procedural rule limit: {rule_max_size} bytes",
+                            }
+            except Exception as e:
+                logger.warning(f"Failed to apply procedural security checks: {e}")
 
         return {"allowed": True, "reason": "Security checks passed"}
 
@@ -296,8 +391,6 @@ class AttachmentProcessorNode:
         """
         Query procedural memory for file processing rules and procedures.
 
-        TODO: Implement when procedural memory is available.
-
         Args:
             context: Email and processing context
 
@@ -308,15 +401,47 @@ class AttachmentProcessorNode:
             logger.warning("Procedural memory not available, using defaults")
             return self._get_default_processing_rules()
 
-        # This will query procedural memory for:
-        # - File naming conventions
-        # - Directory structure rules
-        # - Security scanning procedures
-        # - Document categorization algorithms
-        # - Duplicate handling rules
-        # - Backup and archival procedures
+        try:
+            # Get all file processing rules from procedural memory
+            all_rules = self.procedural_memory.get_file_processing_rules()
 
-        return {}
+            # Organize rules by type for easy access
+            organized_rules = {
+                "file_type_rules": {},
+                "naming_convention": "timestamp_asset_category_sender_original",
+                "directory_structure": "asset_id/document_category/",
+                "duplicate_handling": "rename_with_suffix",
+                "security_scan_required": config.enable_virus_scanning,
+                "backup_enabled": False,
+                "categorization_method": "semantic_memory_search",
+            }
+
+            # Process file processing rules
+            for rule in all_rules:
+                rule_id = rule.get("rule_id", "unknown")
+                file_types = rule.get("file_types", [])
+
+                for file_type in file_types:
+                    if file_type not in organized_rules["file_type_rules"]:
+                        organized_rules["file_type_rules"][file_type] = []
+
+                    organized_rules["file_type_rules"][file_type].append(
+                        {
+                            "rule_id": rule_id,
+                            "description": rule.get("description", ""),
+                            "max_size_mb": rule.get("max_size_mb", 50),
+                            "extract_text": rule.get("extract_text", False),
+                        }
+                    )
+
+            logger.info(
+                f"Retrieved {len(all_rules)} file processing rules from procedural memory"
+            )
+            return organized_rules
+
+        except Exception as e:
+            logger.error(f"Failed to query procedural memory: {e}")
+            return self._get_default_processing_rules()
 
     def _get_default_processing_rules(self) -> dict[str, Any]:
         """Default processing rules until procedural memory is available."""

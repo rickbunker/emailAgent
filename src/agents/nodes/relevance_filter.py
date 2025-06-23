@@ -22,20 +22,29 @@ class RelevanceFilterNode:
     Queries semantic memory for keywords/patterns and procedural memory for rules.
     """
 
-    def __init__(self, semantic_memory=None, procedural_memory=None) -> None:
+    def __init__(self, memory_systems=None) -> None:
         """
         Initialize the relevance filter with memory system connections.
 
         Args:
-            semantic_memory: Semantic memory system for patterns/keywords
-            procedural_memory: Procedural memory system for rules/thresholds
+            memory_systems: Dictionary with all memory systems (semantic, procedural, etc.)
         """
-        self.semantic_memory = semantic_memory
-        self.procedural_memory = procedural_memory
+        if memory_systems:
+            self.semantic_memory = memory_systems.get("semantic")
+            self.procedural_memory = memory_systems.get("procedural")
+        else:
+            # Initialize simplified memory systems directly
+            # # Local application imports
+            from src.memory import create_memory_systems
+
+            systems = create_memory_systems()
+            self.semantic_memory = systems["semantic"]
+            self.procedural_memory = systems["procedural"]
+
         self.relevance_threshold = config.relevance_threshold
 
         logger.info(
-            f"Relevance filter initialized (threshold: {self.relevance_threshold})"
+            f"✅ Relevance filter initialized with simple memory systems (threshold: {self.relevance_threshold})"
         )
 
     @log_function()
@@ -66,9 +75,8 @@ class RelevanceFilterNode:
 
         reasoning = {"decision_factors": [], "confidence_factors": [], "flags": []}
 
-        # For now, use simple heuristics until memory systems are connected
-        # TODO: Replace with memory queries once semantic/procedural memory is integrated
-        relevance_score = await self._simple_relevance_check(
+        # Use memory systems for relevance evaluation
+        relevance_score = await self._memory_driven_relevance_check(
             subject, sender, body, attachments, reasoning
         )
 
@@ -99,7 +107,7 @@ class RelevanceFilterNode:
 
         return classification, relevance_score, reasoning
 
-    async def _simple_relevance_check(
+    async def _memory_driven_relevance_check(
         self,
         subject: str,
         sender: str,
@@ -108,65 +116,75 @@ class RelevanceFilterNode:
         reasoning: dict[str, Any],
     ) -> float:
         """
-        Simple relevance check until memory systems are integrated.
+        Memory-driven relevance check using simple memory systems.
 
-        This is a placeholder that will be replaced with memory queries.
+        Uses procedural memory for rules and semantic memory for patterns.
         """
         score = 0.0
 
-        # Basic keyword matching (will be replaced with semantic memory queries)
-        investment_terms = [
-            "fund",
-            "financial",
-            "statement",
-            "report",
-            "investment",
-            "asset",
-            "portfolio",
-        ]
+        # Get relevance rules from procedural memory
+        relevance_rules = self.procedural_memory.get_relevance_rules()
 
-        subject_lower = subject.lower()
-        body_lower = body.lower()
+        # Combine all text for analysis
+        combined_text = f"{subject} {body}".lower()
 
-        # Check subject for investment terms
-        subject_matches = sum(1 for term in investment_terms if term in subject_lower)
-        if subject_matches > 0:
-            score += 0.3
-            reasoning["decision_factors"].append(
-                f"Investment terms in subject: {subject_matches}"
+        # Apply each relevance rule
+        for rule in relevance_rules:
+            rule_score = 0.0
+            patterns = rule.get("patterns", [])
+            weight = rule.get("weight", 0.5)
+
+            # Check how many patterns match
+            pattern_matches = sum(
+                1 for pattern in patterns if pattern.lower() in combined_text
             )
 
-        # Check body for investment terms
-        body_matches = sum(1 for term in investment_terms if term in body_lower)
-        if body_matches > 0:
-            score += 0.2
-            reasoning["decision_factors"].append(
-                f"Investment terms in body: {body_matches}"
-            )
-
-        # Check attachments
-        if attachments:
-            relevant_extensions = [".pdf", ".xlsx", ".xls", ".docx"]
-            relevant_attachments = sum(
-                1
-                for att in attachments
-                if any(
-                    att.get("filename", "").lower().endswith(ext)
-                    for ext in relevant_extensions
-                )
-            )
-            if relevant_attachments > 0:
-                score += 0.4
+            if pattern_matches > 0:
+                # Calculate rule score based on pattern matches
+                rule_score = min(pattern_matches * 0.2, weight)
+                score += rule_score
                 reasoning["decision_factors"].append(
-                    f"Relevant attachments: {relevant_attachments}"
+                    f"{rule.get('description', 'Rule')}: {pattern_matches} patterns matched (score: {rule_score:.2f})"
                 )
 
-        # Boost for trusted domains (basic check)
+        # Check document categories from semantic memory
+        doc_categories = self.semantic_memory.search_document_categories(combined_text)
+        if doc_categories:
+            category_score = 0.0
+            for doc_cat in doc_categories[:2]:  # Top 2 categories
+                cat_score = doc_cat.get("score", 0.0) * 0.3
+                category_score += cat_score
+                reasoning["decision_factors"].append(
+                    f"Document category '{doc_cat['category']}' match (score: {cat_score:.2f})"
+                )
+            score += category_score
+
+        # Check attachments using semantic memory file rules
+        if attachments:
+            attachment_score = 0.0
+            relevant_count = 0
+
+            for attachment in attachments:
+                filename = attachment.get("filename", "")
+                file_ext = filename.lower().split(".")[-1] if "." in filename else ""
+
+                file_rules = self.semantic_memory.get_file_type_rules(file_ext)
+                if file_rules and file_rules.get("allowed", False):
+                    attachment_score += 0.2
+                    relevant_count += 1
+
+            if relevant_count > 0:
+                score += attachment_score
+                reasoning["decision_factors"].append(
+                    f"Relevant attachments: {relevant_count} (score: {attachment_score:.2f})"
+                )
+
+        # Check sender trust (simple domain check for now)
         if any(
             domain in sender.lower()
-            for domain in [".gov", ".edu", "investor", "finance"]
+            for domain in [".gov", ".edu", "investor", "finance", "capital"]
         ):
-            score += 0.2
+            score += 0.15
             reasoning["decision_factors"].append("Trusted sender domain")
 
         return min(score, 1.0)  # Cap at 1.0
@@ -190,8 +208,6 @@ class RelevanceFilterNode:
         """
         Query semantic memory for investment-related patterns.
 
-        TODO: Implement when semantic memory is available.
-
         Args:
             email_data: Email content to analyze
 
@@ -202,19 +218,27 @@ class RelevanceFilterNode:
             logger.warning("Semantic memory not available, using fallback")
             return {}
 
-        # This will query semantic memory for:
-        # - Investment keywords and phrases
-        # - Known sender patterns
-        # - Document type indicators
-        # - Historical classification patterns
+        patterns = {}
 
-        return {}
+        # Combine email content for analysis
+        content = f"{email_data.get('subject', '')} {email_data.get('body', '')}"
+
+        # Query document categories
+        doc_categories = self.semantic_memory.search_document_categories(content)
+        for doc_cat in doc_categories:
+            patterns[f"doc_category_{doc_cat['category']}"] = doc_cat.get("score", 0.0)
+
+        # Query asset profiles
+        asset_profiles = self.semantic_memory.search_asset_profiles(content)
+        for asset in asset_profiles:
+            patterns[f"asset_profile_{asset['asset_id']}"] = asset.get("score", 0.0)
+
+        logger.debug(f"Found {len(patterns)} semantic patterns")
+        return patterns
 
     async def query_procedural_rules(self, context: dict[str, Any]) -> dict[str, Any]:
         """
         Query procedural memory for decision rules and thresholds.
-
-        TODO: Implement when procedural memory is available.
 
         Args:
             context: Current evaluation context
@@ -226,10 +250,13 @@ class RelevanceFilterNode:
             logger.warning("Procedural memory not available, using defaults")
             return {"thresholds": {"relevance": self.relevance_threshold}}
 
-        # This will query procedural memory for:
-        # - Dynamic threshold adjustments
-        # - Scoring weights for different factors
-        # - Conditional rules based on context
-        # - Learned decision patterns from feedback
+        rules = {
+            "thresholds": {"relevance": self.relevance_threshold},
+            "relevance_rules": self.procedural_memory.get_relevance_rules(),
+            "file_processing_rules": self.procedural_memory.get_file_processing_rules(),
+        }
 
-        return {}
+        logger.debug(
+            f"Retrieved {len(rules['relevance_rules'])} relevance rules from procedural memory"
+        )
+        return rules

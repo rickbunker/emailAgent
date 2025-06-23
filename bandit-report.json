@@ -1,17 +1,17 @@
 {
   "errors": [],
-  "generated_at": "2025-06-23T13:59:14Z",
+  "generated_at": "2025-06-23T15:51:30Z",
   "metrics": {
     "_totals": {
       "CONFIDENCE.HIGH": 0,
-      "CONFIDENCE.LOW": 0,
-      "CONFIDENCE.MEDIUM": 1,
+      "CONFIDENCE.LOW": 1,
+      "CONFIDENCE.MEDIUM": 3,
       "CONFIDENCE.UNDEFINED": 0,
       "SEVERITY.HIGH": 0,
       "SEVERITY.LOW": 0,
-      "SEVERITY.MEDIUM": 1,
+      "SEVERITY.MEDIUM": 4,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 5447,
+      "loc": 6609,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -76,7 +76,7 @@
       "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 173,
+      "loc": 414,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -89,20 +89,20 @@
       "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 240,
+      "loc": 344,
       "nosec": 0,
       "skipped_tests": 0
     },
     "src/agents/nodes/feedback_integrator.py": {
       "CONFIDENCE.HIGH": 0,
-      "CONFIDENCE.LOW": 0,
+      "CONFIDENCE.LOW": 1,
       "CONFIDENCE.MEDIUM": 0,
       "CONFIDENCE.UNDEFINED": 0,
       "SEVERITY.HIGH": 0,
       "SEVERITY.LOW": 0,
-      "SEVERITY.MEDIUM": 0,
+      "SEVERITY.MEDIUM": 1,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 283,
+      "loc": 547,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -115,7 +115,7 @@
       "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 166,
+      "loc": 188,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -184,6 +184,32 @@
       "nosec": 0,
       "skipped_tests": 0
     },
+    "src/memory/__init__.py": {
+      "CONFIDENCE.HIGH": 0,
+      "CONFIDENCE.LOW": 0,
+      "CONFIDENCE.MEDIUM": 0,
+      "CONFIDENCE.UNDEFINED": 0,
+      "SEVERITY.HIGH": 0,
+      "SEVERITY.LOW": 0,
+      "SEVERITY.MEDIUM": 0,
+      "SEVERITY.UNDEFINED": 0,
+      "loc": 44,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "src/memory/simple_memory.py": {
+      "CONFIDENCE.HIGH": 0,
+      "CONFIDENCE.LOW": 0,
+      "CONFIDENCE.MEDIUM": 2,
+      "CONFIDENCE.UNDEFINED": 0,
+      "SEVERITY.HIGH": 0,
+      "SEVERITY.LOW": 0,
+      "SEVERITY.MEDIUM": 2,
+      "SEVERITY.UNDEFINED": 0,
+      "loc": 487,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
     "src/utils/__init__.py": {
       "CONFIDENCE.HIGH": 0,
       "CONFIDENCE.LOW": 0,
@@ -238,6 +264,76 @@
     }
   },
   "results": [
+    {
+      "code": "526         except Exception as e:\n527             logger.error(f\"Failed to update asset associations: {e}\")\n528             updates_made[\"error\"] = str(e)\n",
+      "col_offset": 27,
+      "end_col_offset": 64,
+      "filename": "src/agents/nodes/feedback_integrator.py",
+      "issue_confidence": "LOW",
+      "issue_cwe": {
+        "id": 89,
+        "link": "https://cwe.mitre.org/data/definitions/89.html"
+      },
+      "issue_severity": "MEDIUM",
+      "issue_text": "Possible SQL injection vector through string-based query construction.",
+      "line_number": 527,
+      "line_range": [
+        527
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b608_hardcoded_sql_expressions.html",
+      "test_id": "B608",
+      "test_name": "hardcoded_sql_expressions"
+    },
+    {
+      "code": "498             cursor = conn.execute(\n499                 f\"\"\"\n500                 SELECT * FROM processing_history\n501                 WHERE {where_clause}\n502                 ORDER BY created_at DESC\n503                 LIMIT ?\n504             \"\"\",\n505                 params,\n",
+      "col_offset": 20,
+      "end_col_offset": 22,
+      "filename": "src/memory/simple_memory.py",
+      "issue_confidence": "MEDIUM",
+      "issue_cwe": {
+        "id": 89,
+        "link": "https://cwe.mitre.org/data/definitions/89.html"
+      },
+      "issue_severity": "MEDIUM",
+      "issue_text": "Possible SQL injection vector through string-based query construction.",
+      "line_number": 499,
+      "line_range": [
+        499,
+        500,
+        501,
+        502,
+        503,
+        504
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b608_hardcoded_sql_expressions.html",
+      "test_id": "B608",
+      "test_name": "hardcoded_sql_expressions"
+    },
+    {
+      "code": "542             cursor = conn.execute(\n543                 f\"\"\"\n544                 SELECT * FROM human_feedback\n545                 {where_clause}\n546                 ORDER BY created_at DESC\n547                 LIMIT ?\n548             \"\"\",\n549                 params,\n",
+      "col_offset": 20,
+      "end_col_offset": 16,
+      "filename": "src/memory/simple_memory.py",
+      "issue_confidence": "MEDIUM",
+      "issue_cwe": {
+        "id": 89,
+        "link": "https://cwe.mitre.org/data/definitions/89.html"
+      },
+      "issue_severity": "MEDIUM",
+      "issue_text": "Possible SQL injection vector through string-based query construction.",
+      "line_number": 543,
+      "line_range": [
+        543,
+        544,
+        545,
+        546,
+        547,
+        548
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/0.0.0/plugins/b608_hardcoded_sql_expressions.html",
+      "test_id": "B608",
+      "test_name": "hardcoded_sql_expressions"
+    },
     {
       "code": "295             ),\n296             flask_host=os.getenv(\"FLASK_HOST\", \"0.0.0.0\"),\n297             flask_port=int(os.getenv(\"FLASK_PORT\", \"5001\")),\n",
       "col_offset": 47,
