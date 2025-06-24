@@ -7,32 +7,22 @@ with human feedback integration and learning capabilities.
 """
 
 # # Standard library imports
+# Standard library imports
 import asyncio
 import os
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-# Add project root to path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-# # Standard library imports
-from datetime import datetime
-
 # # Third-party imports
-from flask import (
-    Flask,
-    jsonify,
-    render_template,
-    request,
-    send_file,
-)
+# Third-party imports
+from flask import Flask, jsonify, render_template, request, send_file
 
 # # Local application imports
+# Local application imports
 from src.agents.email_graph import EmailProcessingGraph
 from src.email_interface.base import EmailSearchCriteria
-
-# Import our email processing system
 from src.email_interface.factory import EmailInterfaceFactory, EmailSystemType
 from src.memory import create_memory_systems
 from src.utils.config import config
@@ -497,13 +487,16 @@ def download_attachment(file_path: str) -> Any:
 
 
 if __name__ == "__main__":
+    # Add project root to path
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
     # Initialize the system
     if not initialize_system():
-        print("Failed to initialize system. Exiting.")
+        logger.critical("Failed to initialize system. Exiting.")
         sys.exit(1)
 
     # Run Flask app
-    print("Starting Inveniam E-mail Agent web interface...")
-    print(f"Visit: http://localhost:{config.flask_port}")
+    logger.info("Starting Inveniam E-mail Agent web interface...")
+    logger.info(f"Visit: http://localhost:{config.flask_port}")
 
     app.run(host=config.flask_host, port=config.flask_port, debug=config.debug)

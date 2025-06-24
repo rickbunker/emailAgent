@@ -80,6 +80,17 @@ class AssetMatcherNode:
         Raises:
             ValueError: If input data is malformed
         """
+        # DEBUG: Log the complete email context
+        logger.info("🔍 === ASSET MATCHING DEBUG START ===")
+        logger.info("🔍 EMAIL CONTEXT:")
+        logger.info(f"🔍   Sender: {email_data.get('sender', 'N/A')}")
+        logger.info(f"🔍   Subject: {email_data.get('subject', 'N/A')}")
+        logger.info(f"🔍   Body: {email_data.get('body', 'N/A')[:200]}...")
+        logger.info(f"🔍   Attachment Count: {len(attachments)}")
+
+        for i, att in enumerate(attachments):
+            logger.info(f"🔍   Attachment {i+1}: {att.get('filename', 'N/A')}")
+
         if not attachments:
             logger.info("No attachments to match")
             return {
@@ -94,25 +105,46 @@ class AssetMatcherNode:
 
         # Get matching algorithms from procedural memory
         matching_rules = await self.query_matching_procedures(email_data)
+        logger.info(
+            f"🔍 Retrieved {len(matching_rules)} matching rules from procedural memory"
+        )
 
         # Get asset data from semantic memory - include attachments in context
         context_with_attachments = {**email_data, "attachments": attachments}
         available_assets = await self.query_asset_profiles(context_with_attachments)
+        logger.info(
+            f"🔍 Retrieved {len(available_assets)} asset profiles from semantic memory"
+        )
 
         # Get similar cases from episodic memory
         similar_cases = await self.query_similar_cases(email_data)
+        logger.info(
+            f"🔍 Retrieved {len(similar_cases)} similar cases from episodic memory"
+        )
 
         matches = []
-        for attachment in attachments:
+        for i, attachment in enumerate(attachments):
+            logger.info(
+                f"🔍 === PROCESSING ATTACHMENT {i+1}/{len(attachments)}: {attachment.get('filename', 'N/A')} ==="
+            )
             attachment_matches = await self._match_single_attachment(
                 attachment, email_data, matching_rules, available_assets, similar_cases
             )
             matches.extend(attachment_matches)
+            logger.info(
+                f"🔍 Attachment {i+1} generated {len(attachment_matches)} matches"
+            )
 
         # DISABLED: Episodic memory should only be updated with human-approved data
         # await self._record_matching_session(email_data, attachments, matches)
 
-        logger.info(f"Generated {len(matches)} asset matches")
+        logger.info("🔍 === FINAL RESULTS ===")
+        logger.info(f"🔍 Total matches generated: {len(matches)}")
+        for match in matches:
+            logger.info(
+                f"🔍   {match['attachment_filename']} -> {match['asset_id']} (confidence: {match['confidence']:.3f})"
+            )
+        logger.info("🔍 === ASSET MATCHING DEBUG END ===")
 
         # Return in expected format with additional metadata
         return {
@@ -147,14 +179,20 @@ class AssetMatcherNode:
             List of matches for this attachment
         """
         filename = attachment.get("filename", "")
-        matches = []
 
-        logger.info(f"Matching attachment: {filename}")
+        logger.info(f"🔍 SINGLE ATTACHMENT MATCHING: {filename}")
+        logger.info(f"🔍   Email Sender: {email_data.get('sender', 'N/A')}")
+        logger.info(f"🔍   Email Subject: {email_data.get('subject', 'N/A')}")
+        logger.info(f"🔍   Email Body Preview: {email_data.get('body', 'N/A')[:100]}...")
 
         # Calculate matches using memory-driven logic
         asset_scores = await self._calculate_asset_scores(
             attachment, email_data, matching_rules, available_assets, similar_cases
         )
+
+        logger.info(f"🔍 ASSET SCORES FOR {filename}:")
+        for asset_id, score_data in asset_scores.items():
+            logger.info(f"🔍   {asset_id}: {score_data['confidence']:.3f}")
 
         # ATTACHMENT-CENTRIC: Only return the BEST match for each attachment
         best_match = None
@@ -179,11 +217,13 @@ class AssetMatcherNode:
 
         if best_match:
             logger.info(
-                f"Best match for {filename}: {best_match['asset_id']} (confidence: {best_match['confidence']:.2f})"
+                f"🔍 BEST MATCH for {filename}: {best_match['asset_id']} (confidence: {best_match['confidence']:.3f})"
             )
             return [best_match]  # Return list with single best match
         else:
-            logger.info(f"No matches above threshold for {filename}")
+            logger.info(
+                f"🔍 NO MATCHES above threshold ({self.asset_match_threshold}) for {filename}"
+            )
             return []
 
     async def _calculate_asset_scores(
@@ -208,12 +248,27 @@ class AssetMatcherNode:
             Dictionary mapping asset_id to score data
         """
         sender = email_data.get("sender", "").lower()
+        filename = attachment.get("filename", "")
+        subject = email_data.get("subject", "")
+        body = email_data.get("body", "")
+
+        logger.info(f"🔍 === CALCULATING SCORES FOR {filename} ===")
+        logger.info("🔍 INPUT DATA:")
+        logger.info(f"🔍   Sender: '{sender}'")
+        logger.info(f"🔍   Subject: '{subject}'")
+        logger.info(f"🔍   Body: '{body[:150]}...'")
+        logger.info(f"🔍   Filename: '{filename}'")
+        logger.info(f"🔍   Available Assets: {len(available_assets)}")
+        logger.info(f"🔍   Matching Rules: {len(matching_rules)}")
 
         asset_scores = {}
 
         for asset_data in available_assets:
             asset_id = asset_data["asset_id"]
             profile = asset_data["profile"]
+            asset_name = profile.get("name", "unknown")
+
+            logger.info(f"🔍 --- SCORING ASSET: {asset_id} ({asset_name}) ---")
 
             score_data = {
                 "confidence": 0.0,
@@ -224,6 +279,9 @@ class AssetMatcherNode:
 
             # Apply each matching rule from procedural memory
             for rule in matching_rules:
+                rule_id = rule.get("rule_id", "unknown")
+                logger.info(f"🔍   Applying rule: {rule_id}")
+
                 rule_score = self._apply_matching_rule(
                     rule, attachment, email_data, profile, asset_id
                 )
@@ -233,28 +291,28 @@ class AssetMatcherNode:
                     score_data["confidence"] += weighted_score
                     score_data["rule_matches"].append(
                         {
-                            "rule_id": rule.get("rule_id", "unknown"),
+                            "rule_id": rule_id,
                             "score": rule_score,
                             "weight": rule.get("weight", 0.5),
                             "weighted_score": weighted_score,
                         }
                     )
                     logger.info(
-                        f"Rule {rule.get('rule_id')} for {asset_id}: score={rule_score:.2f}, weighted={weighted_score:.2f}"
+                        f"🔍     ✓ {rule_id}: raw_score={rule_score:.3f}, weight={rule.get('weight', 0.5):.3f}, weighted={weighted_score:.3f}"
                     )
                 else:
-                    logger.info(f"Rule {rule.get('rule_id')} for {asset_id}: no match")
+                    logger.info(f"🔍     ✗ {rule_id}: no match (score=0)")
 
             # Apply episodic memory learning
             episodic_adjustment = self._apply_episodic_learning(
                 asset_id, sender, similar_cases
             )
-            score_data["confidence"] += episodic_adjustment
-
             if episodic_adjustment != 0:
+                score_data["confidence"] += episodic_adjustment
                 score_data["confidence_factors"].append(
                     f"Episodic learning adjustment: {episodic_adjustment:+.2f}"
                 )
+                logger.info(f"🔍   Episodic adjustment: {episodic_adjustment:+.3f}")
 
             # Cap confidence at 1.0
             score_data["confidence"] = min(score_data["confidence"], 1.0)
@@ -271,7 +329,7 @@ class AssetMatcherNode:
 
             # Debug logging for final scores
             logger.info(
-                f"Final score for {asset_id} ({profile.get('name', 'unknown')}): {score_data['confidence']:.2f} (threshold: {self.asset_match_threshold})"
+                f"🔍   FINAL SCORE for {asset_id}: {score_data['confidence']:.3f} (threshold: {self.asset_match_threshold})"
             )
 
             asset_scores[asset_id] = score_data
@@ -304,68 +362,100 @@ class AssetMatcherNode:
         body = email_data.get("body", "").lower()
         combined_text = f"{filename} {subject} {body}"
 
-        logger.info(
-            f"Applying rule '{rule_id}' to attachment '{attachment.get('filename', '')}'"
-        )
-        logger.info(f"Combined text for matching: '{combined_text}'")
+        logger.info(f"🔍     RULE {rule_id} DETAILS:")
+        logger.info(f"🔍       Filename text: '{filename}'")
+        logger.info(f"🔍       Subject text: '{subject}'")
+        logger.info(f"🔍       Body text: '{body[:100]}...'")
+        logger.info(f"🔍       Combined text: '{combined_text[:150]}...'")
 
         if rule_id == "exact_name_match":
             # Check for exact asset name matches or significant word overlap
             asset_name = asset_profile.get("name", "").lower()
+            logger.info(f"🔍       Asset name: '{asset_name}'")
+
             if asset_name:
                 # Full name match gets maximum score
                 if asset_name in combined_text:
-                    return rule.get("confidence", 0.95)
+                    score = rule.get("confidence", 0.95)
+                    logger.info(f"🔍       ✓ Full name match found! Score: {score:.3f}")
+                    return score
 
                 # Partial name match: check for significant word overlap
                 asset_words = set(asset_name.split())
                 text_words = set(combined_text.split())
                 common_words = asset_words.intersection(text_words)
 
+                logger.info(f"🔍       Asset words: {sorted(asset_words)}")
+                logger.info(
+                    f"🔍       Text words: {sorted(list(text_words)[:10])}... (showing first 10)"
+                )
+                logger.info(f"🔍       Common words: {sorted(common_words)}")
+
                 # If we have 2+ significant words in common, give partial score
                 if len(common_words) >= 2:
                     overlap_ratio = len(common_words) / len(asset_words)
-                    return overlap_ratio * rule.get("confidence", 0.95)
+                    score = overlap_ratio * rule.get("confidence", 0.95)
+                    logger.info(
+                        f"🔍       ✓ Partial name match: {len(common_words)}/{len(asset_words)} words, ratio={overlap_ratio:.3f}, score={score:.3f}"
+                    )
+                    return score
+                else:
+                    logger.info(
+                        f"🔍       ✗ Insufficient word overlap: {len(common_words)}/{len(asset_words)}"
+                    )
 
         elif rule_id == "sender_asset_association":
             # Check if sender is known to be associated with this asset using semantic memory
             sender = email_data.get("sender", "").lower()
+            logger.info(f"🔍       Checking sender association for: '{sender}'")
 
             # Query semantic memory for sender mappings
             try:
                 sender_mapping = self.semantic_memory.get_sender_mapping(sender)
+                logger.info(f"🔍       Sender mapping result: {sender_mapping}")
+
                 if sender_mapping and asset_id in sender_mapping.get("asset_ids", []):
                     # Sender is associated with this asset
+                    score = rule.get("confidence", 0.3)
                     logger.info(
-                        f"Sender association found: {sender} -> {asset_profile.get('name', '')} (asset_id: {asset_id})"
+                        f"🔍       ✓ Sender association found: {sender} -> {asset_profile.get('name', '')} (asset_id: {asset_id}), score={score:.3f}"
                     )
-                    return rule.get("confidence", 0.3)
+                    return score
                 else:
-                    logger.info(f"No sender association: {sender} -> {asset_id}")
+                    logger.info(
+                        f"🔍       ✗ No sender association: {sender} -> {asset_id}"
+                    )
             except Exception as e:
-                logger.warning(f"Could not query sender mappings: {e}")
+                logger.warning(f"🔍       Could not query sender mappings: {e}")
                 # Fallback to old hardcoded logic
-                if sender == "rick@bunker.us":
-                    if asset_profile.get("name", "").lower().startswith("i3"):
-                        if "i3" in filename:
-                            logger.info(
-                                f"Fallback sender + content match: {sender} -> {asset_profile.get('name', '')} (filename: {attachment.get('filename', '')})"
-                            )
-                            return rule.get("confidence", 0.9)
-                        else:
-                            return 0.1
+                logger.info("🔍       Using fallback hardcoded sender logic")
+                if sender == "rick@bunker.us" and asset_profile.get(
+                    "name", ""
+                ).lower().startswith("i3"):
+                    if "i3" in filename:
+                        score = rule.get("confidence", 0.9)
+                        logger.info(
+                            f"🔍       ✓ Fallback sender + content match: {sender} -> {asset_profile.get('name', '')} (filename: {attachment.get('filename', '')}), score={score:.3f}"
+                        )
+                        return score
+                    else:
+                        logger.info(
+                            "🔍       ◐ Partial fallback match (sender ok, no i3 in filename): score=0.1"
+                        )
+                        return 0.1
             return 0.0
 
         elif rule_id == "keyword_match":
             # Check for asset keyword matches
             keywords = asset_profile.get("keywords", [])
+            logger.info(f"🔍       Asset keywords: {keywords}")
+
             if not keywords:
                 logger.info(
-                    f"No keywords found for {asset_profile.get('name', 'unknown')}"
+                    f"🔍       ✗ No keywords found for {asset_profile.get('name', 'unknown')}"
                 )
                 return 0.0
 
-            logger.info(f"Testing keywords {keywords} against text: '{combined_text}'")
             matches = 0
             matched_keywords = []
 
@@ -373,9 +463,11 @@ class AssetMatcherNode:
                 if keyword.lower() in combined_text:
                     matches += 1
                     matched_keywords.append(keyword)
-                    logger.info(f"  ✓ Keyword '{keyword}' found in text")
+                    logger.info(f"🔍       ✓ Keyword '{keyword}' found in combined text")
                 else:
-                    logger.info(f"  ✗ Keyword '{keyword}' NOT found in text")
+                    logger.info(
+                        f"🔍       ✗ Keyword '{keyword}' NOT found in combined text"
+                    )
 
             if matches > 0:
                 # More generous scoring: boost score for multiple matches
@@ -387,13 +479,11 @@ class AssetMatcherNode:
                     base_score = min(base_score * 1.3, 1.0)
 
                 logger.info(
-                    f"Keyword matches for {asset_profile.get('name', 'unknown')}: {matched_keywords} ({matches}/{len(keywords)} = {match_ratio:.2f}, score: {base_score:.2f})"
+                    f"🔍       ✓ Keyword matches: {matched_keywords} ({matches}/{len(keywords)} = {match_ratio:.2f}), base_score: {base_score:.3f}"
                 )
                 return base_score
             else:
-                logger.info(
-                    f"No keyword matches found for {asset_profile.get('name', 'unknown')}"
-                )
+                logger.info("🔍       ✗ No keyword matches found")
 
         return 0.0
 
@@ -482,7 +572,8 @@ class AssetMatcherNode:
         try:
             # Search for assets based on email content
             search_terms = self._extract_search_terms(context)
-            logger.info(f"Extracted search terms (all): {search_terms}")
+            logger.info("🔍 === QUERYING ASSET PROFILES ===")
+            logger.info(f"🔍 Search terms extracted: {search_terms}")
             all_results = []
 
             # Get all asset keywords from semantic memory to determine priority terms
@@ -491,51 +582,67 @@ class AssetMatcherNode:
                 term for term in search_terms if term in all_asset_keywords
             ]
 
-            logger.info(
-                f"Asset keywords from semantic memory: {sorted(all_asset_keywords)}"
-            )
-            logger.info(f"Priority asset terms found: {priority_terms}")
+            logger.info(f"🔍 All asset keywords in memory: {sorted(all_asset_keywords)}")
+            logger.info(f"🔍 Priority asset terms found: {priority_terms}")
 
             # First, search for priority asset-specific terms (no limit)
             for term in priority_terms:
-                results = self.semantic_memory.search_asset_profiles(term, limit=5)
+                logger.info(f"🔍 Searching for priority term: '{term}'")
+                results = self.semantic_memory.search_asset_profiles(term, limit=50)
                 logger.info(
-                    f"Priority search term '{term}' found {len(results)} assets"
+                    f"🔍   Found {len(results)} profiles for priority term '{term}'"
                 )
+                for result in results:
+                    logger.info(
+                        f"🔍     {result['asset_id']} ({result['profile'].get('name', 'N/A')}): score={result['score']:.3f}"
+                    )
                 all_results.extend(results)
 
-            # Then search remaining terms (limited to top 3)
-            remaining_terms = [
-                term for term in search_terms if term not in all_asset_keywords
+            # Then search for general terms (limited to avoid noise)
+            general_terms = [
+                term for term in search_terms if term not in priority_terms
             ]
-            logger.info(f"Remaining search terms (first 3): {remaining_terms[:3]}")
-            for term in remaining_terms[:3]:
-                results = self.semantic_memory.search_asset_profiles(term, limit=5)
-                logger.info(f"General search term '{term}' found {len(results)} assets")
+            logger.info(f"🔍 General terms: {general_terms[:5]}... (showing first 5)")
+
+            for term in general_terms[:5]:  # Limit general terms
+                logger.info(f"🔍 Searching for general term: '{term}'")
+                results = self.semantic_memory.search_asset_profiles(term, limit=10)
+                logger.info(
+                    f"🔍   Found {len(results)} profiles for general term '{term}'"
+                )
+                for result in results:
+                    logger.info(
+                        f"🔍     {result['asset_id']} ({result['profile'].get('name', 'N/A')}): score={result['score']:.3f}"
+                    )
                 all_results.extend(results)
 
-            # Remove duplicates by asset_id
-            unique_assets = {}
+            # Deduplicate and merge scores
+            asset_map = {}
             for result in all_results:
                 asset_id = result["asset_id"]
-                if (
-                    asset_id not in unique_assets
-                    or result["score"] > unique_assets[asset_id]["score"]
-                ):
-                    unique_assets[asset_id] = result
+                if asset_id not in asset_map:
+                    asset_map[asset_id] = result
+                else:
+                    # Combine scores (take maximum)
+                    asset_map[asset_id]["score"] = max(
+                        asset_map[asset_id]["score"], result["score"]
+                    )
 
-            asset_list = list(unique_assets.values())
-            logger.info(
-                f"Retrieved {len(asset_list)} asset profiles from semantic memory"
-            )
-
-            # Debug: log which assets were found
-            for asset in asset_list:
+            final_results = list(asset_map.values())
+            logger.info(f"🔍 FINAL ASSET PROFILES ({len(final_results)} unique):")
+            for result in final_results:
                 logger.info(
-                    f"  - Asset: {asset['asset_id']} (score: {asset['score']:.2f})"
+                    f"🔍   {result['asset_id']} ({result['profile'].get('name', 'N/A')}): final_score={result['score']:.3f}"
                 )
 
-            return asset_list
+            # Sort by score and return top matches
+            final_results.sort(key=lambda x: x["score"], reverse=True)
+            top_results = final_results[:20]  # Limit to top 20
+
+            logger.info(
+                f"🔍 === ASSET PROFILES QUERY COMPLETE ({len(top_results)} returned) ==="
+            )
+            return top_results
 
         except Exception as e:
             logger.error(f"Failed to query semantic memory: {e}")
@@ -572,97 +679,77 @@ class AssetMatcherNode:
 
     def _extract_search_terms(self, context: dict[str, Any]) -> list[str]:
         """
-        Extract search terms from email context, prioritizing asset identifiers.
+        Extract search terms from email context and attachments.
 
         Args:
-            context: Email context
+            context: Dictionary with email data and attachments
 
         Returns:
-            List of search terms prioritized by asset relevance
+            List of search terms for asset matching
         """
-        # Priority terms for asset identification
-        priority_terms = []
-        general_terms = []
+        search_terms = []
 
-        # Asset-specific patterns to prioritize
-        asset_patterns = ["idt", "trimble", "i3", "gray", "alpha", "real", "estate"]
-
-        # Extract from attachment filenames - this is key for asset matching
+        # Get email content
+        subject = context.get("subject", "")
+        body = context.get("body", "")
+        sender = context.get("sender", "")
         attachments = context.get("attachments", [])
+
+        logger.info("🔍 === EXTRACTING SEARCH TERMS ===")
+        logger.info("🔍 INPUT SOURCES:")
+        logger.info(f"🔍   Subject: '{subject}'")
+        logger.info(f"🔍   Body: '{body[:100]}...'")
+        logger.info(f"🔍   Sender: '{sender}'")
+        logger.info(
+            f"🔍   Attachments: {[att.get('filename', 'N/A') for att in attachments]}"
+        )
+
+        # Extract from subject (split into words, filter meaningful ones)
+        if subject:
+            subject_words = [
+                word.strip().lower()
+                for word in subject.replace("_", " ").replace("-", " ").split()
+                if len(word.strip()) > 1  # Skip single letters
+            ]
+            search_terms.extend(subject_words)
+            logger.info(f"🔍   Subject terms: {subject_words}")
+
+        # Extract from body (first 200 chars, split into words)
+        if body:
+            body_preview = body[:200].lower()
+            body_words = [
+                word.strip().lower()
+                for word in body_preview.replace("_", " ").replace("-", " ").split()
+                if len(word.strip()) > 2  # Skip short words for body
+            ]
+            # Limit body words to avoid noise
+            search_terms.extend(body_words[:10])
+            logger.info(f"🔍   Body terms: {body_words[:10]}")
+
+        # Extract from attachment filenames
         for attachment in attachments:
             filename = attachment.get("filename", "")
             if filename:
-                # Extract potential asset identifiers from filename
-                filename_parts = (
-                    filename.lower()
-                    .replace("_", " ")
-                    .replace("-", " ")
-                    .replace(".", " ")
-                    .split()
-                )
-                for part in filename_parts:
-                    if len(part) > 1:  # Include shorter terms like "i3"
-                        if part in asset_patterns:
-                            priority_terms.append(part)
-                        else:
-                            general_terms.append(part)
-
-                # Explicit checks for asset identifiers (highest priority)
-                if "idt" in filename.lower():
-                    priority_terms.append("idt")
-                if "trimble" in filename.lower():
-                    priority_terms.append("trimble")
-                if "i3" in filename.lower():
-                    priority_terms.append("i3")
-                if "gray" in filename.lower():
-                    priority_terms.append("gray")
-
-        # Extract from subject (lower priority than filenames)
-        subject = context.get("subject", "")
-        if subject:
-            words = subject.lower().split()
-            important_words = [w for w in words if len(w) > 2 and w.isalpha()]
-            for word in important_words[:5]:
-                if word in asset_patterns:
-                    priority_terms.append(word)
-                else:
-                    general_terms.append(word)
-
-        # Extract from body text (same priority as subject)
-        body = context.get("body", "")
-        if body:
-            # Explicit checks for asset identifiers in body
-            body_lower = body.lower()
-            if "idt" in body_lower:
-                priority_terms.append("idt")
-            if "trimble" in body_lower:
-                priority_terms.append("trimble")
-            if "i3" in body_lower:
-                priority_terms.append("i3")
-            if "gray" in body_lower:
-                priority_terms.append("gray")
-
-            # Also extract important words from body (limited to avoid noise)
-            words = body_lower.split()
-            important_words = [w for w in words if len(w) > 2 and w.isalpha()]
-            for word in important_words[:10]:  # Take more words from body than subject
-                if word in asset_patterns and word not in priority_terms:
-                    priority_terms.append(word)
-
-        # Extract from sender domain (lowest priority)
-        sender = context.get("sender", "")
-        if "@" in sender:
-            domain = sender.split("@")[1]
-            general_terms.append(domain)
-
-        # Combine terms with priority first
-        all_terms = priority_terms + general_terms
+                # Remove extension and split
+                name_part = filename.lower().split(".")[0]
+                filename_words = [
+                    word.strip().lower()
+                    for word in name_part.replace("_", " ").replace("-", " ").split()
+                    if len(word.strip()) > 1
+                ]
+                search_terms.extend(filename_words)
+                logger.info(f"🔍   Filename '{filename}' terms: {filename_words}")
 
         # Remove duplicates while preserving order
         unique_terms = []
-        for term in all_terms:
-            if term not in unique_terms:
+        seen = set()
+        for term in search_terms:
+            if term not in seen and len(term) > 1:
                 unique_terms.append(term)
+                seen.add(term)
+
+        logger.info(f"🔍 FINAL SEARCH TERMS: {unique_terms}")
+        logger.info("🔍 === SEARCH TERMS EXTRACTION COMPLETE ===")
 
         return unique_terms
 
@@ -682,7 +769,7 @@ class AssetMatcherNode:
             asset_data = self.semantic_memory.data.get("asset_profiles", {})
             all_keywords = set()
 
-            for asset_id, profile in asset_data.items():
+            for _, profile in asset_data.items():
                 keywords = profile.get("keywords", [])
                 # Add individual keywords, making them lowercase for matching
                 for keyword in keywords:
