@@ -1,108 +1,108 @@
 {
-  "asset_matching_rules": [
-    {
-      "confidence": 0.95,
-      "description": "Exact asset name in filename or subject",
-      "rule_id": "exact_name_match",
-      "weight": 0.9
-    },
-    {
-      "confidence": 0.8,
-      "description": "Asset keywords in content using semantic memory profiles",
-      "rule_id": "keyword_match",
-      "weight": 0.7
-    },
-    {
-      "confidence": 0.7,
-      "description": "Match assets based on sender mappings from semantic memory",
-      "rule_id": "sender_asset_mapping",
-      "weight": 0.6
+    "relevance_rules": [
+        {
+            "rule_id": "investment_keywords",
+            "description": "Check for investment-related keywords",
+            "patterns": [
+                "investment",
+                "portfolio",
+                "asset",
+                "fund",
+                "capital"
+            ],
+            "weight": 0.6,
+            "confidence": 0.8
+        },
+        {
+            "rule_id": "credit_keywords",
+            "description": "Check for credit and loan-related keywords",
+            "patterns": [
+                "trm",
+                "term",
+                "loan",
+                "credit",
+                "facility",
+                "syndicated"
+            ],
+            "weight": 0.7,
+            "confidence": 0.8
+        },
+        {
+            "rule_id": "financial_documents",
+            "description": "Check for financial document keywords",
+            "patterns": [
+                "statement",
+                "report",
+                "financial",
+                "balance",
+                "agreement",
+                "documents"
+            ],
+            "weight": 0.7,
+            "confidence": 0.9
+        },
+        {
+            "rule_id": "sender_trust_check",
+            "description": "Apply sender trust scoring from semantic memory",
+            "patterns": [],
+            "weight": 0.8,
+            "confidence": 0.9
+        }
+    ],
+    "asset_matching_rules": [
+        {
+            "rule_id": "exact_name_match",
+            "description": "Exact asset name in filename or subject",
+            "weight": 0.9,
+            "confidence": 0.95
+        },
+        {
+            "rule_id": "keyword_match",
+            "description": "Asset keywords in content using semantic memory profiles",
+            "weight": 0.7,
+            "confidence": 0.8
+        },
+        {
+            "rule_id": "sender_asset_mapping",
+            "description": "Match assets based on sender mappings from semantic memory",
+            "weight": 0.6,
+            "confidence": 0.7
+        }
+    ],
+    "file_processing_rules": [
+        {
+            "rule_id": "pdf_processing",
+            "description": "PDF document processing procedure",
+            "file_types": [
+                "pdf"
+            ],
+            "extract_text": true,
+            "use_semantic_size_limits": true
+        },
+        {
+            "rule_id": "excel_processing",
+            "description": "Excel spreadsheet processing procedure",
+            "file_types": [
+                "xlsx",
+                "xls"
+            ],
+            "extract_text": false,
+            "use_semantic_size_limits": true
+        },
+        {
+            "rule_id": "document_processing",
+            "description": "Word document processing procedure",
+            "file_types": [
+                "docx",
+                "doc"
+            ],
+            "extract_text": true,
+            "use_semantic_size_limits": true
+        }
+    ],
+    "thresholds": {
+        "relevance_threshold": 0.7,
+        "asset_match_threshold": 0.5,
+        "low_confidence_threshold": 0.3
     }
-  ],
-  "file_processing_rules": [
-    {
-      "description": "PDF document processing procedure",
-      "extract_text": true,
-      "file_types": [
-        "pdf"
-      ],
-      "rule_id": "pdf_processing",
-      "use_semantic_size_limits": true
-    },
-    {
-      "description": "Excel spreadsheet processing procedure",
-      "extract_text": false,
-      "file_types": [
-        "xlsx",
-        "xls"
-      ],
-      "rule_id": "excel_processing",
-      "use_semantic_size_limits": true
-    },
-    {
-      "description": "Word document processing procedure",
-      "extract_text": true,
-      "file_types": [
-        "docx",
-        "doc"
-      ],
-      "rule_id": "document_processing",
-      "use_semantic_size_limits": true
-    }
-  ],
-  "relevance_rules": [
-    {
-      "confidence": 0.8,
-      "description": "Check for investment-related keywords",
-      "patterns": [
-        "investment",
-        "portfolio",
-        "asset",
-        "fund",
-        "capital"
-      ],
-      "rule_id": "investment_keywords",
-      "weight": 0.6
-    },
-    {
-      "confidence": 0.8,
-      "description": "Check for credit and loan-related keywords",
-      "patterns": [
-        "trm",
-        "term",
-        "loan",
-        "credit",
-        "facility",
-        "syndicated"
-      ],
-      "rule_id": "credit_keywords",
-      "weight": 0.7
-    },
-    {
-      "confidence": 0.9,
-      "description": "Check for financial document keywords",
-      "patterns": [
-        "statement",
-        "report",
-        "financial",
-        "balance",
-        "agreement",
-        "documents"
-      ],
-      "rule_id": "financial_documents",
-      "weight": 0.7
-    },
-    {
-      "confidence": 0.9,
-      "description": "Apply sender trust scoring from semantic memory",
-      "patterns": [],
-      "rule_id": "sender_trust_check",
-      "weight": 0.8
-    }
-  ],
-  "thresholds": {
-    "asset_match_threshold": 0.5,
-    "low_confidence_threshold": 0.3,
-    "relevance_threshold": 0.7
-  }
 }

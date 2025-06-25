@@ -1,13 +1,14 @@
 {
     "asset_profiles": {
-        "SAMPLE_ASSET": {
-            "name": "Sample Investment Asset",
+        "HUMAN_REVIEW_QUEUE": {
+            "name": "Human Review Queue",
             "keywords": [
-                "sample",
-                "investment",
-                "asset"
+                "unassigned",
+                "review",
+                "unknown"
             ],
-            "confidence": 0.8
+            "confidence": 0.1,
+            "description": "Catch-all bucket for attachments that don't match any defined asset"
         },
         "IDT_TELECOM_CREDIT": {
             "name": "IDT Telecom Credit Facility",
@@ -30,7 +31,7 @@
             "name": "i3 Verticals Credit Facility",
             "keywords": [
                 "i3",
-                "verticals"
+                "trm"
             ],
             "confidence": 0.8
         },
@@ -38,7 +39,7 @@
             "name": "Gray TV Credit Facility",
             "keywords": [
                 "gray",
-                "tv"
+                "trm"
             ],
             "confidence": 0.8
         }
@@ -77,26 +78,9 @@
             "trust_score": 0.9,
             "organization": "Inveniam",
             "relationship_type": "internal"
-        },
-        "advisor@example.com": {
-            "name": "Investment Advisor",
-            "asset_ids": [
-                "SAMPLE_ASSET"
-            ],
-            "trust_score": 0.9,
-            "organization": "Example Investment Co",
-            "relationship_type": "advisor"
         }
     },
     "organization_contacts": {
-        "Example Investment Co": {
-            "domain": "example.com",
-            "trust_score": 0.8,
-            "contact_count": 1,
-            "asset_ids": [
-                "SAMPLE_ASSET"
-            ]
-        },
         "Inveniam": {
             "domain": "bunker.us",
             "trust_score": 0.9,
