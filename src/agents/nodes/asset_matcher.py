@@ -976,38 +976,82 @@ class AssetMatcherNode:
         similar_cases: list[dict[str, Any]],
     ) -> float:
         """
-        Apply learning from episodic memory to adjust confidence.
+        Apply learning from human feedback to adjust confidence.
+
+        This method ONLY uses human feedback to influence future decisions,
+        NOT the system's own processing history, to avoid reinforcing mistakes.
 
         Args:
             asset_id: Asset ID being matched
             sender: Email sender
-            similar_cases: Similar cases from episodic memory
+            similar_cases: Similar cases from processing history (NOT used for decision-making)
 
         Returns:
-            Confidence adjustment (-0.3 to +0.3)
+            Confidence adjustment based on human feedback (-0.3 to +0.3)
         """
-        if not similar_cases:
+        if not self.episodic_memory:
             return 0.0
 
-        # Look for cases with same sender and asset
-        sender_asset_cases = [
-            case
-            for case in similar_cases
-            if case.get("sender", "").lower() == sender.lower()
-            and case.get("asset_id") == asset_id
-        ]
+        try:
+            # Query ONLY human feedback patterns, NOT processing history
+            feedback_patterns = self.episodic_memory.search_human_feedback_patterns(
+                sender=sender, feedback_type="asset_match", limit=10
+            )
 
-        if sender_asset_cases:
-            # Positive adjustment if this sender-asset combo worked before
-            avg_confidence = sum(
-                case.get("confidence", 0) for case in sender_asset_cases
-            ) / len(sender_asset_cases)
-            if avg_confidence > 0.7:
-                return 0.2  # Boost confidence
-            elif avg_confidence < 0.3:
-                return -0.2  # Reduce confidence
+            if not feedback_patterns:
+                return 0.0
 
-        return 0.0
+            # Look for human corrections involving this sender and asset combination
+            relevant_feedback = []
+            for feedback in feedback_patterns:
+                feedback_asset_id = feedback.get("asset_id")
+                if feedback_asset_id == asset_id:
+                    relevant_feedback.append(feedback)
+
+            if not relevant_feedback:
+                return 0.0
+
+            # Analyze human corrections for this sender-asset combination
+            positive_corrections = 0  # Human corrected to match this asset
+            negative_corrections = 0  # Human corrected away from this asset
+            total_impact = 0.0
+
+            for feedback in relevant_feedback:
+                corrected_decision = feedback.get("corrected_decision", "").lower()
+                original_decision = feedback.get("original_decision", "").lower()
+                confidence_impact = feedback.get("confidence_impact", 0.0)
+
+                total_impact += abs(confidence_impact)
+
+                # If human corrected TO this asset match
+                if "match" in corrected_decision and "no_match" in original_decision:
+                    positive_corrections += 1
+                # If human corrected AWAY from this asset match
+                elif "no_match" in corrected_decision and "match" in original_decision:
+                    negative_corrections += 1
+
+            if positive_corrections == 0 and negative_corrections == 0:
+                return 0.0
+
+            total_corrections = positive_corrections + negative_corrections
+            avg_impact = (
+                total_impact / total_corrections if total_corrections > 0 else 0.0
+            )
+
+            # Apply confidence adjustment based on human feedback
+            if positive_corrections > negative_corrections and total_corrections >= 2:
+                # Humans have consistently corrected TO this asset match
+                return min(avg_impact * 0.3, 0.3)  # Up to +0.3 boost
+            elif negative_corrections > positive_corrections and total_corrections >= 2:
+                # Humans have consistently corrected AWAY from this asset match
+                return -min(avg_impact * 0.3, 0.3)  # Up to -0.3 penalty
+            else:
+                # Inconclusive or insufficient feedback
+                return 0.0
+
+        except Exception as e:
+            logger.error(f"Failed to apply human feedback learning: {e}")
+            return 0.0
 
     async def query_matching_procedures(
         self, context: dict[str, Any]
@@ -1226,11 +1270,15 @@ class AssetMatcherNode:
         """
         Query episodic memory for similar processing cases.
 
+        WARNING: This method returns the system's own processing decisions,
+        which should NOT be used to influence future automated decisions.
+        This is only used for review and analysis purposes.
+
         Args:
             context: Email context
 
         Returns:
-            List of similar processing cases
+            List of similar processing cases from processing history (for review only)
         """
         if not self.episodic_memory:
             logger.info("Episodic memory not available")
@@ -1242,7 +1290,7 @@ class AssetMatcherNode:
                 sender=sender, limit=10
             )
             logger.info(
-                f"Retrieved {len(similar_cases)} similar cases from episodic memory"
+                f"Retrieved {len(similar_cases)} similar cases from processing history (review only)"
             )
             return similar_cases
         except Exception as e:

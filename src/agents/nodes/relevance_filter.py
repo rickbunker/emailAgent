@@ -196,14 +196,17 @@ class RelevanceFilterNode:
         self, sender: str, reasoning: dict[str, Any]
     ) -> float:
         """
-        Check episodic memory for learned sender patterns that should influence relevance.
+        Check episodic memory for learned sender patterns from human feedback.
+
+        This method ONLY uses human feedback to influence future decisions,
+        NOT the system's own processing history, to avoid reinforcing mistakes.
 
         Args:
             sender: Email sender address
             reasoning: Reasoning dict to append decision factors
 
         Returns:
-            Score adjustment based on episodic learning (0.0 to 0.5)
+            Score adjustment based on human feedback learning (0.0 to 0.5)
         """
         if not self.episodic_memory or not sender:
             logger.info(
@@ -212,80 +215,107 @@ class RelevanceFilterNode:
             return 0.0
 
         try:
-            logger.info(f"Checking episodic memory for sender: {sender}")
+            logger.info(f"Checking human feedback patterns for sender: {sender}")
 
-            # Query episodic memory for sender patterns - use correct method name
-            sender_history = self.episodic_memory.search_similar_cases(
+            # Query ONLY human feedback patterns, NOT processing history
+            feedback_patterns = self.episodic_memory.search_human_feedback_patterns(
                 sender=sender, limit=10
             )
             logger.info(
-                f"Found {len(sender_history)} historical records for sender: {sender}"
+                f"Found {len(feedback_patterns)} human feedback records for sender: {sender}"
             )
 
-            if not sender_history:
-                logger.info(f"No episodic history found for sender: {sender}")
+            if not feedback_patterns:
+                logger.info(f"No human feedback found for sender: {sender}")
                 return 0.0
 
-            # Analyze the sender's historical relevance
-            relevant_count = 0
-            total_count = 0
-            avg_confidence = 0.0
+            # Analyze human corrections for this sender
+            relevance_corrections = 0
+            irrelevance_corrections = 0
+            total_impact = 0.0
 
-            for record in sender_history:
-                decision = record.get("decision", "").lower()
-                confidence = record.get("confidence", 0.0)
+            for feedback in feedback_patterns:
+                feedback_type = feedback.get("feedback_type", "")
+                corrected_decision = feedback.get("corrected_decision", "").lower()
+                original_decision = feedback.get("original_decision", "").lower()
+                confidence_impact = feedback.get("confidence_impact", 0.0)
+
                 logger.debug(
-                    f"Historical record: decision={decision}, confidence={confidence}"
+                    f"Human feedback: {original_decision} -> {corrected_decision}, impact: {confidence_impact}"
                 )
 
-                if decision in ["relevant", "irrelevant"]:
-                    total_count += 1
-                    avg_confidence += confidence
+                # Track corrections related to relevance
+                if "relevance" in feedback_type.lower():
+                    total_impact += abs(confidence_impact)
 
-                    if decision == "relevant":
-                        relevant_count += 1
+                    if (
+                        corrected_decision == "relevant"
+                        and original_decision == "irrelevant"
+                    ):
+                        relevance_corrections += 1
+                    elif (
+                        corrected_decision == "irrelevant"
+                        and original_decision == "relevant"
+                    ):
+                        irrelevance_corrections += 1
 
-            if total_count == 0:
+            if relevance_corrections == 0 and irrelevance_corrections == 0:
                 logger.info(
-                    f"No relevant historical decisions found for sender: {sender}"
+                    f"No relevance-related human feedback found for sender: {sender}"
                 )
                 return 0.0
 
-            avg_confidence = avg_confidence / total_count
-            relevance_ratio = relevant_count / total_count
+            total_corrections = relevance_corrections + irrelevance_corrections
+            avg_impact = (
+                total_impact / total_corrections if total_corrections > 0 else 0.0
+            )
 
             logger.info(
-                f"Sender analysis: {relevant_count}/{total_count} relevant (ratio: {relevance_ratio:.2f}), avg_confidence: {avg_confidence:.2f}"
+                f"Human feedback analysis: {relevance_corrections} relevance corrections, {irrelevance_corrections} irrelevance corrections, avg_impact: {avg_impact:.2f}"
             )
 
-            # Calculate episodic adjustment
+            # Calculate episodic adjustment based on human feedback patterns
             episodic_score = 0.0
 
-            if relevance_ratio >= 0.7:  # Sender is usually relevant
-                episodic_score = min(avg_confidence * 0.5, 0.5)  # Up to 0.5 boost
+            if (
+                relevance_corrections > irrelevance_corrections
+                and total_corrections >= 2
+            ):
+                # Humans have consistently corrected this sender to "relevant"
+                episodic_score = min(
+                    avg_impact * 0.4, 0.4
+                )  # Up to 0.4 boost based on human feedback
                 reasoning["decision_factors"].append(
-                    f"Episodic memory: sender {sender} typically relevant ({relevant_count}/{total_count}, confidence: {avg_confidence:.2f}) (score: +{episodic_score:.2f})"
+                    f"Human feedback: sender {sender} corrected to relevant {relevance_corrections}/{total_corrections} times (score: +{episodic_score:.2f})"
                 )
                 logger.info(
-                    f"Applied positive episodic adjustment: +{episodic_score:.2f}"
+                    f"Applied positive human feedback adjustment: +{episodic_score:.2f}"
                 )
-            elif relevance_ratio <= 0.3:  # Sender is usually irrelevant
-                episodic_score = -min(avg_confidence * 0.3, 0.3)  # Up to -0.3 penalty
+
+            elif (
+                irrelevance_corrections > relevance_corrections
+                and total_corrections >= 2
+            ):
+                # Humans have consistently corrected this sender to "irrelevant"
+                episodic_score = -min(
+                    avg_impact * 0.3, 0.3
+                )  # Up to -0.3 penalty based on human feedback
                 reasoning["decision_factors"].append(
-                    f"Episodic memory: sender {sender} typically irrelevant ({relevant_count}/{total_count}, confidence: {avg_confidence:.2f}) (score: {episodic_score:.2f})"
+                    f"Human feedback: sender {sender} corrected to irrelevant {irrelevance_corrections}/{total_corrections} times (score: {episodic_score:.2f})"
                 )
                 logger.info(
-                    f"Applied negative episodic adjustment: {episodic_score:.2f}"
+                    f"Applied negative human feedback adjustment: {episodic_score:.2f}"
                 )
+
             else:
                 logger.info(
-                    "Sender pattern inconclusive, no episodic adjustment applied"
+                    "Human feedback pattern inconclusive or insufficient, no adjustment applied"
                 )
 
             return episodic_score
 
         except Exception as e:
-            logger.error(f"Failed to check episodic sender patterns: {e}")
+            logger.error(f"Failed to check human feedback patterns: {e}")
             logger.error(f"Exception type: {type(e).__name__}")
             return 0.0
 

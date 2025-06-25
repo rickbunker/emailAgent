@@ -662,7 +662,18 @@ class SimpleEpisodicMemory:
         category: str = None,
         limit: int = 10,
     ) -> list[dict[str, Any]]:
-        """Search for similar processing cases"""
+        """
+        Search for similar processing cases in processing history.
+
+        WARNING: This method returns the system's own processing decisions,
+        which should NOT be used to influence future automated decisions.
+        Use search_human_feedback_patterns() for decision-making instead.
+
+        This method should only be used for:
+        - Review and analysis purposes
+        - Generating hints for human review
+        - Historical analysis
+        """
         conditions = []
         params = []
 
@@ -706,6 +717,76 @@ class SimpleEpisodicMemory:
                         "decision": row["decision"],
                         "created_at": row["created_at"],
                         "metadata": json.loads(row["metadata"] or "{}"),
+                    }
+                )
+
+            return results
+
+    @log_function()
+    def search_human_feedback_patterns(
+        self,
+        sender: str = None,
+        feedback_type: str = None,
+        limit: int = 10,
+    ) -> list[dict[str, Any]]:
+        """
+        Search for human feedback patterns that should influence future decisions.
+
+        This method returns only human corrections and feedback, which are
+        safe to use for influencing future automated processing decisions.
+
+        Args:
+            sender: Email sender to filter by
+            feedback_type: Type of feedback to filter by
+            limit: Maximum number of records to return
+
+        Returns:
+            List of human feedback records that can guide future decisions
+        """
+        conditions = []
+        params = []
+
+        if sender:
+            conditions.append(
+                "email_id IN (SELECT DISTINCT email_id FROM processing_history WHERE sender LIKE ?)"
+            )
+            params.append(f"%{sender}%")
+
+        if feedback_type:
+            conditions.append("feedback_type = ?")
+            params.append(feedback_type)
+
+        where_clause = " AND ".join(conditions) if conditions else "1=1"
+        params.append(limit)
+
+        with self._get_connection() as conn:
+            cursor = conn.execute(  # nosec B608
+                f"""
+                SELECT hf.*, ph.sender, ph.asset_id, ph.subject
+                FROM human_feedback hf
+                LEFT JOIN processing_history ph ON hf.email_id = ph.email_id
+                WHERE {where_clause}
+                ORDER BY hf.created_at DESC
+                LIMIT ?
+            """,
+                params,
+            )
+
+            results = []
+            for row in cursor.fetchall():
+                results.append(
+                    {
+                        "id": row["id"],
+                        "email_id": row["email_id"],
+                        "sender": row["sender"],
+                        "subject": row["subject"],
+                        "asset_id": row["asset_id"],
+                        "original_decision": row["original_decision"],
+                        "corrected_decision": row["corrected_decision"],
+                        "feedback_type": row["feedback_type"],
+                        "confidence_impact": row["confidence_impact"],
+                        "created_at": row["created_at"],
+                        "notes": row["notes"],
                     }
                 )
 

@@ -390,6 +390,308 @@ async def process_emails_async(interface: Any, max_emails: int) -> dict[str, Any
         return {"success": False, "error": str(e)}
 
 
+# ===== MEMORY MANAGEMENT API ENDPOINTS =====
+
+
+@app.route("/memory")
+def memory_management() -> str:
+    """Serve the memory management page."""
+    return render_template("memory.html")
+
+
+@app.route("/api/memory/semantic", methods=["GET"])
+def get_semantic_memory() -> dict[str, Any]:
+    """Get semantic memory data."""
+    try:
+        if not memory_systems or not memory_systems.get("semantic"):
+            return {"error": "Semantic memory not available"}, 500
+
+        semantic_memory = memory_systems["semantic"]
+        return {
+            "success": True,
+            "data": semantic_memory.data,
+            "stats": {
+                "asset_profiles_count": len(
+                    semantic_memory.data.get("asset_profiles", {})
+                ),
+                "file_type_rules_count": len(
+                    semantic_memory.data.get("file_type_rules", {})
+                ),
+                "sender_mappings_count": len(
+                    semantic_memory.data.get("sender_mappings", {})
+                ),
+                "organization_contacts_count": len(
+                    semantic_memory.data.get("organization_contacts", {})
+                ),
+            },
+        }
+    except Exception as e:
+        logger.error(f"Failed to get semantic memory: {e}")
+        return {"error": str(e)}, 500
+
+
+@app.route("/api/memory/semantic", methods=["PUT"])
+def update_semantic_memory() -> tuple[dict, int]:
+    """Update semantic memory data."""
+    try:
+        if not memory_systems or not memory_systems.get("semantic"):
+            return {"error": "Semantic memory not available"}, 500
+
+        data = request.get_json()
+        if not data:
+            return {"error": "No data provided"}, 400
+
+        semantic_memory = memory_systems["semantic"]
+
+        # Validate the data structure
+        required_keys = [
+            "asset_profiles",
+            "file_type_rules",
+            "sender_mappings",
+            "organization_contacts",
+        ]
+        for key in required_keys:
+            if key not in data:
+                return {"error": f"Missing required key: {key}"}, 400
+
+        # Update the data
+        semantic_memory.data = data
+        semantic_memory._save_data()
+
+        logger.info("Semantic memory updated via API")
+        return {"success": True, "message": "Semantic memory updated successfully"}, 200
+
+    except Exception as e:
+        logger.error(f"Failed to update semantic memory: {e}")
+        return {"error": str(e)}, 500
+
+
+@app.route("/api/memory/procedural", methods=["GET"])
+def get_procedural_memory() -> dict[str, Any]:
+    """Get procedural memory data."""
+    try:
+        if not memory_systems or not memory_systems.get("procedural"):
+            return {"error": "Procedural memory not available"}, 500
+
+        procedural_memory = memory_systems["procedural"]
+        return {
+            "success": True,
+            "data": procedural_memory.data,
+            "stats": {
+                "relevance_rules_count": len(
+                    procedural_memory.data.get("relevance_rules", [])
+                ),
+                "asset_matching_rules_count": len(
+                    procedural_memory.data.get("asset_matching_rules", [])
+                ),
+                "file_processing_rules_count": len(
+                    procedural_memory.data.get("file_processing_rules", [])
+                ),
+            },
+        }
+    except Exception as e:
+        logger.error(f"Failed to get procedural memory: {e}")
+        return {"error": str(e)}, 500
+
+
+@app.route("/api/memory/procedural", methods=["PUT"])
+def update_procedural_memory() -> tuple[dict, int]:
+    """Update procedural memory data."""
+    try:
+        if not memory_systems or not memory_systems.get("procedural"):
+            return {"error": "Procedural memory not available"}, 500
+
+        data = request.get_json()
+        if not data:
+            return {"error": "No data provided"}, 400
+
+        procedural_memory = memory_systems["procedural"]
+
+        # Validate the data structure
+        required_keys = [
+            "relevance_rules",
+            "asset_matching_rules",
+            "file_processing_rules",
+        ]
+        for key in required_keys:
+            if key not in data:
+                return {"error": f"Missing required key: {key}"}, 400
+
+        # Update the data
+        procedural_memory.data = data
+        procedural_memory._save_data()
+
+        logger.info("Procedural memory updated via API")
+        return {
+            "success": True,
+            "message": "Procedural memory updated successfully",
+        }, 200
+
+    except Exception as e:
+        logger.error(f"Failed to update procedural memory: {e}")
+        return {"error": str(e)}, 500
+
+
+@app.route("/api/memory/episodic", methods=["GET"])
+def get_episodic_memory() -> dict[str, Any]:
+    """Get episodic memory data with optional filtering."""
+    try:
+        if not memory_systems or not memory_systems.get("episodic"):
+            return {"error": "Episodic memory not available"}, 500
+
+        episodic_memory = memory_systems["episodic"]
+
+        # Get query parameters for filtering
+        limit = request.args.get("limit", 50, type=int)
+        search_query = request.args.get("search", "")
+        sender_filter = request.args.get("sender", "")
+        asset_filter = request.args.get("asset", "")
+
+        # Get recent records
+        records = episodic_memory.get_recent_records(limit=limit)
+
+        # Apply filters
+        if search_query:
+            search_lower = search_query.lower()
+            records = [
+                r
+                for r in records
+                if search_lower in r.get("subject", "").lower()
+                or search_lower in r.get("sender", "").lower()
+                or search_lower in r.get("asset_id", "").lower()
+            ]
+
+        if sender_filter:
+            records = [
+                r
+                for r in records
+                if sender_filter.lower() in r.get("sender", "").lower()
+            ]
+
+        if asset_filter:
+            records = [r for r in records if asset_filter == r.get("asset_id", "")]
+
+        # Get feedback history
+        feedback_records = episodic_memory.get_feedback_history(limit=20)
+
+        # Get schema validation info
+        schema_info = episodic_memory.validate_schema()
+
+        return {
+            "success": True,
+            "processing_records": records,
+            "feedback_records": feedback_records,
+            "schema_info": schema_info,
+            "stats": {
+                "total_processing_records": schema_info["processing_history"][
+                    "record_count"
+                ],
+                "total_feedback_records": schema_info["human_feedback"]["record_count"],
+                "filtered_processing_count": len(records),
+                "filtered_feedback_count": len(feedback_records),
+            },
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to get episodic memory: {e}")
+        return {"error": str(e)}, 500
+
+
+@app.route("/api/memory/export", methods=["GET"])
+def export_memory_data() -> dict[str, Any]:
+    """Export all memory systems data."""
+    try:
+        export_data = {}
+
+        # Export semantic memory
+        if memory_systems and memory_systems.get("semantic"):
+            export_data["semantic"] = memory_systems["semantic"].data
+
+        # Export procedural memory
+        if memory_systems and memory_systems.get("procedural"):
+            export_data["procedural"] = memory_systems["procedural"].data
+
+        # Export episodic memory (recent records only)
+        if memory_systems and memory_systems.get("episodic"):
+            episodic_memory = memory_systems["episodic"]
+            export_data["episodic"] = {
+                "processing_records": episodic_memory.get_recent_records(limit=100),
+                "feedback_records": episodic_memory.get_feedback_history(limit=50),
+                "schema_info": episodic_memory.validate_schema(),
+            }
+
+        return {
+            "success": True,
+            "data": export_data,
+            "export_timestamp": datetime.now().isoformat(),
+            "version": "1.0",
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to export memory data: {e}")
+        return {"error": str(e)}, 500
+
+
+@app.route("/api/memory/import", methods=["POST"])
+def import_memory_data() -> tuple[dict, int]:
+    """Import memory systems data."""
+    try:
+        data = request.get_json()
+        if not data or "data" not in data:
+            return {"error": "No data provided"}, 400
+
+        import_data = data["data"]
+        results = {"imported": [], "errors": []}
+
+        # Import semantic memory
+        if (
+            "semantic" in import_data
+            and memory_systems
+            and memory_systems.get("semantic")
+        ):
+            try:
+                semantic_memory = memory_systems["semantic"]
+                semantic_memory.data = import_data["semantic"]
+                semantic_memory._save_data()
+                results["imported"].append("semantic")
+                logger.info("Semantic memory imported successfully")
+            except Exception as e:
+                results["errors"].append(f"Semantic memory import failed: {e}")
+
+        # Import procedural memory
+        if (
+            "procedural" in import_data
+            and memory_systems
+            and memory_systems.get("procedural")
+        ):
+            try:
+                procedural_memory = memory_systems["procedural"]
+                procedural_memory.data = import_data["procedural"]
+                procedural_memory._save_data()
+                results["imported"].append("procedural")
+                logger.info("Procedural memory imported successfully")
+            except Exception as e:
+                results["errors"].append(f"Procedural memory import failed: {e}")
+
+        # Note: We don't import episodic memory as it's historical data
+        if "episodic" in import_data:
+            results["errors"].append(
+                "Episodic memory import not supported (historical data)"
+            )
+
+        if results["imported"]:
+            return {"success": True, "results": results}, 200
+        else:
+            return {"success": False, "results": results}, 400
+
+    except Exception as e:
+        logger.error(f"Failed to import memory data: {e}")
+        return {"error": str(e)}, 500
+
+
+# ===== END MEMORY MANAGEMENT API ENDPOINTS =====
+
+
 @app.route("/attachments")
 def attachment_browser() -> str:
     """Render attachment browser page."""

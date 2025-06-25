@@ -1,0 +1,1242 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memory Systems - Inveniam Email Agent</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: white;
+            color: #2c3e50;
+            padding: 20px 30px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .logo {
+            width: 60px;
+            height: 60px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+
+        .title-section {
+            flex: 1;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .subtitle {
+            font-size: 14px;
+            color: #6c757d;
+        }
+
+        .nav-section {
+            display: flex;
+            gap: 15px;
+        }
+
+        .nav-link {
+            color: #3498db;
+            text-decoration: none;
+            font-weight: 500;
+            padding: 8px 16px;
+            border: 1px solid #3498db;
+            border-radius: 5px;
+            transition: all 0.2s;
+        }
+
+        .nav-link:hover {
+            background: #3498db;
+            color: white;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .memory-tabs {
+            display: flex;
+            gap: 0;
+            margin-bottom: 30px;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .tab-button {
+            background: none;
+            border: none;
+            padding: 15px 25px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            color: #6c757d;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .tab-button.active {
+            color: #3498db;
+            border-bottom-color: #3498db;
+            background: #f8f9fa;
+        }
+
+        .tab-button:hover {
+            color: #2980b9;
+            background: #f8f9fa;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .memory-section {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 25px;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .section-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #3498db;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2980b9;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+        }
+
+        .btn-warning {
+            background: #ffc107;
+            color: #212529;
+        }
+
+        .btn-warning:hover {
+            background: #e0a800;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 15px;
+            border-radius: 5px;
+            text-align: center;
+            border: 1px solid #dee2e6;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #3498db;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #6c757d;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .json-editor {
+            background: #2d3748;
+            color: #e2e8f0;
+            border: 1px solid #4a5568;
+            border-radius: 5px;
+            padding: 20px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            overflow-x: auto;
+            min-height: 400px;
+            resize: vertical;
+            width: 100%;
+        }
+
+        .json-editor:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        }
+
+        .table-container {
+            background: white;
+            border-radius: 5px;
+            overflow: hidden;
+            border: 1px solid #dee2e6;
+            max-height: 500px;
+            overflow-y: auto;
+            overflow-x: auto;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 400px;
+        }
+
+        .data-table th,
+        .data-table td {
+            padding: 6px 8px;
+            text-align: left;
+            border-bottom: 1px solid #dee2e6;
+            font-size: 12px;
+            white-space: nowrap;
+            vertical-align: top;
+        }
+
+        .data-table td.expanded {
+            white-space: normal;
+        }
+
+        .data-table th:first-child,
+        .data-table td:first-child {
+            width: 40%;
+        }
+
+        .data-table th:nth-child(2),
+        .data-table td:nth-child(2) {
+            width: 30%;
+        }
+
+        .data-table th:last-child,
+        .data-table td:last-child {
+            width: 30%;
+            text-align: center;
+        }
+
+        .data-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #495057;
+            position: sticky;
+            top: 0;
+        }
+
+        .data-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .data-table .expand-btn {
+            white-space: nowrap;
+        }
+
+        .filter-controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .form-control {
+            padding: 8px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        }
+
+        .alert {
+            padding: 12px 16px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .expandable-content {
+            max-height: 100px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .expandable-content.expanded {
+            max-height: none;
+        }
+
+        .expand-button {
+            background: none;
+            border: none;
+            color: #3498db;
+            cursor: pointer;
+            font-size: 12px;
+            text-decoration: underline;
+        }
+
+        .expand-button:hover {
+            color: #2980b9;
+        }
+
+        .schema-info {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .schema-info h4 {
+            color: #856404;
+            margin-bottom: 10px;
+        }
+
+        .schema-details {
+            font-size: 13px;
+            color: #856404;
+        }
+
+        .import-export-section {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .file-input {
+            margin-bottom: 10px;
+        }
+
+        .two-column {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .badge-success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .badge-danger {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .badge-secondary {
+            background: #e2e3e5;
+            color: #495057;
+        }
+
+        .badge-primary {
+            background: #cce7ff;
+            color: #004085;
+        }
+
+        .badge-warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .decision-change {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .decision-change .original {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+        }
+
+        .decision-change .corrected {
+            background: #d4edda;
+            color: #155724;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+        }
+
+        .decision-change .arrow {
+            color: #6c757d;
+            font-weight: bold;
+        }
+
+        .impact.positive {
+            color: #28a745;
+            font-weight: 600;
+        }
+
+        .impact.negative {
+            color: #dc3545;
+            font-weight: 600;
+        }
+
+        .expand-btn {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+        }
+
+        .expand-btn:hover {
+            background: #2980b9;
+        }
+
+        .detail-row {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+        }
+
+        .detail-content {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 4px;
+            margin: 8px 0;
+            max-height: 300px;
+            overflow-y: auto;
+            font-size: 11px;
+        }
+
+        .detail-content h4 {
+            margin: 0 0 8px 0;
+            color: #495057;
+            font-size: 13px;
+        }
+
+        .detail-field {
+            display: flex;
+            margin-bottom: 6px;
+            flex-wrap: wrap;
+        }
+
+        .detail-field .detail-label {
+            font-weight: 600;
+            color: #6c757d;
+            min-width: 80px;
+            margin-right: 8px;
+            font-size: 10px;
+        }
+
+        .detail-field .detail-value {
+            color: #495057;
+            flex: 1;
+            word-break: break-word;
+            font-size: 10px;
+        }
+
+        .detail-content .detail-value.original {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-size: 9px;
+            display: inline-block;
+            margin-right: 4px;
+        }
+
+        .detail-content .detail-value.corrected {
+            background: #d4edda;
+            color: #155724;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-size: 9px;
+            display: inline-block;
+        }
+
+        .confidence-score {
+            font-weight: 600;
+            color: #495057;
+            font-size: 10px;
+        }
+
+        @media (max-width: 768px) {
+            .two-column {
+                grid-template-columns: 1fr;
+            }
+
+            .memory-tabs {
+                flex-wrap: wrap;
+            }
+
+            .filter-controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .data-table {
+                min-width: 500px;
+            }
+
+            .data-table th,
+            .data-table td {
+                padding: 6px 8px;
+                font-size: 12px;
+            }
+
+            .expand-btn {
+                padding: 3px 6px;
+                font-size: 10px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">🧠</div>
+            <div class="title-section">
+                <h1>Memory Systems Management</h1>
+                <p class="subtitle">Inspect and edit semantic, procedural, and episodic memory</p>
+            </div>
+            <div class="nav-section">
+                <a href="/" class="nav-link">🏠 Dashboard</a>
+                <a href="/attachments" class="nav-link">📁 Browse Files</a>
+            </div>
+        </div>
+
+        <div class="content">
+            <div class="memory-tabs">
+                <button class="tab-button active" onclick="showTab('semantic')">
+                    🧠 Semantic Memory
+                </button>
+                <button class="tab-button" onclick="showTab('procedural')">
+                    ⚙️ Procedural Memory
+                </button>
+                <button class="tab-button" onclick="showTab('episodic')">
+                    📚 Episodic Memory
+                </button>
+            </div>
+
+            <!-- Semantic Memory Tab -->
+            <div id="semantic-tab" class="tab-content active">
+                <div class="memory-section">
+                    <div class="section-header">
+                        <h2 class="section-title">Semantic Memory - Factual Knowledge</h2>
+                        <div class="section-actions">
+                            <button class="btn btn-secondary" onclick="loadSemanticMemory()">🔄 Refresh</button>
+                            <button class="btn btn-primary" onclick="saveSemanticMemory()">💾 Save Changes</button>
+                        </div>
+                    </div>
+
+                    <div id="semantic-stats" class="stats-grid">
+                        <!-- Stats will be populated here -->
+                    </div>
+
+                    <div id="semantic-alerts"></div>
+
+                    <textarea id="semantic-editor" class="json-editor"
+                        placeholder="Loading semantic memory..."></textarea>
+                </div>
+            </div>
+
+            <!-- Procedural Memory Tab -->
+            <div id="procedural-tab" class="tab-content">
+                <div class="memory-section">
+                    <div class="section-header">
+                        <h2 class="section-title">Procedural Memory - Rules & Logic</h2>
+                        <div class="section-actions">
+                            <button class="btn btn-secondary" onclick="loadProceduralMemory()">🔄 Refresh</button>
+                            <button class="btn btn-primary" onclick="saveProceduralMemory()">💾 Save Changes</button>
+                        </div>
+                    </div>
+
+                    <div id="procedural-stats" class="stats-grid">
+                        <!-- Stats will be populated here -->
+                    </div>
+
+                    <div id="procedural-alerts"></div>
+
+                    <textarea id="procedural-editor" class="json-editor"
+                        placeholder="Loading procedural memory..."></textarea>
+                </div>
+            </div>
+
+            <!-- Episodic Memory Tab -->
+            <div id="episodic-tab" class="tab-content">
+                <div class="memory-section">
+                    <div class="section-header">
+                        <h2 class="section-title">Episodic Memory - Processing History</h2>
+                        <div class="section-actions">
+                            <button class="btn btn-secondary" onclick="loadEpisodicMemory()">🔄 Refresh</button>
+                            <button class="btn btn-warning" onclick="clearEpisodicMemory()">🗑️ Clear History</button>
+                        </div>
+                    </div>
+
+                    <div id="episodic-stats" class="stats-grid">
+                        <!-- Stats will be populated here -->
+                    </div>
+
+                    <div class="filter-controls">
+                        <input type="text" id="episodic-search" class="form-control" placeholder="Search records..."
+                            style="flex: 1;">
+                        <input type="number" id="episodic-limit" class="form-control" placeholder="Limit" value="50"
+                            min="10" max="200" style="width: 100px;">
+                        <button class="btn btn-secondary" onclick="loadEpisodicMemory()">Apply Filters</button>
+                    </div>
+
+                    <div id="episodic-alerts"></div>
+
+                    <div class="two-column">
+                        <div>
+                            <h3>Processing Records</h3>
+                            <div class="table-container">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Type</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="processing-records">
+                                        <!-- Processing records will be populated here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div>
+                            <h3>Feedback Records</h3>
+                            <div class="table-container">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Type</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="feedback-records">
+                                        <!-- Feedback records will be populated here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentTab = 'semantic';
+        let currentMemoryData = {
+            semantic: null,
+            procedural: null,
+            episodic: { processing: [], feedback: [] }
+        };
+
+        // Initialize the page
+        document.addEventListener('DOMContentLoaded', function () {
+            loadSemanticMemory();
+        });
+
+        function showTab(tabName) {
+            currentTab = tabName;
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.classList.remove('active');
+            });
+
+            // Show selected tab
+            document.getElementById(tabName + '-tab').classList.add('active');
+            event.target.classList.add('active');
+
+            // Load data for the selected tab
+            switch (tabName) {
+                case 'semantic':
+                    if (!currentMemoryData.semantic) loadSemanticMemory();
+                    break;
+                case 'procedural':
+                    if (!currentMemoryData.procedural) loadProceduralMemory();
+                    break;
+                case 'episodic':
+                    if (!currentMemoryData.episodic) loadEpisodicMemory();
+                    break;
+            }
+        }
+
+        async function loadSemanticMemory() {
+            const editor = document.getElementById('semantic-editor');
+            const statsDiv = document.getElementById('semantic-stats');
+            const alertsDiv = document.getElementById('semantic-alerts');
+
+            alertsDiv.innerHTML = '<div class="alert alert-info">Loading semantic memory...</div>';
+
+            try {
+                const response = await fetch('/api/memory/semantic');
+                const result = await response.json();
+
+                if (result.success) {
+                    currentMemoryData.semantic = result.data;
+                    editor.value = JSON.stringify(result.data, null, 2);
+
+                    // Update stats
+                    statsDiv.innerHTML = `
+                        <div class="stat-card">
+                            <div class="stat-value">${result.stats.asset_profiles_count}</div>
+                            <div class="stat-label">Asset Profiles</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${result.stats.file_type_rules_count}</div>
+                            <div class="stat-label">File Type Rules</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${result.stats.sender_mappings_count}</div>
+                            <div class="stat-label">Sender Mappings</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${result.stats.organization_contacts_count}</div>
+                            <div class="stat-label">Organizations</div>
+                        </div>
+                    `;
+
+                    alertsDiv.innerHTML = '<div class="alert alert-success">Semantic memory loaded successfully</div>';
+                } else {
+                    alertsDiv.innerHTML = `<div class="alert alert-error">Failed to load: ${result.error}</div>`;
+                }
+            } catch (error) {
+                alertsDiv.innerHTML = `<div class="alert alert-error">Network error: ${error.message}</div>`;
+            }
+        }
+
+        async function saveSemanticMemory() {
+            const editor = document.getElementById('semantic-editor');
+            const alertsDiv = document.getElementById('semantic-alerts');
+
+            try {
+                const data = JSON.parse(editor.value);
+
+                alertsDiv.innerHTML = '<div class="alert alert-info">Saving semantic memory...</div>';
+
+                const response = await fetch('/api/memory/semantic', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alertsDiv.innerHTML = '<div class="alert alert-success">Semantic memory saved successfully</div>';
+                    currentMemoryData.semantic = data;
+                } else {
+                    alertsDiv.innerHTML = `<div class="alert alert-error">Failed to save: ${result.error}</div>`;
+                }
+            } catch (error) {
+                if (error instanceof SyntaxError) {
+                    alertsDiv.innerHTML = '<div class="alert alert-error">Invalid JSON format. Please check your syntax.</div>';
+                } else {
+                    alertsDiv.innerHTML = `<div class="alert alert-error">Error: ${error.message}</div>`;
+                }
+            }
+        }
+
+        async function loadProceduralMemory() {
+            const editor = document.getElementById('procedural-editor');
+            const statsDiv = document.getElementById('procedural-stats');
+            const alertsDiv = document.getElementById('procedural-alerts');
+
+            alertsDiv.innerHTML = '<div class="alert alert-info">Loading procedural memory...</div>';
+
+            try {
+                const response = await fetch('/api/memory/procedural');
+                const result = await response.json();
+
+                if (result.success) {
+                    currentMemoryData.procedural = result.data;
+                    editor.value = JSON.stringify(result.data, null, 2);
+
+                    // Update stats
+                    statsDiv.innerHTML = `
+                        <div class="stat-card">
+                            <div class="stat-value">${result.stats.relevance_rules_count}</div>
+                            <div class="stat-label">Relevance Rules</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${result.stats.asset_matching_rules_count}</div>
+                            <div class="stat-label">Asset Matching Rules</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${result.stats.file_processing_rules_count}</div>
+                            <div class="stat-label">File Processing Rules</div>
+                        </div>
+                    `;
+
+                    alertsDiv.innerHTML = '<div class="alert alert-success">Procedural memory loaded successfully</div>';
+                } else {
+                    alertsDiv.innerHTML = `<div class="alert alert-error">Failed to load: ${result.error}</div>`;
+                }
+            } catch (error) {
+                alertsDiv.innerHTML = `<div class="alert alert-error">Network error: ${error.message}</div>`;
+            }
+        }
+
+        async function saveProceduralMemory() {
+            const editor = document.getElementById('procedural-editor');
+            const alertsDiv = document.getElementById('procedural-alerts');
+
+            try {
+                const data = JSON.parse(editor.value);
+
+                alertsDiv.innerHTML = '<div class="alert alert-info">Saving procedural memory...</div>';
+
+                const response = await fetch('/api/memory/procedural', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alertsDiv.innerHTML = '<div class="alert alert-success">Procedural memory saved successfully</div>';
+                    currentMemoryData.procedural = data;
+                } else {
+                    alertsDiv.innerHTML = `<div class="alert alert-error">Failed to save: ${result.error}</div>`;
+                }
+            } catch (error) {
+                if (error instanceof SyntaxError) {
+                    alertsDiv.innerHTML = '<div class="alert alert-error">Invalid JSON format. Please check your syntax.</div>';
+                } else {
+                    alertsDiv.innerHTML = `<div class="alert alert-error">Error: ${error.message}</div>`;
+                }
+            }
+        }
+
+        async function loadEpisodicMemory() {
+            try {
+                const response = await fetch('/api/memory/episodic?limit=50');
+                const data = await response.json();
+
+                currentMemoryData.episodic = {
+                    processing: data.processing_records || [],
+                    feedback: data.feedback_records || []
+                };
+
+                updateEpisodicStats(data);
+                populateProcessingTable(currentMemoryData.episodic.processing);
+                populateFeedbackTable(currentMemoryData.episodic.feedback);
+            } catch (error) {
+                console.error('Error loading episodic memory:', error);
+            }
+        }
+
+        function updateEpisodicStats(data) {
+            const statsDiv = document.getElementById('episodic-stats');
+            const alertsDiv = document.getElementById('episodic-alerts');
+
+            if (data.success) {
+                statsDiv.innerHTML = `
+                    <div class="stat-card">
+                        <div class="stat-value">${data.stats.total_processing_records}</div>
+                        <div class="stat-label">Total Processing Records</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${data.stats.total_feedback_records}</div>
+                        <div class="stat-label">Total Feedback Records</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${data.stats.filtered_processing_count}</div>
+                        <div class="stat-label">Displayed Processing</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${data.stats.filtered_feedback_count}</div>
+                        <div class="stat-label">Displayed Feedback</div>
+                    </div>
+                `;
+                alertsDiv.innerHTML = '<div class="alert alert-success">Episodic memory loaded successfully</div>';
+            } else {
+                alertsDiv.innerHTML = `<div class="alert alert-error">Failed to load: ${data.error}</div>`;
+            }
+        }
+
+        function populateProcessingTable(records) {
+            const tbody = document.getElementById('processing-records');
+            tbody.innerHTML = '';
+
+            records.forEach((record, index) => {
+                const row = document.createElement('tr');
+                const createdAt = record.created_at ? new Date(record.created_at).toLocaleString() : 'N/A';
+
+                row.innerHTML = `
+                    <td>${createdAt}</td>
+                    <td><span class="badge badge-${getCategoryBadge(record.category)}">${record.category || 'N/A'}</span></td>
+                    <td>
+                        <button class="expand-btn" onclick="toggleProcessingDetails(${index})">
+                            📋 Details
+                        </button>
+                    </td>
+                `;
+
+                tbody.appendChild(row);
+
+                // Create hidden detail row
+                const detailRow = document.createElement('tr');
+                detailRow.id = `processing-detail-${index}`;
+                detailRow.style.display = 'none';
+                tbody.appendChild(detailRow);
+            });
+        }
+
+        function getCategoryBadge(category) {
+            if (!category) return 'secondary';
+
+            if (category.includes('match')) return 'success';
+            if (category.includes('relevance')) return 'primary';
+            if (category.includes('feedback')) return 'warning';
+            if (category.includes('no_match')) return 'danger';
+            return 'secondary';
+        }
+
+        function toggleProcessingDetails(index) {
+            const detailRow = document.getElementById(`processing-detail-${index}`);
+            const button = event.target;
+
+            if (detailRow.style.display === 'none' || !detailRow.style.display) {
+                const record = currentMemoryData.episodic.processing[index];
+                const detailContent = `
+                    <td colspan="3" class="expanded">
+                        <div class="detail-content">
+                            <h4>📋 Processing Record Details</h4>
+                            <div class="detail-field">
+                                <span class="detail-label">Email ID:</span>
+                                <span class="detail-value">${record.email_id || 'N/A'}</span>
+                            </div>
+                            <div class="detail-field">
+                                <span class="detail-label">Sender:</span>
+                                <span class="detail-value">${record.sender || 'N/A'}</span>
+                            </div>
+                            <div class="detail-field">
+                                <span class="detail-label">Subject:</span>
+                                <span class="detail-value">${record.subject || 'N/A'}</span>
+                            </div>
+                            <div class="detail-field">
+                                <span class="detail-label">Asset ID:</span>
+                                <span class="detail-value">${record.asset_id || 'N/A'}</span>
+                            </div>
+                            <div class="detail-field">
+                                <span class="detail-label">Category:</span>
+                                <span class="detail-value">${record.category || 'N/A'}</span>
+                            </div>
+                            <div class="detail-field">
+                                <span class="detail-label">Confidence:</span>
+                                <span class="detail-value confidence-score">${record.confidence ? record.confidence.toFixed(3) : 'N/A'}</span>
+                            </div>
+                            <div class="detail-field">
+                                <span class="detail-label">Created:</span>
+                                <span class="detail-value">${record.created_at ? new Date(record.created_at).toLocaleString() : 'N/A'}</span>
+                            </div>
+                            <div class="detail-field">
+                                <span class="detail-label">Reasoning:</span>
+                                <span class="detail-value">${JSON.stringify(record.decision_reasoning || {}, null, 2)}</span>
+                            </div>
+                        </div>
+                    </td>
+                `;
+                detailRow.innerHTML = detailContent;
+                detailRow.style.display = 'table-row';
+                button.textContent = '🔼 Hide';
+            } else {
+                detailRow.style.display = 'none';
+                button.textContent = '📋 Details';
+            }
+        }
+
+        function populateFeedbackTable(records) {
+            const tbody = document.getElementById('feedback-records');
+            tbody.innerHTML = '';
+
+            records.forEach((record, index) => {
+                const row = document.createElement('tr');
+                const createdAt = record.created_at ? new Date(record.created_at).toLocaleString() : 'N/A';
+
+                row.innerHTML = `
+                    <td>${createdAt}</td>
+                    <td><span class="badge badge-${getFeedbackTypeBadge(record.feedback_type)}">${record.feedback_type || 'N/A'}</span></td>
+                    <td>
+                        <button class="expand-btn" onclick="toggleFeedbackDetails(${index})">
+                            📋 Details
+                        </button>
+                    </td>
+                `;
+
+                tbody.appendChild(row);
+
+                // Create hidden detail row
+                const detailRow = document.createElement('tr');
+                detailRow.id = `feedback-detail-${index}`;
+                detailRow.style.display = 'none';
+                tbody.appendChild(detailRow);
+            });
+        }
+
+        function getFeedbackTypeBadge(type) {
+            if (!type) return 'secondary';
+
+            if (type.includes('relevance')) return 'success';
+            if (type.includes('asset')) return 'primary';
+            if (type.includes('pattern')) return 'warning';
+            return 'secondary';
+        }
+
+        function toggleFeedbackDetails(index) {
+            const detailRow = document.getElementById(`feedback-detail-${index}`);
+            const button = event.target;
+
+            if (detailRow.style.display === 'none' || !detailRow.style.display) {
+                const record = currentMemoryData.episodic.feedback[index];
+                const detailContent = `
+                    <td colspan="3" class="expanded">
+                        <div class="detail-content">
+                            <h4>📋 Feedback Details</h4>
+                            <div class="detail-field">
+                                <span class="detail-label">Email ID:</span>
+                                <span class="detail-value">${record.email_id || 'N/A'}</span>
+                            </div>
+                            <div class="detail-field">
+                                <span class="detail-label">Feedback Type:</span>
+                                <span class="detail-value">${record.feedback_type || 'N/A'}</span>
+                            </div>
+                            <div class="detail-field">
+                                <span class="detail-label">Original Decision:</span>
+                                <span class="detail-value original">${record.original_decision || 'N/A'}</span>
+                            </div>
+                            <div class="detail-field">
+                                <span class="detail-label">Corrected Decision:</span>
+                                <span class="detail-value corrected">${record.corrected_decision || 'N/A'}</span>
+                            </div>
+                            <div class="detail-field">
+                                <span class="detail-label">Confidence Impact:</span>
+                                <span class="detail-value confidence-score">${record.confidence_impact ? record.confidence_impact.toFixed(3) : 'N/A'}</span>
+                            </div>
+                            <div class="detail-field">
+                                <span class="detail-label">Notes:</span>
+                                <span class="detail-value">${record.notes || 'N/A'}</span>
+                            </div>
+                            <div class="detail-field">
+                                <span class="detail-label">Created:</span>
+                                <span class="detail-value">${record.created_at ? new Date(record.created_at).toLocaleString() : 'N/A'}</span>
+                            </div>
+                            <div class="detail-field">
+                                <span class="detail-label">Subject:</span>
+                                <span class="detail-value">${record.subject || 'N/A'}</span>
+                            </div>
+                            <div class="detail-field">
+                                <span class="detail-label">Sender:</span>
+                                <span class="detail-value">${record.sender || 'N/A'}</span>
+                            </div>
+                            <div class="detail-field">
+                                <span class="detail-label">Asset:</span>
+                                <span class="detail-value">${record.asset_id || 'N/A'}</span>
+                            </div>
+                        </div>
+                    </td>
+                `;
+                detailRow.innerHTML = detailContent;
+                detailRow.style.display = 'table-row';
+                button.textContent = '🔼 Hide';
+            } else {
+                detailRow.style.display = 'none';
+                button.textContent = '📋 Details';
+            }
+        }
+
+        function truncateText(text, maxLength) {
+            if (text.length <= maxLength) return text;
+            return text.substring(0, maxLength) + '...';
+        }
+
+        async function clearEpisodicMemory() {
+            const alertsDiv = document.getElementById('episodic-alerts');
+
+            if (!confirm('⚠️ WARNING: This will permanently delete ALL episodic memory.\n\nThis action cannot be undone. Are you sure?')) {
+                return;
+            }
+
+            alertsDiv.innerHTML = '<div class="alert alert-info">Clearing episodic memory...</div>';
+
+            try {
+                const response = await fetch('/api/system/reset-episodic-memory', {
+                    method: 'POST'
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    alertsDiv.innerHTML = `<div class="alert alert-success">${result.message}</div>`;
+                    loadEpisodicMemory(); // Reload to show empty state
+                } else {
+                    alertsDiv.innerHTML = `<div class="alert alert-error">Failed to clear: ${result.error}</div>`;
+                }
+            } catch (error) {
+                alertsDiv.innerHTML = `<div class="alert alert-error">Network error: ${error.message}</div>`;
+            }
+        }
+
+        function getBadgeColor(type) {
+            switch (type) {
+                case 'positive':
+                    return 'success';
+                case 'negative':
+                    return 'danger';
+                default:
+                    return 'secondary';
+            }
+        }
+    </script>
+</body>
+
+</html>

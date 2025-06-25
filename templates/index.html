@@ -86,6 +86,24 @@
             background: #f8d7da;
         }
 
+        .clickable-card {
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .clickable-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            background: #e3f2fd !important;
+        }
+
+        .card-hint {
+            font-size: 11px;
+            color: #6c757d;
+            font-style: italic;
+            margin-top: 5px;
+        }
+
         .status-card h3 {
             font-size: 14px;
             color: #6c757d;
@@ -341,9 +359,10 @@
 
         <div class="content">
             <div class="status-grid" id="systemStatus">
-                <div class="status-card">
-                    <h3>Memory Systems</h3>
+                <div class="status-card clickable-card" onclick="window.location.href='/memory'">
+                    <h3>🧠 Memory Systems</h3>
                     <div class="status-value" id="memoryStatus">Loading...</div>
+                    <div class="card-hint">Click to manage memory</div>
                 </div>
                 <div class="status-card">
                     <h3>Email Graph</h3>
