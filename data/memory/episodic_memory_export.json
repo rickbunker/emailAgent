@@ -1,0 +1,37 @@
+{
+  "_metadata": {
+    "exported_at": "2025-06-25T11:05:20.811121",
+    "total_records": 2,
+    "version": "1.0"
+  },
+  "human_feedback": [
+    {
+      "confidence_impact": 0.25,
+      "corrected_decision": "relevant",
+      "created_at": "2025-06-25 15:04:41",
+      "email_id": "baseline_hint_001",
+      "feedback_type": "sender_pattern_learning",
+      "id": 4,
+      "notes": "Baseline learning: emails from rick@bunkerplanet.com are typically relevant despite low initial confidence scores",
+      "original_decision": "irrelevant"
+    }
+  ],
+  "processing_history": [
+    {
+      "asset_id": "SENDER_PATTERN",
+      "category": "relevance_pattern",
+      "confidence": 0.95,
+      "created_at": "2025-06-25 15:04:41",
+      "decision": "relevant",
+      "email_id": "baseline_hint_001",
+      "id": 2,
+      "metadata": {
+        "baseline": true,
+        "note": "emails from rick@bunkerplanet.com are typically relevant",
+        "type": "sender_pattern_learning"
+      },
+      "sender": "rick@bunkerplanet.com",
+      "subject": "baseline relevance hint"
+    }
+  ]
+}

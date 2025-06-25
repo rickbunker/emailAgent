@@ -102,6 +102,13 @@ docs/_build/
 # Data Directory (temporary/generated files)
 data/*
 !data/.gitkeep
+!data/memory/
+!data/memory/*.json
+!data/memory/*_baseline.json
+!data/memory/*.db
+
+# Memory backups (exclude runtime backups, keep baselines and exports)
+data/memory/backups/
 
 # Script outputs
 scripts/*.log

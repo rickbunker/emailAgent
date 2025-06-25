@@ -6,6 +6,9 @@ and semantic memory for WHAT to match against (asset profiles, relationships).
 """
 
 # # Standard library imports
+import re
+from difflib import SequenceMatcher
+
 # Standard library imports
 from typing import Any
 
@@ -183,7 +186,9 @@ class AssetMatcherNode:
         logger.info(f"🔍 SINGLE ATTACHMENT MATCHING: {filename}")
         logger.info(f"🔍   Email Sender: {email_data.get('sender', 'N/A')}")
         logger.info(f"🔍   Email Subject: {email_data.get('subject', 'N/A')}")
-        logger.info(f"🔍   Email Body Preview: {email_data.get('body', 'N/A')[:100]}...")
+        logger.info(
+            f"🔍   Email Body Preview: {email_data.get('body', 'N/A')[:100]}..."
+        )
 
         # Calculate matches using memory-driven logic
         asset_scores = await self._calculate_asset_scores(
@@ -224,7 +229,27 @@ class AssetMatcherNode:
             logger.info(
                 f"🔍 NO MATCHES above threshold ({self.asset_match_threshold}) for {filename}"
             )
-            return []
+            # Fallback: Route to human review queue for manual classification
+            logger.info(
+                f"🔍 ROUTING {filename} to HUMAN_REVIEW_QUEUE for manual review"
+            )
+
+            fallback_match = {
+                "attachment_filename": filename,
+                "asset_id": "HUMAN_REVIEW_QUEUE",
+                "confidence": 0.1,  # Low confidence to indicate it needs review
+                "reasoning": {
+                    "match_factors": [
+                        "Automatic fallback - no confident asset match found"
+                    ],
+                    "confidence_factors": [
+                        f"All asset scores below threshold ({self.asset_match_threshold})"
+                    ],
+                    "rule_matches": [],
+                },
+            }
+
+            return [fallback_match]
 
     async def _calculate_asset_scores(
         self,
@@ -446,7 +471,7 @@ class AssetMatcherNode:
             return 0.0
 
         elif rule_id == "keyword_match":
-            # Check for asset keyword matches
+            # Check for asset keyword matches with both exact and fuzzy matching
             keywords = asset_profile.get("keywords", [])
             logger.info(f"🔍       Asset keywords: {keywords}")
 
@@ -456,34 +481,129 @@ class AssetMatcherNode:
                 )
                 return 0.0
 
-            matches = 0
+            exact_matches = 0
+            fuzzy_matches = 0
             matched_keywords = []
+            fuzzy_matched_keywords = []
+            total_exact_score = 0.0
+            total_fuzzy_score = 0.0
 
             for keyword in keywords:
+                # Try exact match first (fastest and most reliable)
                 if keyword.lower() in combined_text:
-                    matches += 1
+                    exact_matches += 1
                     matched_keywords.append(keyword)
-                    logger.info(f"🔍       ✓ Keyword '{keyword}' found in combined text")
-                else:
+                    # Give full credit for exact match
+                    total_exact_score += 1.0
                     logger.info(
-                        f"🔍       ✗ Keyword '{keyword}' NOT found in combined text"
+                        f"🔍       ✓ Keyword '{keyword}' found EXACTLY in combined text"
+                    )
+                else:
+                    # Try fuzzy matching for typos, abbreviations, case variations
+                    fuzzy_result = fuzzy_keyword_match(
+                        keyword,
+                        combined_text,
+                        exact_threshold=0.9,
+                        partial_threshold=0.7,
                     )
 
-            if matches > 0:
-                # More generous scoring: boost score for multiple matches
-                match_ratio = matches / len(keywords)
-                base_score = match_ratio * rule.get("confidence", 0.8)
+                    if fuzzy_result["score"] > 0:
+                        fuzzy_matches += 1
+                        fuzzy_matched_keywords.append(
+                            f"{keyword}~{fuzzy_result['matched_text']}"
+                        )
+                        # Use the actual fuzzy score (0.7-1.0)
+                        total_fuzzy_score += fuzzy_result["score"]
+                        logger.info(
+                            f"🔍       ✓ Keyword '{keyword}' found via FUZZY match: '{fuzzy_result['matched_text']}' "
+                            f"(similarity: {fuzzy_result['score']:.3f}, type: {fuzzy_result['match_type']})"
+                        )
+                    else:
+                        logger.info(
+                            f"🔍       ✗ Keyword '{keyword}' NOT found (exact or fuzzy)"
+                        )
 
-                # Bonus for multiple keyword matches
-                if matches >= 2:
-                    base_score = min(base_score * 1.3, 1.0)
+            # Calculate composite score with improved algorithm
+            if exact_matches > 0 or fuzzy_matches > 0:
+                # New scoring algorithm: reward strong matches more generously
+                # Instead of requiring all keywords, focus on the strength of matches found
 
-                logger.info(
-                    f"🔍       ✓ Keyword matches: {matched_keywords} ({matches}/{len(keywords)} = {match_ratio:.2f}), base_score: {base_score:.3f}"
-                )
-                return base_score
+                # Calculate average match strength
+                total_matches = exact_matches + fuzzy_matches
+                if total_matches > 0:
+                    # Average exact score (1.0 for exact matches)
+                    avg_exact_score = (
+                        total_exact_score / max(exact_matches, 1)
+                        if exact_matches > 0
+                        else 0.0
+                    )
+                    # Average fuzzy score (0.7-1.0 for fuzzy matches)
+                    avg_fuzzy_score = (
+                        total_fuzzy_score / max(fuzzy_matches, 1)
+                        if fuzzy_matches > 0
+                        else 0.0
+                    )
+
+                    # Combine exact and fuzzy scores with weighting
+                    if exact_matches > 0 and fuzzy_matches > 0:
+                        # Both types found: weighted average
+                        combined_score = (
+                            exact_matches * avg_exact_score
+                            + fuzzy_matches * avg_fuzzy_score * 0.8
+                        ) / total_matches
+                    elif exact_matches > 0:
+                        # Only exact matches: full credit
+                        combined_score = avg_exact_score
+                    else:
+                        # Only fuzzy matches: discounted credit
+                        combined_score = avg_fuzzy_score * 0.8
+
+                    # Apply coverage bonus: having matches is more important than matching everything
+                    coverage_ratio = total_matches / len(keywords)
+                    if coverage_ratio >= 0.5:
+                        # 50%+ coverage: full score
+                        coverage_multiplier = 1.0
+                    elif coverage_ratio >= 0.25:
+                        # 25-50% coverage: modest penalty
+                        coverage_multiplier = 0.9
+                    else:
+                        # <25% coverage: larger penalty but still viable
+                        coverage_multiplier = 0.7
+
+                    # Calculate final score
+                    base_score = (
+                        combined_score
+                        * coverage_multiplier
+                        * rule.get("confidence", 0.8)
+                    )
+
+                    # Bonus for multiple keyword matches (any type)
+                    if total_matches >= 2:
+                        base_score = min(base_score * 1.2, 1.0)
+
+                    # Special bonus for single strong exact matches (common with proper names)
+                    elif exact_matches == 1 and avg_exact_score >= 1.0:
+                        base_score = min(base_score * 1.1, 1.0)
+
+                    logger.info("🔍       ✓ KEYWORD MATCHING SUMMARY:")
+                    logger.info(
+                        f"🔍         Exact matches: {matched_keywords} ({exact_matches}/{len(keywords)})"
+                    )
+                    logger.info(
+                        f"🔍         Fuzzy matches: {fuzzy_matched_keywords} ({fuzzy_matches}/{len(keywords)})"
+                    )
+                    logger.info(
+                        f"🔍         Combined score: {combined_score:.3f}, Coverage: {coverage_ratio:.1%}"
+                    )
+                    logger.info(
+                        f"🔍         Coverage multiplier: {coverage_multiplier:.2f}, Final score: {base_score:.3f}"
+                    )
+
+                    return base_score
+                else:
+                    logger.info("🔍       ✗ No valid matches found")
             else:
-                logger.info("🔍       ✗ No keyword matches found")
+                logger.info("🔍       ✗ No keyword matches found (exact or fuzzy)")
 
         return 0.0
 
@@ -557,7 +677,12 @@ class AssetMatcherNode:
         self, context: dict[str, Any]
     ) -> list[dict[str, Any]]:
         """
-        Query semantic memory for asset profiles and relationships.
+        Query semantic memory for asset profiles using search terms and fallback strategies.
+
+        Uses multiple strategies to ensure relevant assets are found:
+        1. Specific term matching (asset-specific keywords)
+        2. Sender-based asset retrieval (trusted senders)
+        3. Fuzzy term matching for partial matches
 
         Args:
             context: Email context for filtering relevant assets
@@ -570,27 +695,38 @@ class AssetMatcherNode:
             return []
 
         try:
-            # Search for assets based on email content
+            # DEBUG: Check what's actually in semantic memory
+            total_assets = len(self.semantic_memory.data.get("asset_profiles", {}))
+            logger.info(f"🔍 DEBUG: Total assets in semantic memory: {total_assets}")
+            asset_names = list(
+                self.semantic_memory.data.get("asset_profiles", {}).keys()
+            )
+            logger.info(f"🔍 DEBUG: Asset IDs in memory: {asset_names}")
+
+            # Extract search terms from email content
             search_terms = self._extract_search_terms(context)
-            logger.info("🔍 === QUERYING ASSET PROFILES ===")
-            logger.info(f"🔍 Search terms extracted: {search_terms}")
+            logger.info("🔍 === QUERYING ASSET PROFILES (MULTI-STRATEGY) ===")
+            logger.info(f"🔍 All search terms extracted: {search_terms}")
+
+            # Get all asset keywords from semantic memory
+            all_asset_keywords = self._get_all_asset_keywords()
+            logger.info(
+                f"🔍 All asset keywords in memory: {sorted(all_asset_keywords)}"
+            )
+
             all_results = []
 
-            # Get all asset keywords from semantic memory to determine priority terms
-            all_asset_keywords = self._get_all_asset_keywords()
-            priority_terms = [
-                term for term in search_terms if term in all_asset_keywords
+            # Strategy 1: Search for specific terms that exist in asset keywords
+            specific_terms = [
+                term for term in search_terms if term.lower() in all_asset_keywords
             ]
+            logger.info(f"🔍 Strategy 1 - Specific asset terms found: {specific_terms}")
 
-            logger.info(f"🔍 All asset keywords in memory: {sorted(all_asset_keywords)}")
-            logger.info(f"🔍 Priority asset terms found: {priority_terms}")
-
-            # First, search for priority asset-specific terms (no limit)
-            for term in priority_terms:
-                logger.info(f"🔍 Searching for priority term: '{term}'")
+            for term in specific_terms:
+                logger.info(f"🔍 Searching for specific asset term: '{term}'")
                 results = self.semantic_memory.search_asset_profiles(term, limit=50)
                 logger.info(
-                    f"🔍   Found {len(results)} profiles for priority term '{term}'"
+                    f"🔍   Found {len(results)} profiles for specific term '{term}'"
                 )
                 for result in results:
                     logger.info(
@@ -598,23 +734,99 @@ class AssetMatcherNode:
                     )
                 all_results.extend(results)
 
-            # Then search for general terms (limited to avoid noise)
-            general_terms = [
-                term for term in search_terms if term not in priority_terms
-            ]
-            logger.info(f"🔍 General terms: {general_terms[:5]}... (showing first 5)")
-
-            for term in general_terms[:5]:  # Limit general terms
-                logger.info(f"🔍 Searching for general term: '{term}'")
-                results = self.semantic_memory.search_asset_profiles(term, limit=10)
+            # Strategy 2: Sender-based asset retrieval for trusted senders
+            sender = context.get("sender", "")
+            if sender:
                 logger.info(
-                    f"🔍   Found {len(results)} profiles for general term '{term}'"
+                    f"🔍 Strategy 2 - Checking sender-based assets for: {sender}"
                 )
-                for result in results:
+                sender_mapping = self.semantic_memory.get_sender_mapping(sender)
+                if sender_mapping and "asset_ids" in sender_mapping:
+                    sender_assets = sender_mapping["asset_ids"]
+                    logger.info(f"🔍   Sender has access to assets: {sender_assets}")
+
+                    # Add all sender's assets as candidates with base relevance score
+                    asset_profiles = self.semantic_memory.data.get("asset_profiles", {})
+                    for asset_id in sender_assets:
+                        if asset_id in asset_profiles and not any(
+                            r["asset_id"] == asset_id for r in all_results
+                        ):
+                            # Only add if not already found in strategy 1
+                            all_results.append(
+                                {
+                                    "asset_id": asset_id,
+                                    "profile": asset_profiles[asset_id],
+                                    "score": 0.3,  # Base relevance for sender assets
+                                }
+                            )
+                            logger.info(
+                                f"🔍     Added sender asset: {asset_id} (base score: 0.3)"
+                            )
+
+            # Strategy 3: Fuzzy term matching for asset keywords
+            if len(all_results) < 3:  # Only if we don't have many results
+                logger.info("🔍 Strategy 3 - Fuzzy matching for additional assets")
+                asset_profiles = self.semantic_memory.data.get("asset_profiles", {})
+
+                for asset_id, profile in asset_profiles.items():
+                    # Skip if already found
+                    if any(r["asset_id"] == asset_id for r in all_results):
+                        continue
+
+                    # Check for fuzzy matches between search terms and asset keywords
+                    keywords = profile.get("keywords", [])
+                    best_fuzzy_score = 0.0
+
+                    for search_term in search_terms:
+                        for keyword in keywords:
+                            # Use fuzzy matching
+                            fuzzy_result = fuzzy_keyword_match(
+                                search_term,
+                                keyword,
+                                exact_threshold=0.8,
+                                partial_threshold=0.6,
+                            )
+                            if fuzzy_result["score"] > best_fuzzy_score:
+                                best_fuzzy_score = fuzzy_result["score"]
+
+                    # Add assets with decent fuzzy matches
+                    if best_fuzzy_score >= 0.6:
+                        all_results.append(
+                            {
+                                "asset_id": asset_id,
+                                "profile": profile,
+                                "score": best_fuzzy_score
+                                * 0.5,  # Discounted fuzzy score
+                            }
+                        )
+                        logger.info(
+                            f"🔍     Added fuzzy match: {asset_id} (fuzzy score: {best_fuzzy_score:.3f})"
+                        )
+
+            # DEBUG: Check if we have no search results at all
+            if not all_results:
+                logger.warning("🔍 WARNING: No asset profiles found with any strategy")
+                logger.warning(f"🔍 Search terms: {search_terms}")
+                logger.warning(f"🔍 Asset keywords: {sorted(all_asset_keywords)}")
+                logger.warning(f"🔍 Sender: {sender}")
+
+                # Last resort: return all assets if sender is trusted
+                if sender_mapping and sender_mapping.get("trust_score", 0) >= 0.8:
                     logger.info(
-                        f"🔍     {result['asset_id']} ({result['profile'].get('name', 'N/A')}): score={result['score']:.3f}"
+                        "🔍 Last resort: returning all assets for trusted sender"
                     )
-                all_results.extend(results)
+                    asset_profiles = self.semantic_memory.data.get("asset_profiles", {})
+                    for asset_id, profile in asset_profiles.items():
+                        all_results.append(
+                            {
+                                "asset_id": asset_id,
+                                "profile": profile,
+                                "score": 0.1,  # Very low base score
+                            }
+                        )
+
+                if not all_results:
+                    return []
 
             # Deduplicate and merge scores
             asset_map = {}
@@ -850,3 +1062,75 @@ class AssetMatcherNode:
                 "confidence": 0.8,
             },
         ]
+
+
+def levenshtein_similarity(a: str, b: str) -> float:
+    """
+    Calculate Levenshtein similarity between two strings.
+
+    Args:
+        a: First string
+        b: Second string
+
+    Returns:
+        Similarity score between 0.0 and 1.0
+    """
+    if not a or not b:
+        return 0.0
+
+    # Use SequenceMatcher for efficiency
+    return SequenceMatcher(None, a.lower(), b.lower()).ratio()
+
+
+def fuzzy_keyword_match(
+    keyword: str,
+    text: str,
+    exact_threshold: float = 0.9,
+    partial_threshold: float = 0.7,
+) -> dict[str, float]:
+    """
+    Find the best fuzzy match for a keyword in text.
+
+    Args:
+        keyword: The keyword to search for
+        text: The text to search in
+        exact_threshold: Minimum similarity for "exact" match (higher weight)
+        partial_threshold: Minimum similarity for partial match (lower weight)
+
+    Returns:
+        Dictionary with match info: {'score': float, 'match_type': str, 'matched_text': str}
+    """
+    if not keyword or not text:
+        return {"score": 0.0, "match_type": "none", "matched_text": ""}
+
+    keyword_lower = keyword.lower()
+    text_lower = text.lower()
+
+    # Check for exact substring match first (fastest)
+    if keyword_lower in text_lower:
+        return {"score": 1.0, "match_type": "exact_substring", "matched_text": keyword}
+
+    # Split text into words for fuzzy matching
+    words = re.findall(r"\b\w+\b", text_lower)
+
+    best_score = 0.0
+    best_match = ""
+    match_type = "none"
+
+    for word in words:
+        similarity = levenshtein_similarity(keyword_lower, word)
+
+        if similarity > best_score:
+            best_score = similarity
+            best_match = word
+
+            if similarity >= exact_threshold:
+                match_type = "exact_fuzzy"
+            elif similarity >= partial_threshold:
+                match_type = "partial_fuzzy"
+
+    return {
+        "score": best_score if best_score >= partial_threshold else 0.0,
+        "match_type": match_type if best_score >= partial_threshold else "none",
+        "matched_text": best_match if best_score >= partial_threshold else "",
+    }

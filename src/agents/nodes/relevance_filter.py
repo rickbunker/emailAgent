@@ -27,11 +27,12 @@ class RelevanceFilterNode:
         Initialize the relevance filter with memory system connections.
 
         Args:
-            memory_systems: Dictionary with all memory systems (semantic, procedural, etc.)
+            memory_systems: Dictionary with all memory systems (semantic, procedural, episodic)
         """
         if memory_systems:
             self.semantic_memory = memory_systems.get("semantic")
             self.procedural_memory = memory_systems.get("procedural")
+            self.episodic_memory = memory_systems.get("episodic")
         else:
             # Initialize simplified memory systems directly
             # # Local application imports
@@ -40,6 +41,7 @@ class RelevanceFilterNode:
             systems = create_memory_systems()
             self.semantic_memory = systems["semantic"]
             self.procedural_memory = systems["procedural"]
+            self.episodic_memory = systems["episodic"]
 
         self.relevance_threshold = config.relevance_threshold
 
@@ -72,6 +74,9 @@ class RelevanceFilterNode:
         attachments = email_data.get("attachments", [])
 
         logger.info(f"Evaluating relevance: {subject[:50]}...")
+        logger.info(
+            f"🚨 EVALUATE_RELEVANCE CALLED - sender: {sender}, attachments: {len(attachments)}"
+        )
 
         reasoning = {"decision_factors": [], "confidence_factors": [], "flags": []}
 
@@ -118,9 +123,19 @@ class RelevanceFilterNode:
         """
         Memory-driven relevance check using simple memory systems.
 
-        Uses procedural memory for rules and semantic memory for patterns.
+        Uses procedural memory for rules, semantic memory for patterns,
+        and episodic memory for learned sender patterns.
         """
+        logger.info(
+            f"🔍 ENTERING _memory_driven_relevance_check for sender: {sender}, subject: {subject[:30]}..."
+        )
         score = 0.0
+
+        # Check episodic memory for learned sender patterns FIRST
+        episodic_adjustment = await self._check_episodic_sender_patterns(
+            sender, reasoning
+        )
+        score += episodic_adjustment
 
         # Get relevance rules from procedural memory
         relevance_rules = self.procedural_memory.get_relevance_rules()
@@ -140,8 +155,8 @@ class RelevanceFilterNode:
             )
 
             if pattern_matches > 0:
-                # Calculate rule score based on pattern matches
-                rule_score = min(pattern_matches * 0.2, weight)
+                # Apply full rule weight when patterns match - the weight represents the importance of this rule type
+                rule_score = weight
                 score += rule_score
                 reasoning["decision_factors"].append(
                     f"{rule.get('description', 'Rule')}: {pattern_matches} patterns matched (score: {rule_score:.2f})"
@@ -176,6 +191,103 @@ class RelevanceFilterNode:
             reasoning["decision_factors"].append("Trusted sender domain")
 
         return min(score, 1.0)  # Cap at 1.0
+
+    async def _check_episodic_sender_patterns(
+        self, sender: str, reasoning: dict[str, Any]
+    ) -> float:
+        """
+        Check episodic memory for learned sender patterns that should influence relevance.
+
+        Args:
+            sender: Email sender address
+            reasoning: Reasoning dict to append decision factors
+
+        Returns:
+            Score adjustment based on episodic learning (0.0 to 0.5)
+        """
+        if not self.episodic_memory or not sender:
+            logger.info(
+                f"Episodic memory check skipped: episodic_memory={bool(self.episodic_memory)}, sender='{sender}'"
+            )
+            return 0.0
+
+        try:
+            logger.info(f"Checking episodic memory for sender: {sender}")
+
+            # Query episodic memory for sender patterns - use correct method name
+            sender_history = self.episodic_memory.search_similar_cases(
+                sender=sender, limit=10
+            )
+            logger.info(
+                f"Found {len(sender_history)} historical records for sender: {sender}"
+            )
+
+            if not sender_history:
+                logger.info(f"No episodic history found for sender: {sender}")
+                return 0.0
+
+            # Analyze the sender's historical relevance
+            relevant_count = 0
+            total_count = 0
+            avg_confidence = 0.0
+
+            for record in sender_history:
+                decision = record.get("decision", "").lower()
+                confidence = record.get("confidence", 0.0)
+                logger.debug(
+                    f"Historical record: decision={decision}, confidence={confidence}"
+                )
+
+                if decision in ["relevant", "irrelevant"]:
+                    total_count += 1
+                    avg_confidence += confidence
+
+                    if decision == "relevant":
+                        relevant_count += 1
+
+            if total_count == 0:
+                logger.info(
+                    f"No relevant historical decisions found for sender: {sender}"
+                )
+                return 0.0
+
+            avg_confidence = avg_confidence / total_count
+            relevance_ratio = relevant_count / total_count
+
+            logger.info(
+                f"Sender analysis: {relevant_count}/{total_count} relevant (ratio: {relevance_ratio:.2f}), avg_confidence: {avg_confidence:.2f}"
+            )
+
+            # Calculate episodic adjustment
+            episodic_score = 0.0
+
+            if relevance_ratio >= 0.7:  # Sender is usually relevant
+                episodic_score = min(avg_confidence * 0.5, 0.5)  # Up to 0.5 boost
+                reasoning["decision_factors"].append(
+                    f"Episodic memory: sender {sender} typically relevant ({relevant_count}/{total_count}, confidence: {avg_confidence:.2f}) (score: +{episodic_score:.2f})"
+                )
+                logger.info(
+                    f"Applied positive episodic adjustment: +{episodic_score:.2f}"
+                )
+            elif relevance_ratio <= 0.3:  # Sender is usually irrelevant
+                episodic_score = -min(avg_confidence * 0.3, 0.3)  # Up to -0.3 penalty
+                reasoning["decision_factors"].append(
+                    f"Episodic memory: sender {sender} typically irrelevant ({relevant_count}/{total_count}, confidence: {avg_confidence:.2f}) (score: {episodic_score:.2f})"
+                )
+                logger.info(
+                    f"Applied negative episodic adjustment: {episodic_score:.2f}"
+                )
+            else:
+                logger.info(
+                    "Sender pattern inconclusive, no episodic adjustment applied"
+                )
+
+            return episodic_score
+
+        except Exception as e:
+            logger.error(f"Failed to check episodic sender patterns: {e}")
+            logger.error(f"Exception type: {type(e).__name__}")
+            return 0.0
 
     async def _is_obvious_spam(self, subject: str, body: str, sender: str) -> bool:
         """

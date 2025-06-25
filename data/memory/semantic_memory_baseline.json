@@ -1,0 +1,112 @@
+{
+    "asset_profiles": {
+        "SAMPLE_ASSET": {
+            "name": "Sample Investment Asset",
+            "keywords": [
+                "sample",
+                "investment",
+                "asset"
+            ],
+            "confidence": 0.8
+        },
+        "IDT_TELECOM_CREDIT": {
+            "name": "IDT Telecom Credit Facility",
+            "keywords": [
+                "idt",
+                "telecom",
+                "tdlender"
+            ],
+            "confidence": 0.8
+        },
+        "TRIMBLE_CREDIT": {
+            "name": "Trimble Credit Facility",
+            "keywords": [
+                "trimble",
+                "syndicated"
+            ],
+            "confidence": 0.8
+        },
+        "I3_VERTICALS_CREDIT": {
+            "name": "i3 Verticals Credit Facility",
+            "keywords": [
+                "i3",
+                "verticals"
+            ],
+            "confidence": 0.8
+        },
+        "GRAY_TV_CREDIT": {
+            "name": "Gray TV Credit Facility",
+            "keywords": [
+                "gray",
+                "tv"
+            ],
+            "confidence": 0.8
+        }
+    },
+    "file_type_rules": {
+        "pdf": {
+            "allowed": true,
+            "max_size_mb": 50
+        },
+        "xlsx": {
+            "allowed": true,
+            "max_size_mb": 25
+        },
+        "docx": {
+            "allowed": true,
+            "max_size_mb": 25
+        },
+        "jpg": {
+            "allowed": true,
+            "max_size_mb": 10
+        },
+        "png": {
+            "allowed": true,
+            "max_size_mb": 10
+        }
+    },
+    "sender_mappings": {
+        "rick@bunker.us": {
+            "name": "Rick Bunker",
+            "asset_ids": [
+                "IDT_TELECOM_CREDIT",
+                "TRIMBLE_CREDIT",
+                "I3_VERTICALS_CREDIT",
+                "GRAY_TV_CREDIT"
+            ],
+            "trust_score": 0.9,
+            "organization": "Inveniam",
+            "relationship_type": "internal"
+        },
+        "advisor@example.com": {
+            "name": "Investment Advisor",
+            "asset_ids": [
+                "SAMPLE_ASSET"
+            ],
+            "trust_score": 0.9,
+            "organization": "Example Investment Co",
+            "relationship_type": "advisor"
+        }
+    },
+    "organization_contacts": {
+        "Example Investment Co": {
+            "domain": "example.com",
+            "trust_score": 0.8,
+            "contact_count": 1,
+            "asset_ids": [
+                "SAMPLE_ASSET"
+            ]
+        },
+        "Inveniam": {
+            "domain": "bunker.us",
+            "trust_score": 0.9,
+            "contact_count": 1,
+            "asset_ids": [
+                "IDT_TELECOM_CREDIT",
+                "TRIMBLE_CREDIT",
+                "I3_VERTICALS_CREDIT",
+                "GRAY_TV_CREDIT"
+            ]
+        }
+    }
+}

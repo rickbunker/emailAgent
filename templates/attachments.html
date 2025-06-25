@@ -203,6 +203,232 @@
             color: #7f8c8d;
             font-size: 14px;
         }
+
+        /* Review priority asset styling */
+        .asset-card.review-priority {
+            border: 2px solid #f39c12;
+            background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+            animation: reviewPulse 2s ease-in-out infinite;
+        }
+
+        .asset-card.review-priority:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 25px rgba(243, 156, 18, 0.3);
+        }
+
+        .asset-card.review-priority .asset-name {
+            color: #d68910;
+            font-weight: 700;
+        }
+
+        .asset-card.review-priority .file-count {
+            background: #e67e22;
+            animation: reviewBadgePulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes reviewPulse {
+
+            0%,
+            100% {
+                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            }
+
+            50% {
+                box-shadow: 0 4px 20px rgba(243, 156, 18, 0.4);
+            }
+        }
+
+        @keyframes reviewBadgePulse {
+
+            0%,
+            100% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.1);
+            }
+        }
+
+        /* Feedback button styles */
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            text-decoration: none;
+            display: inline-block;
+            transition: background-color 0.3s;
+        }
+
+        .btn-primary {
+            background: #3498db;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2980b9;
+        }
+
+        .btn-warning {
+            background: #f39c12;
+            color: white;
+        }
+
+        .btn-warning:hover {
+            background: #e67e22;
+        }
+
+        .btn-success {
+            background: #27ae60;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #229954;
+        }
+
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 10% auto;
+            padding: 20px;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #ecf0f1;
+        }
+
+        .modal-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .close {
+            color: #95a5a6;
+            font-size: 24px;
+            font-weight: bold;
+            cursor: pointer;
+            border: none;
+            background: none;
+        }
+
+        .close:hover {
+            color: #2c3e50;
+        }
+
+        .feedback-section {
+            margin-bottom: 20px;
+        }
+
+        .feedback-section h4 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .feedback-options {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .feedback-options label {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            transition: all 0.3s;
+        }
+
+        .feedback-options label:hover {
+            background-color: #f8f9fa;
+        }
+
+        .feedback-options input[type="radio"] {
+            margin-right: 6px;
+        }
+
+        .feedback-options label.selected {
+            background-color: #3498db;
+            color: white;
+            border-color: #3498db;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #2c3e50;
+            font-weight: 500;
+        }
+
+        .form-group select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: white;
+        }
+
+        .form-group textarea {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            resize: vertical;
+            min-height: 60px;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .btn-cancel {
+            background: #95a5a6;
+            color: white;
+        }
+
+        .btn-cancel:hover {
+            background: #7f8c8d;
+        }
     </style>
 </head>
 
@@ -213,6 +439,11 @@
             <div class="nav-links">
                 <a href="/">🏠 Dashboard</a>
                 <a href="/attachments">📁 Browse Files</a>
+                <button onclick="resetSystem()"
+                    style="background: #dc3545; color: white; border: none; padding: 8px 16px; border-radius: 5px; cursor: pointer; font-size: 14px; transition: background 0.3s;"
+                    onmouseover="this.style.background='#c82333'" onmouseout="this.style.background='#dc3545'">
+                    🗑️ Reset System
+                </button>
             </div>
         </div>
 
@@ -247,13 +478,66 @@
                         <th>Filename</th>
                         <th>Size</th>
                         <th>Modified</th>
-                        <th>Action</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody id="attachmentsTableBody">
                     <!-- Attachment rows will be populated here -->
                 </tbody>
             </table>
+        </div>
+    </div>
+
+    <!-- Feedback Modal -->
+    <div id="feedbackModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title" id="modalTitle">Provide Feedback</h3>
+                <button class="close" onclick="closeFeedbackModal()">&times;</button>
+            </div>
+
+            <form id="feedbackForm">
+                <div class="feedback-section">
+                    <h4>📋 Relevance Assessment</h4>
+                    <p style="color: #7f8c8d; font-size: 13px; margin-bottom: 10px;">
+                        Is this file relevant to investment asset management?
+                    </p>
+                    <div class="feedback-options">
+                        <label>
+                            <input type="radio" name="relevance" value="relevant">
+                            ✅ Relevant
+                        </label>
+                        <label>
+                            <input type="radio" name="relevance" value="irrelevant">
+                            ❌ Irrelevant
+                        </label>
+                    </div>
+                </div>
+
+                <div class="feedback-section">
+                    <h4>🎯 Asset Assignment</h4>
+                    <p style="color: #7f8c8d; font-size: 13px; margin-bottom: 10px;">
+                        Which asset should this file be assigned to?
+                    </p>
+                    <div class="form-group">
+                        <select id="assetSelect" name="asset_assignment">
+                            <option value="">-- Select Asset --</option>
+                            <option value="none">None / Unassigned</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="feedbackNotes">Additional Notes (Optional)</label>
+                    <textarea id="feedbackNotes" name="notes"
+                        placeholder="Any additional feedback or comments..."></textarea>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-cancel" onclick="closeFeedbackModal()">Cancel</button>
+                    <button type="submit" class="btn btn-success">Submit Feedback</button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -300,15 +584,23 @@
                 return;
             }
 
-            grid.innerHTML = allAssets.map(asset => `
-                <div class="asset-card" onclick="showAssetAttachments('${asset.id}', '${escapeHtml(asset.name)}')">
-                    <div class="asset-name">${escapeHtml(asset.name)}</div>
-                    <div class="asset-stats">
-                        <span>${asset.id}</span>
-                        <span class="file-count">${asset.file_count} files</span>
+            grid.innerHTML = allAssets.map(asset => {
+                // Special styling for review assets
+                const reviewClass = asset.is_review_folder ? 'asset-card review-priority' : 'asset-card';
+                const reviewIcon = asset.is_review_folder ? '⚠️ ' : '';
+                const priorityText = asset.is_review_folder ? '<div style="font-size: 11px; color: #d68910; font-weight: 600; margin-top: 5px;">🔥 NEEDS IMMEDIATE ATTENTION</div>' : '';
+
+                return `
+                    <div class="${reviewClass}" onclick="showAssetAttachments('${asset.id}', '${escapeHtml(asset.name)}')">
+                        <div class="asset-name">${reviewIcon}${escapeHtml(asset.name)}</div>
+                        <div class="asset-stats">
+                            <span>${asset.id}</span>
+                            <span class="file-count">${asset.file_count} files</span>
+                        </div>
+                        ${priorityText}
                     </div>
-                </div>
-            `).join('');
+                `;
+            }).join('');
         }
 
         async function showAssetAttachments(assetId, assetName) {
@@ -371,10 +663,22 @@
                     <td class="file-size">${formatFileSize(attachment.size)}</td>
                     <td class="file-size">${formatDate(attachment.modified)}</td>
                     <td>
-                        <a href="/api/attachments/download/${encodeURIComponent(attachment.path)}"
-                           class="download-link" target="_blank">
-                            ⬇️ Download
-                        </a>
+                        <div class="action-buttons">
+                            <a href="/api/attachments/download/${encodeURIComponent(attachment.path)}"
+                               class="btn btn-primary" target="_blank" title="Download file">
+                                ⬇️ Download
+                            </a>
+                            <button class="btn btn-warning"
+                                    onclick="openFeedbackModal('${escapeHtml(attachment.filename)}', '${currentAsset.id}', '${encodeURIComponent(attachment.path)}', 'review')"
+                                    title="Human review needed">
+                                👁️ Review
+                            </button>
+                            <button class="btn btn-success"
+                                    onclick="openFeedbackModal('${escapeHtml(attachment.filename)}', '${currentAsset.id}', '${encodeURIComponent(attachment.path)}', 'reclassify')"
+                                    title="Reclassify this file">
+                                🔄 Reclassify
+                            </button>
+                        </div>
                     </td>
                 </tr>
             `).join('');
@@ -390,8 +694,20 @@
             const statusInfo = document.getElementById('statusInfo');
             const lastUpdated = document.getElementById('lastUpdated');
 
-            statusInfo.textContent = `${data.total_assets} assets found`;
+            const reviewCount = data.needs_review_count || 0;
+            const reviewText = reviewCount > 0 ? ` • ⚠️ ${reviewCount} items need review` : '';
+
+            statusInfo.innerHTML = `${data.total_assets} assets found${reviewText}`;
             lastUpdated.textContent = `Updated: ${formatDate(data.timestamp)}`;
+
+            // Add review warning styling if there are items to review
+            if (reviewCount > 0) {
+                statusInfo.style.color = '#d68910';
+                statusInfo.style.fontWeight = '600';
+            } else {
+                statusInfo.style.color = '#7f8c8d';
+                statusInfo.style.fontWeight = 'normal';
+            }
         }
 
         function formatFileSize(bytes) {
@@ -411,6 +727,183 @@
             div.textContent = text;
             return div.innerHTML;
         }
+
+        // Handle reset system
+        async function resetSystem() {
+            // Confirmation dialog
+            if (!confirm('⚠️ WARNING: This will permanently delete ALL saved files and processing history.\n\nThis action cannot be undone. Are you sure you want to continue?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/system/reset', {
+                    method: 'POST'
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    alert(`✅ Reset successful: ${result.message}`);
+                    // Reload the page to show empty state
+                    window.location.reload();
+                } else {
+                    alert(`❌ Reset failed: ${result.error || 'Unknown error'}`);
+                }
+
+            } catch (error) {
+                console.error('Reset error:', error);
+                alert('❌ Reset failed: Network error occurred');
+            }
+        }
+
+        // Feedback Modal Functions
+        let currentFeedbackFile = null;
+
+        function openFeedbackModal(filename, assetId, filePath, feedbackType) {
+            currentFeedbackFile = {
+                filename: filename,
+                assetId: assetId,
+                filePath: decodeURIComponent(filePath),
+                feedbackType: feedbackType
+            };
+
+            // Update modal title based on feedback type
+            const modalTitle = document.getElementById('modalTitle');
+            if (feedbackType === 'review') {
+                modalTitle.textContent = `Human Review: ${filename}`;
+            } else {
+                modalTitle.textContent = `Reclassify: ${filename}`;
+            }
+
+            // Populate asset dropdown
+            populateAssetDropdown();
+
+            // Clear previous form data
+            document.getElementById('feedbackForm').reset();
+            clearRadioStyles();
+
+            // Show modal
+            document.getElementById('feedbackModal').style.display = 'block';
+        }
+
+        function closeFeedbackModal() {
+            document.getElementById('feedbackModal').style.display = 'none';
+            currentFeedbackFile = null;
+        }
+
+        function populateAssetDropdown() {
+            const select = document.getElementById('assetSelect');
+
+            // Clear existing options except the first two
+            select.innerHTML = `
+                <option value="">-- Select Asset --</option>
+                <option value="none">None / Unassigned</option>
+            `;
+
+            // Add all available assets
+            allAssets.forEach(asset => {
+                const option = document.createElement('option');
+                option.value = asset.id;
+                option.textContent = `${asset.id} (${asset.name})`;
+
+                // Pre-select current asset if this is a reclassify action
+                if (currentFeedbackFile && asset.id === currentFeedbackFile.assetId) {
+                    option.selected = true;
+                }
+
+                select.appendChild(option);
+            });
+        }
+
+        // Handle form submission
+        document.getElementById('feedbackForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            if (!currentFeedbackFile) {
+                alert('❌ No file selected for feedback');
+                return;
+            }
+
+            // Collect form data
+            const formData = new FormData(this);
+            const feedbackData = {
+                filename: currentFeedbackFile.filename,
+                file_path: currentFeedbackFile.filePath,
+                current_asset_id: currentFeedbackFile.assetId,
+                feedback_type: currentFeedbackFile.feedbackType,
+                relevance_feedback: formData.get('relevance'),
+                asset_assignment_feedback: formData.get('asset_assignment'),
+                notes: formData.get('notes') || '',
+                timestamp: new Date().toISOString()
+            };
+
+            // Validate required fields
+            if (!feedbackData.relevance_feedback) {
+                alert('❌ Please select a relevance assessment');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/feedback/submit', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(feedbackData)
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    alert(`✅ Feedback submitted successfully: ${result.message}`);
+                    closeFeedbackModal();
+
+                    // Optionally reload attachments to show any changes
+                    if (currentAsset) {
+                        showAssetAttachments(currentAsset.id, currentAsset.name);
+                    }
+                } else {
+                    alert(`❌ Feedback submission failed: ${result.error || 'Unknown error'}`);
+                }
+
+            } catch (error) {
+                console.error('Feedback submission error:', error);
+                alert('❌ Feedback submission failed: Network error occurred');
+            }
+        });
+
+        // Add visual feedback for radio button selection
+        document.addEventListener('DOMContentLoaded', function () {
+            const modal = document.getElementById('feedbackModal');
+
+            modal.addEventListener('change', function (e) {
+                if (e.target.type === 'radio') {
+                    // Clear all labels in the same group
+                    const groupName = e.target.name;
+                    const labels = modal.querySelectorAll(`input[name="${groupName}"]`);
+                    labels.forEach(radio => {
+                        radio.closest('label').classList.remove('selected');
+                    });
+
+                    // Add selected class to the chosen option
+                    e.target.closest('label').classList.add('selected');
+                }
+            });
+        });
+
+        function clearRadioStyles() {
+            document.querySelectorAll('.feedback-options label').forEach(label => {
+                label.classList.remove('selected');
+            });
+        }
+
+        // Close modal when clicking outside
+        window.addEventListener('click', function (e) {
+            const modal = document.getElementById('feedbackModal');
+            if (e.target === modal) {
+                closeFeedbackModal();
+            }
+        });
     </script>
 </body>
 

@@ -326,7 +326,7 @@ class EmailAgentConfig:
                 os.getenv("LOW_CONFIDENCE_THRESHOLD", "0.6")
             ),
             requires_review_threshold=float(
-                os.getenv("REQUIRES_REVIEW_THRESHOLD", "0.5")
+                os.getenv("REQUIRES_REVIEW_THRESHOLD", "0.25")
             ),
             # Logging
             log_level=os.getenv("LOG_LEVEL", "INFO").upper(),

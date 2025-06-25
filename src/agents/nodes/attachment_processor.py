@@ -73,8 +73,18 @@ class AttachmentProcessorNode:
         Raises:
             ValueError: If input data is malformed
         """
-        if not asset_matches:
-            logger.info("No asset matches to process")
+        # Check if this is a human review case (no matches but flagged for review)
+        is_human_review_case = (
+            not asset_matches
+            and email_data.get("actions")
+            and any(
+                "human review" in action.lower()
+                for action in email_data.get("actions", [])
+            )
+        )
+
+        if not asset_matches and not is_human_review_case:
+            logger.info("No asset matches to process and not flagged for human review")
             return {
                 "results": [],
                 "decision_factors": ["No asset matches to process"],
@@ -82,6 +92,11 @@ class AttachmentProcessorNode:
                 "rule_applications": [],
                 "confidence_factors": [],
             }
+
+        # Handle human review case - save to NEEDS_REVIEW pseudo-asset
+        if is_human_review_case:
+            logger.info(f"Processing {len(attachments)} attachments for human review")
+            return await self._process_human_review_attachments(email_data, attachments)
 
         logger.info(f"Processing {len(asset_matches)} asset matches")
 
@@ -437,4 +452,73 @@ class AttachmentProcessorNode:
             "duplicate_handling": "rename_with_suffix",
             "security_scan_required": config.enable_virus_scanning,
             "backup_enabled": False,
+        }
+
+    async def _process_human_review_attachments(
+        self, email_data: dict[str, Any], attachments: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        """
+        Process attachments that require human review (no asset matches found).
+
+        Args:
+            email_data: Email context
+            attachments: All attachment data
+
+        Returns:
+            Processing results for human review items
+        """
+        logger.info("Saving attachments to NEEDS_REVIEW for human review")
+
+        # Get processing rules
+        processing_rules = await self.query_processing_procedures(email_data)
+
+        results = []
+        for attachment_data in attachments:
+            try:
+                filename = attachment_data.get("filename", "unknown")
+
+                # Create a pseudo-match for NEEDS_REVIEW
+                needs_review_match = {
+                    "attachment_filename": filename,
+                    "asset_id": "NEEDS_REVIEW",
+                    "confidence": 0.0,  # Low confidence since no matches
+                    "reason": "No asset matches found - requires human review",
+                }
+
+                # Process as normal attachment but with NEEDS_REVIEW asset
+                result = await self._process_single_attachment(
+                    needs_review_match, email_data, attachments, processing_rules
+                )
+
+                # Add special metadata for human review items
+                result["needs_human_review"] = True
+                result["review_reason"] = "No asset matches found"
+
+                results.append(result)
+                logger.info(f"Saved {filename} to NEEDS_REVIEW for human review")
+
+            except Exception as e:
+                logger.error(f"Failed to save {filename} for human review: {e}")
+                results.append(
+                    {
+                        "attachment_filename": attachment_data.get(
+                            "filename", "unknown"
+                        ),
+                        "asset_id": "NEEDS_REVIEW",
+                        "status": "error",
+                        "error": str(e),
+                        "needs_human_review": True,
+                        "timestamp": datetime.now().isoformat(),
+                    }
+                )
+
+        # Return results with human review metadata
+        return {
+            "results": results,
+            "decision_factors": [f"Saved {len(results)} attachments for human review"],
+            "memory_queries": ["Queried procedural memory for processing rules"],
+            "rule_applications": [f"Applied security checks to {len(results)} files"],
+            "confidence_factors": [
+                f"Human review required: {len([r for r in results if r.get('status') == 'saved'])} files saved to NEEDS_REVIEW"
+            ],
         }

@@ -462,8 +462,8 @@ class GmailInterface(BaseEmailInterface):
 
             # Get full message details
             emails = []
-            # Include attachments if searching for emails with attachments
-            include_attachments = criteria.has_attachments is True
+            # Include attachments if not explicitly excluded
+            include_attachments = criteria.has_attachments is not False
 
             for msg in messages:
                 try:
@@ -878,6 +878,9 @@ class GmailInterface(BaseEmailInterface):
                     # Optionally load content
                     if part["body"].get("attachmentId"):
                         try:
+                            logger.info(
+                                f"Downloading content for {attachment.filename} from Gmail message {message_id}"
+                            )
                             att_data = await self._run_in_executor(
                                 self.service.users()
                                 .messages()
@@ -892,8 +895,18 @@ class GmailInterface(BaseEmailInterface):
                             attachment.content = base64.urlsafe_b64decode(
                                 att_data["data"]
                             )
+                            logger.info(
+                                f"Successfully downloaded {attachment.filename}: {len(attachment.content)} bytes"
+                            )
                         except Exception as e:
-                            logger.warning("Failed to load attachment content: %s", e)
+                            logger.error(
+                                f"Failed to download attachment {attachment.filename} from Gmail message {message_id}: {e}"
+                            )
+                            # Keep the attachment in the list but without content
+                    else:
+                        logger.warning(
+                            f"Gmail attachment {attachment.filename} has no attachment ID - cannot download content"
+                        )
 
                     attachments.append(attachment)
 

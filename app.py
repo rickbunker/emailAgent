@@ -25,12 +25,34 @@ from src.agents.email_graph import EmailProcessingGraph
 from src.email_interface.base import EmailSearchCriteria
 from src.email_interface.factory import EmailInterfaceFactory, EmailSystemType
 from src.memory import create_memory_systems
+from src.memory.simple_memory import reset_all_memory_to_baseline
 from src.utils.config import config
 from src.utils.logging_system import get_logger, log_function
 
 # Initialize Flask app
 app = Flask(__name__)
 app.secret_key = config.flask_secret_key
+
+
+# Add CSP headers to allow JavaScript execution
+@app.after_request
+def add_security_headers(response):
+    """Add security headers including CSP to allow legitimate JavaScript."""
+    # Content Security Policy that allows our inline scripts and fetch calls
+    csp = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "connect-src 'self'; "
+        "img-src 'self' data:; "
+        "font-src 'self'"
+    )
+    response.headers["Content-Security-Policy"] = csp
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    return response
+
 
 # Initialize logger
 logger = get_logger(__name__)
@@ -266,22 +288,31 @@ async def process_emails_async(interface: Any, max_emails: int) -> dict[str, Any
                 logger.info(
                     f"  Attachment {j+1}: {att.filename} ({att.size} bytes, {att.content_type})"
                 )
+                if not att.content:
+                    logger.warning(f"    No content loaded for {att.filename}")
+
+            # Filter out attachments without content
+            valid_attachments = []
+            for att in email.attachments:
+                if att.content:
+                    valid_attachments.append(
+                        {
+                            "filename": att.filename,
+                            "content": att.content,
+                            "content_type": att.content_type,
+                            "size": att.size,
+                        }
+                    )
+                else:
+                    logger.warning(
+                        f"Skipping attachment {att.filename} - no content loaded"
+                    )
 
             email_data = {
                 "subject": email.subject,
                 "sender": email.sender.address,
                 "body": email.body_text or email.body_html or "",
-                "attachments": [
-                    {
-                        "filename": att.filename,
-                        "content": (
-                            att.content if att.content else b"placeholder"
-                        ),  # Use actual content if available
-                        "content_type": att.content_type,
-                        "size": att.size,
-                    }
-                    for att in email.attachments
-                ],
+                "attachments": valid_attachments,
             }
 
             # Process through the graph
@@ -371,6 +402,7 @@ def list_assets() -> dict[str, Any]:
     try:
         assets_path = Path(config.assets_base_path)
         assets = []
+        needs_review_asset = None
 
         if assets_path.exists():
             for asset_dir in assets_path.iterdir():
@@ -383,6 +415,18 @@ def list_assets() -> dict[str, Any]:
                         "name": asset_dir.name,
                         "display_name": asset_dir.name,
                     }
+
+                    # Special handling for NEEDS_REVIEW
+                    if asset_dir.name == "NEEDS_REVIEW":
+                        needs_review_asset = {
+                            "id": asset_dir.name,
+                            "name": "⚠️ Needs Human Review",
+                            "file_count": file_count,
+                            "path": str(asset_dir),
+                            "is_review_folder": True,
+                            "priority": True,
+                        }
+                        continue
 
                     if memory_systems:
                         try:
@@ -404,16 +448,27 @@ def list_assets() -> dict[str, Any]:
                             "name": asset_info["display_name"],
                             "file_count": file_count,
                             "path": str(asset_dir),
+                            "is_review_folder": False,
+                            "priority": False,
                         }
                     )
 
-        # Sort by name
+        # Sort regular assets by name
         assets.sort(key=lambda x: x["name"])
+
+        # Add NEEDS_REVIEW at the beginning if it exists and has files
+        final_assets = []
+        if needs_review_asset and needs_review_asset["file_count"] > 0:
+            final_assets.append(needs_review_asset)
+        final_assets.extend(assets)
 
         return jsonify(
             {
-                "assets": assets,
-                "total_assets": len(assets),
+                "assets": final_assets,
+                "total_assets": len(final_assets),
+                "needs_review_count": (
+                    needs_review_asset["file_count"] if needs_review_asset else 0
+                ),
                 "timestamp": datetime.now().isoformat(),
             }
         )
@@ -483,6 +538,281 @@ def download_attachment(file_path: str) -> Any:
 
     except Exception as e:
         logger.error(f"Failed to download file {file_path}: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/system/reset", methods=["POST"])
+def reset_system() -> tuple[dict, int]:
+    """Reset system by deleting all files and resetting ALL memory to base state."""
+    try:
+        deleted_files = 0
+
+        # Delete all files in assets directory
+        assets_path = Path(config.assets_base_path)
+        if assets_path.exists():
+            for item in assets_path.iterdir():
+                if item.is_dir():
+                    # Delete directory and all contents
+                    for file in item.rglob("*"):
+                        if file.is_file():
+                            file.unlink()
+                            deleted_files += 1
+                    # Remove empty directories
+                    for dir_path in sorted(
+                        item.rglob("*"), key=lambda x: len(str(x)), reverse=True
+                    ):
+                        if dir_path.is_dir():
+                            dir_path.rmdir()
+                    item.rmdir()
+                elif item.is_file():
+                    item.unlink()
+                    deleted_files += 1
+
+        # Reset ALL memory systems to baseline using centralized function
+        try:
+            reset_results = reset_all_memory_to_baseline()
+            semantic_reset = reset_results.get("semantic_memory", 0)
+            procedural_reset = reset_results.get("procedural_memory", 0)
+            episodic_reset = reset_results.get("episodic_memory", 0)
+            total_reset = reset_results.get("total_items", 0)
+
+            logger.info(f"Memory systems reset to baseline: {total_reset} total items")
+
+        except Exception as e:
+            logger.error(f"Failed to reset memory systems to baseline: {e}")
+            semantic_reset = 0
+            procedural_reset = 0
+            episodic_reset = 0
+            total_reset = 0
+
+        message = f"Complete reset: {deleted_files} files deleted, memory reset to baseline ({total_reset} items)"
+        logger.info(message)
+
+        return {
+            "message": message,
+            "files_deleted": deleted_files,
+            "semantic_items_reset": semantic_reset,
+            "procedural_rules_reset": procedural_reset,
+            "episodic_records_reset": episodic_reset,
+            "total_memory_items_reset": total_reset,
+        }, 200
+
+    except Exception as e:
+        logger.error(f"Reset failed: {e}")
+        return {"error": str(e)}, 500
+
+
+@app.route("/api/system/reset-files-only", methods=["POST"])
+def reset_files_only() -> tuple[dict, int]:
+    """Reset only saved files, keeping all memory systems intact."""
+    try:
+        deleted_files = 0
+
+        # Delete all files in assets directory
+        assets_path = Path(config.assets_base_path)
+        if assets_path.exists():
+            for item in assets_path.iterdir():
+                if item.is_dir():
+                    # Delete directory and all contents
+                    for file in item.rglob("*"):
+                        if file.is_file():
+                            file.unlink()
+                            deleted_files += 1
+                    # Remove empty directories
+                    for dir_path in sorted(
+                        item.rglob("*"), key=lambda x: len(str(x)), reverse=True
+                    ):
+                        if dir_path.is_dir():
+                            dir_path.rmdir()
+                    item.rmdir()
+                elif item.is_file():
+                    item.unlink()
+                    deleted_files += 1
+
+        message = (
+            f"Files cleared: {deleted_files} files deleted (memory systems preserved)"
+        )
+        logger.info(message)
+
+        return {"message": message, "files_deleted": deleted_files}, 200
+
+    except Exception as e:
+        logger.error(f"File reset failed: {e}")
+        return {"error": str(e)}, 500
+
+
+@app.route("/api/system/reset-episodic-memory", methods=["POST"])
+def reset_episodic_memory() -> tuple[dict, int]:
+    """Clear episodic memory (processing history and feedback) only."""
+    try:
+        cleared_episodes = 0
+
+        if memory_systems and memory_systems.get("episodic"):
+            try:
+                episodic_memory = memory_systems["episodic"]
+                cleared_episodes = episodic_memory.clear_all_data()
+            except Exception as e:
+                logger.warning(f"Failed to clear episodic memory: {e}")
+                return {"error": f"Episodic memory clear failed: {e}"}, 500
+
+        message = f"Episodic memory cleared: {cleared_episodes} records deleted"
+        logger.info(message)
+
+        return {"message": message, "records_cleared": cleared_episodes}, 200
+
+    except Exception as e:
+        logger.error(f"Episodic memory reset failed: {e}")
+        return {"error": str(e)}, 500
+
+
+@app.route("/api/system/reset-semantic-memory", methods=["POST"])
+def reset_semantic_memory() -> tuple[dict, int]:
+    """Reset semantic memory to base state."""
+    try:
+        reset_count = 0
+
+        if memory_systems and memory_systems.get("semantic"):
+            try:
+                semantic_memory = memory_systems["semantic"]
+                reset_count = semantic_memory.reset_to_base_state()
+            except Exception as e:
+                logger.warning(f"Failed to reset semantic memory: {e}")
+                return {"error": f"Semantic memory reset failed: {e}"}, 500
+
+        message = f"Semantic memory reset: {reset_count} items reset to base state"
+        logger.info(message)
+
+        return {"message": message, "items_reset": reset_count}, 200
+
+    except Exception as e:
+        logger.error(f"Semantic memory reset failed: {e}")
+        return {"error": str(e)}, 500
+
+
+@app.route("/api/system/reset-procedural-memory", methods=["POST"])
+def reset_procedural_memory() -> tuple[dict, int]:
+    """Reset procedural memory to base state."""
+    try:
+        reset_count = 0
+
+        if memory_systems and memory_systems.get("procedural"):
+            try:
+                procedural_memory = memory_systems["procedural"]
+                reset_count = procedural_memory.reset_to_base_state()
+            except Exception as e:
+                logger.warning(f"Failed to reset procedural memory: {e}")
+                return {"error": f"Procedural memory reset failed: {e}"}, 500
+
+        message = f"Procedural memory reset: {reset_count} rules reset to base state"
+        logger.info(message)
+
+        return {"message": message, "rules_reset": reset_count}, 200
+
+    except Exception as e:
+        logger.error(f"Procedural memory reset failed: {e}")
+        return {"error": str(e)}, 500
+
+
+@app.route("/api/feedback/submit", methods=["POST"])
+def submit_feedback() -> tuple[dict, int]:
+    """Submit human feedback for file relevance and asset assignment."""
+    try:
+        data = request.get_json()
+
+        # Validate required fields
+        required_fields = [
+            "filename",
+            "file_path",
+            "current_asset_id",
+            "feedback_type",
+            "relevance_feedback",
+        ]
+        for field in required_fields:
+            if field not in data:
+                return {"error": f"Missing required field: {field}"}, 400
+
+        # Extract feedback data
+        filename = data["filename"]
+        current_asset_id = data["current_asset_id"]
+        feedback_type = data["feedback_type"]  # 'review' or 'reclassify'
+        relevance_feedback = data["relevance_feedback"]  # 'relevant' or 'irrelevant'
+        asset_assignment_feedback = data.get("asset_assignment_feedback", "")
+        notes = data.get("notes", "")
+
+        # Generate unique email ID for this feedback
+        email_id = f"feedback_{filename}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+
+        # Store feedback in episodic memory
+        if memory_systems and memory_systems.get("episodic"):
+            episodic_memory = memory_systems["episodic"]
+
+            # Determine original and corrected decisions
+            original_decision = f"asset:{current_asset_id},relevance:relevant"
+
+            # Build corrected decision
+            corrected_relevance = relevance_feedback
+            corrected_asset = asset_assignment_feedback or current_asset_id
+            if asset_assignment_feedback == "none":
+                corrected_asset = "unassigned"
+
+            corrected_decision = (
+                f"asset:{corrected_asset},relevance:{corrected_relevance}"
+            )
+
+            # Calculate confidence impact (negative for corrections, positive for confirmations)
+            confidence_impact = 0.0
+            if feedback_type == "reclassify":
+                # This is a correction
+                confidence_impact = (
+                    -0.2 if corrected_decision != original_decision else 0.1
+                )
+            elif feedback_type == "review":
+                # This is human review
+                confidence_impact = 0.05  # Small positive for human validation
+
+            # Store the feedback
+            episodic_memory.add_human_feedback(
+                email_id=email_id,
+                original_decision=original_decision,
+                corrected_decision=corrected_decision,
+                feedback_type=feedback_type,
+                confidence_impact=confidence_impact,
+                notes=f"File: {filename}\nRelevance: {relevance_feedback}\nAsset: {corrected_asset}\nNotes: {notes}",
+            )
+
+            logger.info(f"Human feedback stored: {feedback_type} for {filename}")
+
+        # TODO: In the future, we could also move the file to the correct asset directory
+        # if the asset assignment was changed
+
+        message = f"Feedback recorded for {filename}: {relevance_feedback}, asset: {corrected_asset}"
+        return {"message": message, "feedback_type": feedback_type}, 200
+
+    except Exception as e:
+        logger.error(f"Feedback submission failed: {e}")
+        return {"error": str(e)}, 500
+
+
+@app.route("/api/system/review-status", methods=["GET"])
+def get_review_status() -> dict[str, Any]:
+    """Get count of items awaiting human review."""
+    try:
+        needs_review_path = Path(config.assets_base_path) / "NEEDS_REVIEW"
+        review_count = 0
+
+        if needs_review_path.exists() and needs_review_path.is_dir():
+            review_count = len([f for f in needs_review_path.iterdir() if f.is_file()])
+
+        return jsonify(
+            {
+                "needs_review_count": review_count,
+                "has_pending_reviews": review_count > 0,
+                "timestamp": datetime.now().isoformat(),
+            }
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to get review status: {e}")
         return jsonify({"error": str(e)}), 500
 
 

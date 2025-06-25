@@ -305,10 +305,14 @@ class EmailProcessingGraph:
 
             # Add processing actions
             processed_count = len(
-                [r for r in state["processing_results"] if r.get("success")]
+                [r for r in state["processing_results"] if r.get("status") == "saved"]
             )
             failed_count = len(
-                [r for r in state["processing_results"] if not r.get("success")]
+                [
+                    r
+                    for r in state["processing_results"]
+                    if r.get("status") in ["error", "blocked"]
+                ]
             )
             state["actions"].append(
                 f"Memory-driven attachment processing: {processed_count} processed, {failed_count} failed"

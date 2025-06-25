@@ -1,0 +1,36 @@
+{
+    "processing_history": [
+        {
+            "email_id": "baseline_hint_001",
+            "sender": "rick@bunkerplanet.com",
+            "subject": "baseline relevance hint",
+            "asset_id": "SENDER_PATTERN",
+            "category": "relevance_pattern",
+            "confidence": 0.95,
+            "decision": "relevant",
+            "metadata": {
+                "type": "sender_pattern_learning",
+                "note": "emails from rick@bunkerplanet.com are typically relevant",
+                "baseline": true
+            }
+        }
+    ],
+    "human_feedback": [
+        {
+            "email_id": "baseline_hint_001",
+            "original_decision": "irrelevant",
+            "corrected_decision": "relevant",
+            "feedback_type": "sender_pattern_learning",
+            "confidence_impact": 0.25,
+            "notes": "Baseline learning: emails from rick@bunkerplanet.com are typically relevant despite low initial confidence scores"
+        }
+    ],
+    "_metadata": {
+        "version": "1.0",
+        "created": "2025-06-24",
+        "description": "Baseline episodic memory patterns for email agent initialization",
+        "key_patterns": [
+            "rick@bunkerplanet.com emails should be considered relevant"
+        ]
+    }
+}

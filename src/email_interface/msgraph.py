@@ -843,16 +843,29 @@ class MicrosoftGraphInterface(BaseEmailInterface):
                                 and attachment.attachment_id
                             ):
                                 try:
+                                    self.logger.info(
+                                        f"Downloading content for {attachment.filename} from message {attachment._message_id}"
+                                    )
                                     attachment.content = await self.download_attachment(
                                         attachment._message_id, attachment.attachment_id
                                     )
                                     self.logger.info(
-                                        f"Downloaded content for {attachment.filename}: {len(attachment.content)} bytes"
+                                        f"Successfully downloaded {attachment.filename}: {len(attachment.content)} bytes"
                                     )
                                 except Exception as e:
-                                    self.logger.warning(
-                                        f"Failed to download attachment {attachment.filename}: {e}"
+                                    self.logger.error(
+                                        f"Failed to download attachment {attachment.filename} from message {attachment._message_id}: {e}"
                                     )
+                                    # Keep the attachment in the list but without content
+                                    # This allows the processing pipeline to log the missing content
+                            elif not attachment.content:
+                                self.logger.warning(
+                                    f"Attachment {attachment.filename} has no content and cannot be downloaded (missing message_id or attachment_id)"
+                                )
+                            else:
+                                self.logger.debug(
+                                    f"Attachment {attachment.filename} already has content loaded"
+                                )
 
                 return emails
 

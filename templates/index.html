@@ -256,6 +256,64 @@
             color: #495057;
             line-height: 1.4;
         }
+
+        .title-section {
+            flex: 1;
+        }
+
+        .subtitle {
+            font-size: 14px;
+            color: #6c757d;
+        }
+
+        .nav-section {
+            display: flex;
+            gap: 15px;
+        }
+
+        .nav-link {
+            color: #3498db;
+            text-decoration: none;
+            font-weight: 500;
+            padding: 8px 16px;
+            border: 1px solid #3498db;
+            border-radius: 5px;
+            transition: all 0.2s;
+        }
+
+        .nav-link:hover {
+            background: #3498db;
+            color: white;
+        }
+
+        .review-indicator {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .review-badge {
+            background: #ffcc00;
+            padding: 2px 5px;
+            border-radius: 5px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .review-link {
+            color: #3498db;
+            text-decoration: none;
+            font-weight: 500;
+            padding: 8px 16px;
+            border: 1px solid #3498db;
+            border-radius: 5px;
+            transition: all 0.2s;
+        }
+
+        .review-link:hover {
+            background: #3498db;
+            color: white;
+        }
     </style>
 </head>
 
@@ -265,16 +323,19 @@
             <div class="logo">
                 <img src="{{ url_for('static', filename='logo.jpg') }}" alt="Inveniam Logo" />
             </div>
-            <div style="flex: 1;">
-                <h1>Inveniam Email Agent</h1>
+            <div class="title-section">
+                <h1>📧 Inveniam Email Agent</h1>
+                <p class="subtitle">Intelligent email processing with memory-driven asset matching</p>
             </div>
-            <div>
-                <a href="/attachments"
-                    style="color: #3498db; text-decoration: none; font-weight: 500; padding: 8px 16px; border: 1px solid #3498db; border-radius: 5px; transition: all 0.2s;"
-                    onmouseover="this.style.background='#3498db'; this.style.color='white';"
-                    onmouseout="this.style.background='transparent'; this.style.color='#3498db';">
-                    📎 Browse Attachments
-                </a>
+            <div class="nav-section">
+                <a href="/attachments" class="nav-link">📁 Browse Files</a>
+                <!-- Review Status Indicator -->
+                <div id="reviewIndicator" class="review-indicator" style="display: none;">
+                    <span class="review-badge">
+                        ⚠️ <span id="reviewCount">0</span> items need review
+                    </span>
+                    <a href="/attachments" class="review-link">Review Now →</a>
+                </div>
             </div>
         </div>
 
@@ -332,6 +393,32 @@
 
                 <div class="results" id="results">
                     <!-- Results will be populated here -->
+                </div>
+            </div>
+
+            <div class="testing-section"
+                style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 20px; margin-top: 30px;">
+                <h3 style="color: #856404; margin-bottom: 15px;">🧪 Testing Tools</h3>
+                <p style="color: #856404; margin-bottom: 15px;">
+                    <strong>⚠️ Warning:</strong> These actions will permanently delete data and cannot be undone.
+                </p>
+                <div class="button-group" style="gap: 15px;">
+                    <button type="button" onclick="resetFilesOnly()"
+                        style="background: #fd7e14; color: white; border: none; padding: 12px 24px; border-radius: 5px; cursor: pointer; font-weight: bold; transition: background 0.3s;"
+                        onmouseover="this.style.background='#e8590c'" onmouseout="this.style.background='#fd7e14'"
+                        id="resetFilesBtn">
+                        🗑️ Clear Files Only
+                    </button>
+                    <button type="button" onclick="resetSystem()"
+                        style="background: #dc3545; color: white; border: none; padding: 12px 24px; border-radius: 5px; cursor: pointer; font-weight: bold; transition: background 0.3s;"
+                        onmouseover="this.style.background='#c82333'" onmouseout="this.style.background='#dc3545'"
+                        id="resetBtn">
+                        💥 Full Reset (Files + Memory)
+                    </button>
+                </div>
+                <div style="margin-top: 10px; font-size: 13px; color: #856404;">
+                    <strong>Clear Files Only:</strong> Deletes saved attachments, preserves all learning/memory<br>
+                    <strong>Full Reset:</strong> Deletes files AND processing history/feedback
                 </div>
             </div>
         </div>
@@ -578,8 +665,95 @@
             }
         });
 
-        // Initialize page
-        checkSystemStatus();
+        // Handle reset system
+        async function resetSystem() {
+            // Confirmation dialog
+            if (!confirm('⚠️ WARNING: This will permanently delete ALL saved files and processing history.\n\nThis action cannot be undone. Are you sure you want to continue?')) {
+                return;
+            }
+
+            // Show loading state
+            document.getElementById('resetBtn').disabled = true;
+            document.getElementById('resetBtn').textContent = 'Resetting...';
+
+            try {
+                const response = await fetch('/api/system/reset', {
+                    method: 'POST'
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    alert(`✅ Reset successful: ${result.message}`);
+                    // Refresh the page to show empty state
+                    window.location.reload();
+                } else {
+                    alert(`❌ Reset failed: ${result.error}`);
+                }
+            } catch (error) {
+                alert(`❌ Reset failed: ${error.message}`);
+            } finally {
+                // Reset button state
+                document.getElementById('resetBtn').disabled = false;
+                document.getElementById('resetBtn').textContent = '💥 Full Reset (Files + Memory)';
+            }
+        }
+
+        // Handle files-only reset
+        async function resetFilesOnly() {
+            // Confirmation dialog
+            if (!confirm('⚠️ WARNING: This will permanently delete ALL saved files.\n\nMemory/learning data will be preserved. This action cannot be undone. Are you sure you want to continue?')) {
+                return;
+            }
+
+            // Show loading state
+            document.getElementById('resetFilesBtn').disabled = true;
+            document.getElementById('resetFilesBtn').textContent = 'Clearing...';
+
+            try {
+                const response = await fetch('/api/system/reset-files-only', {
+                    method: 'POST'
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    alert(`✅ Files cleared: ${result.message}`);
+                    // Refresh the page to show empty state
+                    window.location.reload();
+                } else {
+                    alert(`❌ File clearing failed: ${result.error}`);
+                }
+            } catch (error) {
+                alert(`❌ File clearing failed: ${error.message}`);
+            } finally {
+                // Reset button state
+                document.getElementById('resetFilesBtn').disabled = false;
+                document.getElementById('resetFilesBtn').textContent = '🗑️ Clear Files Only';
+            }
+        }
+
+        // Dashboard initialization
+        document.addEventListener('DOMContentLoaded', function () {
+            checkSystemStatus();
+            checkReviewStatus();
+        });
+
+        // Check for items needing review
+        async function checkReviewStatus() {
+            try {
+                const response = await fetch('/api/system/review-status');
+                const data = await response.json();
+
+                if (data.has_pending_reviews && data.needs_review_count > 0) {
+                    document.getElementById('reviewCount').textContent = data.needs_review_count;
+                    document.getElementById('reviewIndicator').style.display = 'flex';
+                }
+
+            } catch (error) {
+                console.error('Failed to check review status:', error);
+            }
+        }
     </script>
 </body>
 

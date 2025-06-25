@@ -1,0 +1,33 @@
+{
+  "last_export": "2025-06-25T11:05:20.811307",
+  "version": "1.0",
+  "memory_systems": {
+    "semantic": {
+      "file": "semantic_memory.json",
+      "baseline": "semantic_memory_baseline.json",
+      "item_count": 5
+    },
+    "procedural": {
+      "file": "procedural_memory.json",
+      "baseline": "procedural_memory_baseline.json",
+      "rule_count": 10
+    },
+    "episodic": {
+      "runtime_db": "episodic_memory.db",
+      "export_json": "episodic_memory_export.json",
+      "baseline": "episodic_memory_baseline.json",
+      "record_count": 2
+    }
+  },
+  "export_files": [
+    "semantic",
+    "procedural",
+    "episodic_export"
+  ],
+  "notes": [
+    "semantic_memory.json and procedural_memory.json are the runtime files",
+    "episodic_memory.db is the runtime SQLite database",
+    "episodic_memory_export.json is the GitHub-friendly export",
+    "*_baseline.json files contain the initial system state"
+  ]
+}

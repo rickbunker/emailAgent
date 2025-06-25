@@ -72,14 +72,27 @@ class SimpleSemanticMemory:
     @log_function()
     def _load_data(self) -> dict[str, Any]:
         """Load data from JSON file"""
+        logger.info(f"Loading semantic memory from: {self.file_path}")
+        logger.info(f"File exists: {self.file_path.exists()}")
+
         if self.file_path.exists():
             try:
+                logger.info(f"File size: {self.file_path.stat().st_size} bytes")
                 with open(self.file_path) as f:
-                    return json.load(f)
+                    data = json.load(f)
+                asset_count = len(data.get("asset_profiles", {}))
+                logger.info(
+                    f"Successfully loaded semantic memory with {asset_count} assets"
+                )
+                logger.info(f"Asset IDs: {list(data.get('asset_profiles', {}).keys())}")
+                return data
             except Exception as e:
-                logger.warning(f"Failed to load semantic memory: {e}")
+                logger.error(f"Failed to load semantic memory: {e}")
+                logger.error(f"Exception type: {type(e).__name__}")
+                logger.info("Falling back to default data")
                 return self._get_default_data()
         else:
+            logger.warning("Semantic memory file does not exist, using default data")
             return self._get_default_data()
 
     def _get_default_data(self) -> dict[str, Any]:
@@ -224,6 +237,17 @@ class SimpleSemanticMemory:
         """Get organization contact data"""
         return self.data.get("organization_contacts", {}).get(organization)
 
+    @log_function()
+    def reset_to_base_state(self) -> int:
+        """Reset semantic memory to base state, returns count of items reset."""
+        old_count = len(self.data.get("asset_profiles", {})) + len(
+            self.data.get("sender_mappings", {})
+        )
+        self.data = self._get_default_data()
+        self._save_data()
+        logger.info("Semantic memory reset to base state")
+        return old_count
+
 
 class SimpleProceduralMemory:
     """
@@ -328,6 +352,19 @@ class SimpleProceduralMemory:
             rules = [rule for rule in rules if file_type in rule.get("file_types", [])]
 
         return rules
+
+    @log_function()
+    def reset_to_base_state(self) -> int:
+        """Reset procedural memory to base state, returns count of rules reset."""
+        old_count = (
+            len(self.data.get("relevance_rules", []))
+            + len(self.data.get("asset_matching_rules", []))
+            + len(self.data.get("file_processing_rules", []))
+        )
+        self.data = self._get_default_data()
+        self._save_data()
+        logger.info("Procedural memory reset to base state")
+        return old_count
 
 
 class SimpleEpisodicMemory:
@@ -553,3 +590,450 @@ class SimpleEpisodicMemory:
                 )
 
             return results
+
+    @log_function()
+    def get_processing_episodes(self, limit: int = 100) -> list[dict[str, Any]]:
+        """Get processing episodes from episodic memory"""
+        return self.search_similar_cases(limit=limit)
+
+    @log_function()
+    def clear_all_data(self) -> int:
+        """Clear all data from episodic memory tables. Returns count of deleted records."""
+        deleted_count = 0
+
+        with self._get_connection() as conn:
+            # Count records before deletion
+            cursor = conn.execute("SELECT COUNT(*) FROM processing_history")
+            deleted_count += cursor.fetchone()[0]
+
+            cursor = conn.execute("SELECT COUNT(*) FROM human_feedback")
+            deleted_count += cursor.fetchone()[0]
+
+            # Clear all tables
+            conn.execute("DELETE FROM processing_history")
+            conn.execute("DELETE FROM human_feedback")
+            conn.commit()
+
+        logger.info(f"Cleared all episodic memory data: {deleted_count} records")
+        return deleted_count
+
+
+# Memory Management and Backup Functions
+
+
+@log_function()
+def create_memory_backup(backup_name: str = None) -> dict[str, str]:
+    """
+    Create a comprehensive backup of all memory systems.
+
+    Args:
+        backup_name: Optional name for the backup (defaults to timestamp)
+
+    Returns:
+        Dictionary mapping memory type to backup file path
+    """
+    if backup_name is None:
+        backup_name = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    backup_dir = MEMORY_DATA_DIR / "backups" / backup_name
+    backup_dir.mkdir(parents=True, exist_ok=True)
+
+    backup_paths = {}
+
+    # Backup semantic memory
+    semantic_path = MEMORY_DATA_DIR / "semantic_memory.json"
+    if semantic_path.exists():
+        backup_semantic = backup_dir / "semantic_memory.json"
+        backup_semantic.write_text(semantic_path.read_text())
+        backup_paths["semantic"] = str(backup_semantic)
+        logger.info(f"Backed up semantic memory to: {backup_semantic}")
+
+    # Backup procedural memory
+    procedural_path = MEMORY_DATA_DIR / "procedural_memory.json"
+    if procedural_path.exists():
+        backup_procedural = backup_dir / "procedural_memory.json"
+        backup_procedural.write_text(procedural_path.read_text())
+        backup_paths["procedural"] = str(backup_procedural)
+        logger.info(f"Backed up procedural memory to: {backup_procedural}")
+
+    # Backup episodic memory (export SQLite to JSON)
+    episodic_db_path = MEMORY_DATA_DIR / "episodic_memory.db"
+    if episodic_db_path.exists():
+        backup_episodic = backup_dir / "episodic_memory.json"
+        episodic_data = export_episodic_memory_to_json()
+        backup_episodic.write_text(
+            json.dumps(episodic_data, indent=2, default=json_serialize)
+        )
+        backup_paths["episodic"] = str(backup_episodic)
+        logger.info(f"Backed up episodic memory to: {backup_episodic}")
+
+    # Copy the actual SQLite database as well
+    if episodic_db_path.exists():
+        backup_db = backup_dir / "episodic_memory.db"
+        backup_db.write_bytes(episodic_db_path.read_bytes())
+        backup_paths["episodic_db"] = str(backup_db)
+
+    # Create backup manifest
+    manifest = {
+        "backup_name": backup_name,
+        "created_at": datetime.now().isoformat(),
+        "files": backup_paths,
+        "version": "1.0",
+    }
+
+    manifest_path = backup_dir / "backup_manifest.json"
+    manifest_path.write_text(json.dumps(manifest, indent=2))
+    backup_paths["manifest"] = str(manifest_path)
+
+    logger.info(f"Created complete memory backup: {backup_name}")
+    return backup_paths
+
+
+@log_function()
+def restore_memory_from_backup(backup_name: str) -> dict[str, bool]:
+    """
+    Restore all memory systems from a backup.
+
+    Args:
+        backup_name: Name of the backup to restore
+
+    Returns:
+        Dictionary mapping memory type to success status
+    """
+    backup_dir = MEMORY_DATA_DIR / "backups" / backup_name
+
+    if not backup_dir.exists():
+        logger.error(f"Backup directory not found: {backup_dir}")
+        return {}
+
+    manifest_path = backup_dir / "backup_manifest.json"
+    if not manifest_path.exists():
+        logger.error(f"Backup manifest not found: {manifest_path}")
+        return {}
+
+    # Load manifest
+    manifest = json.loads(manifest_path.read_text())
+    logger.info(
+        f"Restoring memory backup: {backup_name} (created: {manifest.get('created_at')})"
+    )
+
+    restore_results = {}
+
+    # Restore semantic memory
+    semantic_backup = backup_dir / "semantic_memory.json"
+    if semantic_backup.exists():
+        try:
+            semantic_path = MEMORY_DATA_DIR / "semantic_memory.json"
+            semantic_path.write_text(semantic_backup.read_text())
+            restore_results["semantic"] = True
+            logger.info("Restored semantic memory")
+        except Exception as e:
+            logger.error(f"Failed to restore semantic memory: {e}")
+            restore_results["semantic"] = False
+
+    # Restore procedural memory
+    procedural_backup = backup_dir / "procedural_memory.json"
+    if procedural_backup.exists():
+        try:
+            procedural_path = MEMORY_DATA_DIR / "procedural_memory.json"
+            procedural_path.write_text(procedural_backup.read_text())
+            restore_results["procedural"] = True
+            logger.info("Restored procedural memory")
+        except Exception as e:
+            logger.error(f"Failed to restore procedural memory: {e}")
+            restore_results["procedural"] = False
+
+    # Restore episodic memory database
+    episodic_backup = backup_dir / "episodic_memory.db"
+    if episodic_backup.exists():
+        try:
+            episodic_path = MEMORY_DATA_DIR / "episodic_memory.db"
+            episodic_path.write_bytes(episodic_backup.read_bytes())
+            restore_results["episodic"] = True
+            logger.info("Restored episodic memory database")
+        except Exception as e:
+            logger.error(f"Failed to restore episodic memory: {e}")
+            restore_results["episodic"] = False
+
+    logger.info(
+        f"Memory restore complete: {sum(restore_results.values())}/{len(restore_results)} systems restored"
+    )
+    return restore_results
+
+
+@log_function()
+def export_episodic_memory_to_json() -> dict[str, Any]:
+    """
+    Export episodic memory database to JSON format.
+
+    Returns:
+        Dictionary containing all episodic memory data
+    """
+    db_path = MEMORY_DATA_DIR / "episodic_memory.db"
+
+    if not db_path.exists():
+        logger.warning("Episodic memory database not found")
+        return {"processing_history": [], "human_feedback": []}
+
+    with sqlite3.connect(db_path) as conn:
+        conn.row_factory = sqlite3.Row
+
+        # Export processing history
+        processing_history = []
+        for row in conn.execute("SELECT * FROM processing_history ORDER BY created_at"):
+            record = dict(row)
+            # Parse metadata JSON if it exists
+            if record.get("metadata"):
+                try:
+                    record["metadata"] = json.loads(record["metadata"])
+                except (json.JSONDecodeError, TypeError):
+                    record["metadata"] = {}
+            processing_history.append(record)
+
+        # Export human feedback
+        human_feedback = []
+        for row in conn.execute("SELECT * FROM human_feedback ORDER BY created_at"):
+            human_feedback.append(dict(row))
+
+        logger.info(
+            f"Exported {len(processing_history)} processing records and {len(human_feedback)} feedback records"
+        )
+
+        return {
+            "processing_history": processing_history,
+            "human_feedback": human_feedback,
+            "_metadata": {
+                "exported_at": datetime.now().isoformat(),
+                "version": "1.0",
+                "total_records": len(processing_history) + len(human_feedback),
+            },
+        }
+
+
+@log_function()
+def reset_all_memory_to_baseline() -> dict[str, int]:
+    """
+    Reset all memory systems to their baseline state.
+
+    Returns:
+        Dictionary mapping memory type to number of items reset
+    """
+    reset_counts = {}
+
+    # Reset semantic memory to baseline
+    baseline_semantic = MEMORY_DATA_DIR / "semantic_memory_baseline.json"
+    if baseline_semantic.exists():
+        try:
+            current_semantic = MEMORY_DATA_DIR / "semantic_memory.json"
+            current_semantic.write_text(baseline_semantic.read_text())
+
+            # Count items in baseline
+            baseline_data = json.loads(baseline_semantic.read_text())
+            item_count = len(baseline_data.get("asset_profiles", {})) + len(
+                baseline_data.get("sender_mappings", {})
+            )
+            reset_counts["semantic"] = item_count
+            logger.info(f"Reset semantic memory to baseline ({item_count} items)")
+        except Exception as e:
+            logger.error(f"Failed to reset semantic memory to baseline: {e}")
+            reset_counts["semantic"] = 0
+
+    # Reset procedural memory to baseline
+    baseline_procedural = MEMORY_DATA_DIR / "procedural_memory_baseline.json"
+    if baseline_procedural.exists():
+        try:
+            current_procedural = MEMORY_DATA_DIR / "procedural_memory.json"
+            current_procedural.write_text(baseline_procedural.read_text())
+
+            # Count rules in baseline
+            baseline_data = json.loads(baseline_procedural.read_text())
+            rule_count = (
+                len(baseline_data.get("relevance_rules", []))
+                + len(baseline_data.get("asset_matching_rules", []))
+                + len(baseline_data.get("file_processing_rules", []))
+            )
+            reset_counts["procedural"] = rule_count
+            logger.info(f"Reset procedural memory to baseline ({rule_count} rules)")
+        except Exception as e:
+            logger.error(f"Failed to reset procedural memory to baseline: {e}")
+            reset_counts["procedural"] = 0
+
+    # Reset episodic memory
+    try:
+        episodic = SimpleEpisodicMemory()
+        reset_counts["episodic"] = episodic.clear_all_data()
+
+        # Import baseline episodic data if it exists
+        baseline_episodic = MEMORY_DATA_DIR / "episodic_memory_baseline.json"
+        if baseline_episodic.exists():
+            baseline_data = json.loads(baseline_episodic.read_text())
+
+            # Import baseline processing history
+            for record in baseline_data.get("processing_history", []):
+                episodic.add_processing_record(
+                    email_id=record["email_id"],
+                    sender=record["sender"],
+                    subject=record["subject"],
+                    asset_id=record["asset_id"],
+                    confidence=record["confidence"],
+                    decision=record["decision"],
+                    metadata=record.get("metadata", {}),
+                    category=record.get("category"),
+                )
+
+            # Import baseline human feedback
+            for feedback in baseline_data.get("human_feedback", []):
+                episodic.add_human_feedback(
+                    email_id=feedback["email_id"],
+                    original_decision=feedback["original_decision"],
+                    corrected_decision=feedback["corrected_decision"],
+                    feedback_type=feedback["feedback_type"],
+                    confidence_impact=feedback["confidence_impact"],
+                    notes=feedback.get("notes"),
+                )
+
+            logger.info("Imported baseline episodic memory data")
+
+    except Exception as e:
+        logger.error(f"Failed to reset episodic memory: {e}")
+        reset_counts["episodic"] = 0
+
+    total_reset = sum(reset_counts.values())
+    logger.info(f"Reset all memory systems to baseline ({total_reset} total items)")
+    return reset_counts
+
+
+@log_function()
+def export_all_memory_to_github_format() -> dict[str, str]:
+    """
+    Export all memory systems in a format suitable for GitHub version control.
+
+    Returns:
+        Dictionary mapping memory type to export file path
+    """
+    export_paths = {}
+
+    # Ensure current files are present and formatted nicely
+
+    # Semantic memory - already in good JSON format
+    semantic_path = MEMORY_DATA_DIR / "semantic_memory.json"
+    if semantic_path.exists():
+        try:
+            # Re-format for consistent formatting
+            data = json.loads(semantic_path.read_text())
+            semantic_path.write_text(json.dumps(data, indent=2, sort_keys=True))
+            export_paths["semantic"] = str(semantic_path)
+            logger.info("Formatted semantic memory for GitHub")
+        except Exception as e:
+            logger.error(f"Failed to format semantic memory: {e}")
+
+    # Procedural memory - already in good JSON format
+    procedural_path = MEMORY_DATA_DIR / "procedural_memory.json"
+    if procedural_path.exists():
+        try:
+            # Re-format for consistent formatting
+            data = json.loads(procedural_path.read_text())
+            procedural_path.write_text(json.dumps(data, indent=2, sort_keys=True))
+            export_paths["procedural"] = str(procedural_path)
+            logger.info("Formatted procedural memory for GitHub")
+        except Exception as e:
+            logger.error(f"Failed to format procedural memory: {e}")
+
+    # Episodic memory - export to JSON for GitHub (keep SQLite for runtime)
+    episodic_json_path = MEMORY_DATA_DIR / "episodic_memory_export.json"
+    try:
+        episodic_data = export_episodic_memory_to_json()
+        episodic_json_path.write_text(
+            json.dumps(episodic_data, indent=2, sort_keys=True, default=json_serialize)
+        )
+        export_paths["episodic_export"] = str(episodic_json_path)
+        logger.info("Exported episodic memory to JSON for GitHub")
+    except Exception as e:
+        logger.error(f"Failed to export episodic memory: {e}")
+
+    # Create a comprehensive memory status report
+    status_path = MEMORY_DATA_DIR / "memory_status.json"
+    try:
+        status = {
+            "last_export": datetime.now().isoformat(),
+            "version": "1.0",
+            "memory_systems": {
+                "semantic": {
+                    "file": "semantic_memory.json",
+                    "baseline": "semantic_memory_baseline.json",
+                    "item_count": (
+                        len(
+                            json.loads(semantic_path.read_text()).get(
+                                "asset_profiles", {}
+                            )
+                        )
+                        if semantic_path.exists()
+                        else 0
+                    ),
+                },
+                "procedural": {
+                    "file": "procedural_memory.json",
+                    "baseline": "procedural_memory_baseline.json",
+                    "rule_count": (
+                        (
+                            len(
+                                json.loads(procedural_path.read_text()).get(
+                                    "relevance_rules", []
+                                )
+                            )
+                            + len(
+                                json.loads(procedural_path.read_text()).get(
+                                    "asset_matching_rules", []
+                                )
+                            )
+                            + len(
+                                json.loads(procedural_path.read_text()).get(
+                                    "file_processing_rules", []
+                                )
+                            )
+                        )
+                        if procedural_path.exists()
+                        else 0
+                    ),
+                },
+                "episodic": {
+                    "runtime_db": "episodic_memory.db",
+                    "export_json": "episodic_memory_export.json",
+                    "baseline": "episodic_memory_baseline.json",
+                    "record_count": len(episodic_data.get("processing_history", []))
+                    + len(episodic_data.get("human_feedback", [])),
+                },
+            },
+            "export_files": list(export_paths.keys()),
+            "notes": [
+                "semantic_memory.json and procedural_memory.json are the runtime files",
+                "episodic_memory.db is the runtime SQLite database",
+                "episodic_memory_export.json is the GitHub-friendly export",
+                "*_baseline.json files contain the initial system state",
+            ],
+        }
+
+        status_path.write_text(json.dumps(status, indent=2))
+        export_paths["status"] = str(status_path)
+        logger.info("Created memory status report")
+
+    except Exception as e:
+        logger.error(f"Failed to create memory status report: {e}")
+
+    logger.info(f"Exported {len(export_paths)} memory files for GitHub")
+    return export_paths
+
+
+# Convenience function to create memory systems
+def create_memory_systems() -> dict[str, Any]:
+    """
+    Create and return instances of all memory systems.
+
+    Returns:
+        Dictionary containing semantic, procedural, and episodic memory instances
+    """
+    return {
+        "semantic": SimpleSemanticMemory(),
+        "procedural": SimpleProceduralMemory(),
+        "episodic": SimpleEpisodicMemory(),
+    }
