@@ -300,7 +300,7 @@ After successful setup:
 
 - **Microsoft Graph Documentation**: [https://docs.microsoft.com/en-us/graph/](https://docs.microsoft.com/en-us/graph/)
 - **Azure App Registration Guide**: [https://docs.microsoft.com/en-us/azure/active-directory/develop/](https://docs.microsoft.com/en-us/azure/active-directory/develop/)
-- **System Architecture**: See `docs/EMAIL_INTERFACE_README.md`
-- **Development Setup**: See `docs/DEVELOPMENT_SETUP.md`
+- **System Architecture**: See the main `README.md` for comprehensive architecture documentation
+- **Development Setup**: See the main `README.md` for complete setup and development workflow
 
 For system-specific issues, check the application logs in the `logs/` directory or use the built-in diagnostics in the web interface.

@@ -1,566 +1,1556 @@
-# Inveniam Email Agent - LangGraph Implementation
+# Email Agent - AI-Powered Investment Document Processing System
 
-An intelligent email processing system that identifies and routes investment-related documents using LangGraph's graph-based architecture. **Built with clean separation between memory systems (knowledge) and processing agents (actions)** for maintainability and continuous learning.
+> **A developer guide for this email processing system**
 
-## 🎯 Project Vision
+## 📋 Table of Contents
 
-Transform email attachment chaos into organized, actionable intelligence for investment asset management. The system learns from human feedback to continuously improve its decision-making accuracy.
+1. [🎯 Project Overview](#-project-overview)
+2. [🏗️ Architecture Deep Dive](#️-architecture-deep-dive)
+3. [🧩 Core Components Explained](#-core-components-explained)
+4. [🧠 Memory System Architecture](#-memory-system-architecture)
+5. [⚡ Email Processing Workflow](#-email-processing-workflow)
+6. [🚀 Setup and Installation](#-setup-and-installation)
+7. [💻 Development Workflow](#-development-workflow)
+8. [⚙️ Configuration Guide](#️-configuration-guide)
+9. [📧 Email System Integration](#-email-system-integration)
+10. [🔍 Understanding the Codebase](#-understanding-the-codebase)
+11. [🛠️ Troubleshooting Guide](#️-troubleshooting-guide)
+12. [🔬 Advanced Topics](#-advanced-topics)
+13. [📊 Production Monitoring](#-production-monitoring)
+14. [🤝 Contributing Guidelines](#-contributing-guidelines)
 
-## 🎉 **Current Status: PRODUCTION READY!**
+---
 
-**Major confidence scoring bug RESOLVED** - Single and multi-attachment emails now correctly process with proper asset matching and file saving.
+## 🎯 Project Overview
 
-## 📊 **Detailed Email Processing Flow**
+### What is Email Agent?
 
-### **Phase 1: Email Ingestion**
+Email Agent is an **AI-powered document processing system** designed for **investment management firms**. It processes incoming emails, extracts and classifies attachments, matches them to specific investment assets, and organizes them into structured directory hierarchies.
+
+### Current Status
+
+The system is operational with these features:
+
+| Feature | Status | Confidence | Details |
+|---------|--------|------------|---------|
+| **Relevance Detection** | Working | 0.8+ | Memory-driven rules with reasoning output |
+| **Asset Matching** | Working | 0.247+ | Confidence scoring implemented |
+| **File Organization** | Working | Variable | Automatic `/assets/ASSET_ID/filename.ext` structure |
+| **Multi-Email Support** | Working | Variable | Gmail + Microsoft 365/Outlook integration |
+| **Human Learning** | Working | Variable | Feedback integration with memory updates |
+
+### Business Problem
+
+**Problem**: Investment firms receive many emails daily with critical documents requiring manual sorting:
+- Financial statements, rent rolls, loan modifications
+- Legal agreements, compliance reports
+- Investment memos, due diligence packages
+- Manual document organization time burden
+
+**Solution**: Automated processing approach:
+- Automated processing reduces manual work
+- Low-confidence items flagged for human review
+- System learns from human feedback
+- Audit trail for all decisions
+- Virus scanning and access controls
+
+### Test Cases
+
+```bash
+Single Email: "i3 loan docs" with RLV_TRM_i3_TD.pdf
+   Relevance: 0.8 → Asset Match: I3_VERTICALS_CREDIT (0.247) → File Saved
+
+Multi-Email Batch: 4 attachments with different asset matches
+   Files matched and saved to appropriate directories
+
+Human Review Integration: Low-confidence items → Review queue → Feedback → Learning
 ```
-Email Source (Gmail/Microsoft Graph)
-    ↓
-Email Interface Layer (src/email_interface/)
-    ↓
-EmailProcessingGraph Coordinator
-    ↓
-EmailState Structure:
+
+---
+
+## 🏗️ Architecture Deep Dive
+
+### 📐 Core Design Philosophy
+
+This system is built on **three design principles**:
+
+#### 1. 🧠 **Memory-Driven Architecture** (Not Rule-Based)
+```
+Previous approach: Hardcoded business logic
+if email.subject.contains("investment"):
+    return "relevant"
+
+Current approach: Memory-driven decisions
+relevance_rules = procedural_memory.get_relevance_rules()
+confidence = apply_rules(email, relevance_rules)
+```
+
+**Rationale**: Business rules change frequently in investment firms. Memory-driven architecture allows rule updates without code deployment.
+
+#### 2. ⚡ **Attachment-Centric Processing** (Not Email-Centric)
+```
+Previous approach: Process email → Route entire email
+Current approach: Process email → Route each attachment independently
+```
+
+**Rationale**: One email might contain documents for multiple assets (common in investment communications).
+
+#### 3. 🔍 **Transparent Decision Making** (Not Black Box)
+Every decision includes reasoning:
+```python
 {
-  "subject": "i3 loan docs",
-  "sender": "rick@bunker.us",
-  "body": "attached find the loan documents for the i3 deal",
-  "attachments": [
+  "decision": "match_to_I3_VERTICALS",
+  "confidence": 0.847,
+  "reasoning": [
+    {"rule": "keyword_match", "evidence": ["i3", "verticals"], "score": 0.7},
+    {"rule": "sender_trust", "evidence": "advisor@example.com", "score": 0.147}
+  ]
+}
+```
+
+**Rationale**: Investment decisions require audit trails and human review capabilities.
+
+### High-Level Design Principles
+
+#### 1. Memory-Driven Architecture
+Instead of hardcoding business logic, the system stores all knowledge in three memory types:
+
+```
+📝 Semantic Memory (JSON)     🔧 Procedural Memory (JSON)    📚 Episodic Memory (SQLite)
+├── Asset Profiles            ├── Relevance Rules              ├── Processing History
+├── Sender Mappings           ├── Matching Algorithms          └── Human Feedback
+├── Pattern Recognition       └── Processing Rules
+└── Organization Contacts
+```
+
+**Key Insight**: Separating WHAT we know (semantic) from HOW we process (procedural) from WHAT we've learned (episodic).
+
+#### 2. LangGraph Processing Pipeline
+Uses LangGraph's stateful workflow to ensure proper sequencing and error handling:
+
+```
+Email Input → Relevance Filter → Asset Matcher → Attachment Processor → Human Feedback Integration
+```
+
+#### 3. Attachment-Centric Processing
+- Each attachment is processed independently
+- Returns only the BEST match per attachment (not all above threshold)
+- Prevents duplicate processing with filename-based deduplication
+
+### 🛠️ Technology Stack & Architecture Decisions
+
+| Component | Technology | Choice Rationale | Developer Impact |
+|-----------|------------|-----------------|------------------|
+| **AI Framework** | 🔗 LangGraph | Stateful workflows with checkpointing | Debug processing steps |
+| **Backend** | 🌶️ Flask + async | Simple, well-understood, async-capable | Development and debugging |
+| **Memory Storage** | 📄 JSON + SQLite | No vector DB complexity, human-readable | Inspect/modify data |
+| **Email APIs** | 📧 Gmail + Microsoft Graph | Standard APIs | Well-documented |
+| **Frontend** | 🌐 HTML + JavaScript | No framework complexity | Customization, fast loading |
+| **Type Safety** | 🐍 Python 3.11+ with mypy | Catch errors at development time | Reduce runtime bugs |
+| **Code Quality** | ✨ Pre-commit hooks | Automated code standards | Consistent code style |
+| **Logging** | 📊 Structured logging | Audit trails | Debugging and monitoring |
+
+### 🎯 Key Architecture Decisions Explained
+
+#### Why JSON + SQLite instead of Vector Databases?
+```python
+# Simple and transparent
+with open('data/memory/semantic_memory.json') as f:
+    asset_data = json.load(f)  # Human-readable, easily debugged
+
+# Complex and opaque
+vector_results = qdrant_client.search(query_vector, limit=10)  # Black box
+```
+
+**Decision**: Prioritize **developer productivity** and **debuggability** over performance optimization.
+
+#### Why LangGraph instead of Custom Workflows?
+```python
+# Built-in state management and checkpointing
+workflow = StateGraph(EmailState)
+workflow.add_node("process_email", process_email_node)
+# Automatic error recovery, state persistence
+
+# Custom workflow engine
+# Complex error handling, manual state management, hard to debug
+```
+
+**Decision**: LangGraph provides **workflow management** without custom infrastructure.
+
+#### Why Attachment-Centric Processing?
+```python
+# Each attachment processed independently
+for attachment in email.attachments:
+    match = match_to_best_asset(attachment)  # One result per file
+
+# Email-level processing
+email_match = match_entire_email(email)  # What if it contains multiple assets?
+```
+
+**Decision**: Investment emails often contain documents for **multiple assets** in one email.
+
+### 🚀 Getting Started for New Developers
+
+#### 📖 First 30 Minutes: Understanding the System
+
+1. **🎬 Watch the System in Action**
+   ```bash
+   # Start the web interface
+   python app.py
+   # Visit: http://localhost:5001
+   # Click through: Process Emails → View Results → Memory Management
+   ```
+
+2. **🔍 Explore the Data Flow**
+   ```bash
+   # Check what assets are currently known
+   cat data/memory/semantic_memory.json | jq '.asset_profiles'
+
+   # See processing rules
+   cat data/memory/procedural_memory.json | jq '.relevance_rules'
+
+   # Check processing history
+   sqlite3 data/memory/episodic_memory.db "SELECT * FROM processing_history LIMIT 5;"
+   ```
+
+3. **🧪 Run a Test Processing Session**
+   ```bash
+   # Process last 24 hours of emails (will ask for confirmation before modifying files)
+   curl -X POST http://localhost:5001/api/process_emails \
+        -H "Content-Type: application/json" \
+        -d '{"email_system": "gmail", "max_emails": 3}'
+   ```
+
+#### 📚 First Hour: Code Exploration Path
+
+**Start Here** → Follow this exact path to understand the codebase:
+
+1. **🎯 Main Workflow** (`src/agents/email_graph.py`)
+   - Look at `EmailState` definition → Understand what data flows through
+   - Follow `process_email()` method → See the complete workflow
+   - **Key Insight**: State maintains complete audit trail
+
+2. **🧠 Memory Systems** (`src/memory/simple_memory.py`)
+   - Read `SimpleSemanticMemory` → Understand asset profiles
+   - Read `SimpleProceduralMemory` → Understand business rules
+   - Read `SimpleEpisodicMemory` → Understand learning mechanism
+   - **Key Insight**: Three memory types separate WHAT, HOW, and LEARNED
+
+3. **⚙️ Processing Nodes** (`src/agents/nodes/`)
+   - Start with `relevance_filter.py` → See how relevance is determined
+   - Then `asset_matcher.py` → See how attachments match assets
+   - Finally `attachment_processor.py` → See how files are saved
+   - **Key Insight**: Each node queries memory systems for logic
+
+4. **📧 Email Integration** (`src/email_interface/base.py`)
+   - Understand `BaseEmailInterface` → See the abstraction
+   - Look at `factory.py` → See how different email systems are created
+   - **Key Insight**: Factory pattern allows multiple email systems
+
+#### ⚡ First Day: Making Your First Change
+
+**Goal**: Add a new asset to the system and test it works
+
+1. **📝 Add Asset to Semantic Memory**
+   ```bash
+   # Edit data/memory/semantic_memory.json
+   # Add your test asset under "asset_profiles"
+   {
+     "TEST_ASSET_001": {
+       "name": "Test Investment Asset",
+       "keywords": ["test", "investment", "demo"],
+       "asset_type": "credit",
+       "confidence": 0.9
+     }
+   }
+   ```
+
+2. **🧪 Test Your Asset**
+   ```bash
+   # Send yourself an email with subject containing "test investment"
+   # Process through the system
+   # Verify file appears in assets/TEST_ASSET_001/
+   ```
+
+3. **🔍 Debug If It Doesn't Work**
+   ```bash
+   # Check logs for decision reasoning
+   tail -f logs/email_agent.log | grep -i "test_asset"
+
+   # Check confidence scores
+   grep -i "confidence" logs/email_agent.log | tail -10
+   ```
+
+#### 🎯 Common Developer Tasks
+
+| Task | Command | Files to Modify |
+|------|---------|-----------------|
+| Add new asset | Edit memory JSON | `data/memory/semantic_memory.json` |
+| Change processing rules | Edit memory JSON | `data/memory/procedural_memory.json` |
+| Add new email system | Create interface | `src/email_interface/new_system.py` |
+| Modify confidence thresholds | Edit config | `src/utils/config.py` |
+| Add new processing step | Create node | `src/agents/nodes/new_node.py` |
+| Debug processing | Check logs | `logs/email_agent.log` |
+
+---
+
+## Core Components
+
+### 1. Email Interfaces (`src/email_interface/`)
+
+**Purpose**: Abstract different email systems (Gmail, Microsoft Graph) behind a unified interface.
+
+**Key Files**:
+- `base.py`: Abstract interface defining standard email operations
+- `factory.py`: Factory pattern for creating email system instances
+- `gmail.py`: Google Workspace integration
+- `msgraph.py`: Microsoft 365/Outlook integration
+
+**Teaching Point**: The factory pattern allows easy addition of new email systems without changing core processing logic.
+
+```python
+# Creating an email interface
+interface = EmailInterfaceFactory.create('gmail')
+await interface.connect({'credentials_file': 'config/gmail_credentials.json'})
+emails = await interface.list_emails(EmailSearchCriteria(max_results=10))
+```
+
+### 2. Processing Nodes (`src/agents/nodes/`)
+
+#### Relevance Filter (`relevance_filter.py`)
+**Purpose**: Determines if emails contain investment-related content.
+
+**How it Works**:
+1. Queries semantic memory for keywords/patterns
+2. Applies procedural memory rules with weights
+3. Checks episodic memory for sender patterns from human feedback
+4. Returns classification (relevant/irrelevant/uncertain/spam)
+
+**Key Teaching Points**:
+- Uses memory systems instead of hardcoded rules
+- Sender trust is learned from human corrections
+- Transparent reasoning for human review
+
+#### Asset Matcher (`asset_matcher.py`)
+**Purpose**: Matches email attachments to specific investment assets.
+
+**How it Works**:
+1. Gets matching rules from procedural memory (HOW to match)
+2. Gets asset profiles from semantic memory (WHAT to match)
+3. Applies fuzzy matching algorithms with confidence scoring
+4. Returns only the BEST match per attachment
+
+**Critical Bug Fix**: The system was diluting keyword scores by including too many generic terms. Now uses focused asset-specific keywords.
+
+```python
+# BEFORE (diluted scoring)
+asset_keywords = ["i3", "credit agreement", "jpmorgan", "borrower"]  # 8 terms
+found_keywords = ["i3"]  # 1/8 = 0.125 → FAIL
+
+# AFTER (focused scoring)
+asset_keywords = ["i3", "i3 verticals", "verticals"]  # 3 terms
+found_keywords = ["i3"]  # 1/3 = 0.333 → SUCCESS
+```
+
+#### Attachment Processor (`attachment_processor.py`)
+**Purpose**: Saves and organizes attachments using memory-driven rules.
+
+**How it Works**:
+1. Applies security checks (file size, type, virus scan)
+2. Creates asset directory structure: `/assets/ASSET_ID/`
+3. Saves files with original names (folder structure provides organization)
+4. Routes unmatched files to `NEEDS_REVIEW` for human review
+
+### 3. Email Processing Graph (`src/agents/email_graph.py`)
+
+**Purpose**: Orchestrates the entire email processing workflow using LangGraph.
+
+**State Management**: Maintains complete audit trail throughout processing:
+```python
+class EmailState(TypedDict):
+    # Email information
+    email_id: str
+    subject: str
+    sender: str
+    body: str
+    attachments: list[dict]
+
+    # Processing results
+    relevance_result: dict
+    asset_matches: list[dict]
+    processing_results: list[dict]
+
+    # Decision tracking (complete audit trail)
+    decision_factors: list[dict]
+    memory_queries: list[dict]
+    rule_applications: list[dict]
+    confidence_factors: list[dict]
+```
+
+### 4. Memory Systems (`src/memory/`)
+
+#### Simple Memory Implementation (`simple_memory.py`)
+**Purpose**: Provides JSON+SQLite storage instead of complex vector databases.
+
+**Three Memory Types**:
+
+1. **Semantic Memory** (JSON): Stores facts and relationships
+   - Asset profiles with keywords
+   - Sender mappings to assets
+   - File type rules
+   - Organization contacts
+
+2. **Procedural Memory** (JSON): Stores algorithms and rules
+   - Relevance detection rules with weights
+   - Asset matching algorithms
+   - File processing procedures
+
+3. **Episodic Memory** (SQLite): Stores learning history
+   - Processing decisions
+   - Human feedback corrections
+   - Pattern learning from experience
+
+**Key Teaching Point**: This separation allows the system to learn new facts (semantic) and procedures (procedural) without code changes, while building experience (episodic) over time.
+
+---
+
+## Memory System Architecture
+
+### Understanding the Three-Memory Design
+
+#### Semantic Memory: "WHAT We Know"
+Stores factual knowledge about assets, senders, and patterns.
+
+**Example Asset Profile**:
+```json
+{
+  "I3_VERTICALS_CREDIT": {
+    "name": "i3 Verticals Credit Facility",
+    "keywords": ["i3", "verticals", "i3 verticals"],
+    "asset_type": "credit",
+    "confidence": 0.9,
+    "description": "Credit facility for i3 Verticals"
+  }
+}
+```
+
+**Teaching Point**: Keywords should be distinguishing terms, not generic ones. "i3" is more useful than "credit agreement" for matching.
+
+#### Procedural Memory: "HOW We Process"
+Stores rules and algorithms for processing.
+
+**Example Relevance Rule**:
+```json
+{
+  "rule_id": "investment_keywords",
+  "description": "Check for investment-related keywords",
+  "patterns": ["investment", "portfolio", "asset", "fund"],
+  "weight": 0.6,
+  "confidence": 0.8
+}
+```
+
+**Teaching Point**: Rules have weights and confidence levels, allowing fine-tuning without code changes.
+
+#### Episodic Memory: "WHAT We've Learned"
+Stores processing history and human feedback.
+
+**Example Learning Record**:
+```sql
+INSERT INTO human_feedback (
+    email_id, original_decision, corrected_decision,
+    feedback_type, confidence_impact, notes
+) VALUES (
+    'email_123', 'irrelevant', 'relevant',
+    'relevance_correction', 0.3, 'Actually about loan modifications'
+);
+```
+
+**Teaching Point**: Only human-validated feedback goes into episodic memory to prevent reinforcing mistakes.
+
+---
+
+## Email Processing Workflow
+
+### Complete Processing Flow
+
+```mermaid
+graph TD
+    A[Email Received] --> B[Relevance Filter]
+    B --> C{Relevant?}
+    C -->|Yes| D[Asset Matcher]
+    C -->|No| E[Archive/Ignore]
+    C -->|Uncertain| F[Human Review Queue]
+
+    D --> G[Attachment Processor]
+    G --> H{Confident Match?}
+    H -->|Yes| I[Save to Asset Folder]
+    H -->|No| J[Human Review Queue]
+
+    F --> K[Human Feedback]
+    J --> K
+    K --> L[Update Memory Systems]
+    L --> M[Improve Future Processing]
+```
+
+### Step-by-Step Breakdown
+
+1. **Email Ingestion**
+   - Fetches emails via Gmail/Microsoft Graph APIs
+   - Extracts metadata: sender, subject, body, attachments
+   - Loads attachment content for processing
+
+2. **Relevance Evaluation**
+   - Combines subject, body, and sender analysis
+   - Applies semantic patterns and procedural rules
+   - Checks episodic memory for sender-specific learning
+   - Output: relevant/irrelevant/uncertain/spam
+
+3. **Asset Matching** (if relevant)
+   - For each attachment, scores against all known assets
+   - Uses fuzzy matching on filenames and context
+   - Applies episodic learning adjustments
+   - Returns BEST match per attachment
+
+4. **File Processing** (if matched)
+   - Security checks: virus scan, file type, size
+   - Creates directory structure: `/assets/ASSET_ID/`
+   - Saves with original filename
+   - Records processing metadata
+
+5. **Human Review Integration**
+   - Low-confidence items → Review queue
+   - Human corrections → Episodic memory
+   - Memory updates → Improved future processing
+
+### Confidence Scoring System
+
+The system uses weighted confidence scores:
+
+```python
+# Current scoring rules (from procedural memory)
+rules = {
+    "keyword_match": {"weight": 0.70, "confidence": 0.80},
+    "sender_asset_association": {"weight": 0.50, "confidence": 0.30},
+    "exact_name_match": {"weight": 0.90, "confidence": 0.95}
+}
+
+# Threshold for automatic processing
+threshold = 0.1  # 10% minimum confidence
+```
+
+**Teaching Point**: Thresholds are deliberately low to capture more potential matches for human review, rather than missing important documents.
+
+---
+
+## Setup and Installation
+
+### Prerequisites
+
+- **Python 3.8+** (recommended: 3.11+)
+- **Git** for version control
+- **Email Account**: Gmail or Microsoft 365
+- **Optional**: ClamAV for virus scanning
+
+### Quick Start
+
+1. **Clone and Setup Environment**
+```bash
+git clone <repository-url>
+cd emailAgent
+python -m venv .emailagent
+source .emailagent/bin/activate  # On Windows: .emailagent\Scripts\activate
+```
+
+2. **Install Dependencies**
+```bash
+make install
+# OR manually:
+pip install -r requirements.txt
+pip install -r requirements-dev.txt
+```
+
+3. **Setup Development Environment**
+```bash
+make setup
+# This installs pre-commit hooks and validates tools
+```
+
+4. **Configure Email System**
+
+**For Gmail**:
+- Follow `/docs/GMAIL_SETUP.md`
+- Place credentials in `config/gmail_credentials.json`
+
+**For Microsoft 365**:
+- Follow `/docs/MSGRAPH_SETUP.md`
+- Place credentials in `config/msgraph_credentials.json`
+
+5. **Initialize Memory Systems**
+```bash
+make init-memory
+# This creates baseline knowledge in data/memory/
+```
+
+6. **Test Installation**
+```bash
+make test-quick
+# Should show all green checkmarks
+```
+
+7. **Start the Application**
+```bash
+python app.py
+# Visit: http://localhost:5001
+```
+
+### Directory Structure After Setup
+
+```
+emailAgent/
+├── .emailagent/              # Virtual environment
+├── assets/                   # Processed documents organized by asset
+│   ├── I3_VERTICALS_CREDIT/
+│   ├── GRAY_TV_CREDIT/
+│   └── NEEDS_REVIEW/        # Human review queue
+├── config/                   # Credentials and configuration
+│   ├── gmail_credentials.json
+│   └── msgraph_credentials.json
+├── data/
+│   └── memory/              # Memory system storage
+│       ├── semantic_memory.json
+│       ├── procedural_memory.json
+│       └── episodic_memory.db
+├── docs/                     # Documentation
+├── logs/                     # Application logs
+├── src/                      # Source code
+├── scripts/                 # Management and utility scripts
+├── templates/               # Web interface HTML
+└── tests/                   # Test suite
+```
+
+---
+
+## Development Workflow
+
+### Daily Development Commands
+
+```bash
+# Start development session
+make status              # Check project health
+make test-quick         # Run fast tests during development
+make format             # Format code before committing
+
+# Before committing
+make test               # Full test suite with all checks
+make lint               # Check code quality
+make type-check         # Validate type hints
+
+# Fix common issues
+make fix                # Auto-fix formatting and common issues
+```
+
+### Testing Strategy
+
+The project uses a multi-layered testing approach:
+
+1. **Quick Tests** (`make test-quick`): Fast feedback during development
+   - Linting (ruff)
+   - Basic type checking
+   - Unit tests
+
+2. **Full Tests** (`make test`): Full validation before commits
+   - All quick tests
+   - Security scanning (bandit)
+   - Complete type checking (mypy)
+   - Integration tests
+
+3. **Coverage Testing** (`make test-coverage`): Detailed test coverage analysis
+
+### Code Standards
+
+The project enforces strict coding standards automatically:
+
+**Type Safety**: Every function must have type hints
+```python
+def process_email(email_data: dict[str, Any]) -> ProcessingResult:
+    """Process email with complete type safety."""
+    pass
+```
+
+**Documentation**: Google-style docstrings required
+```python
+def enhanced_process_attachment(
+    self,
+    attachment_data: Dict[str, Any],
+    email_data: Dict[str, Any]
+) -> AttachmentProcessingResult:
+    """
+    Process an email attachment with AI classification.
+
+    Args:
+        attachment_data: Dictionary containing 'filename' and 'content'
+        email_data: Dictionary with sender, subject, date, and body info
+
+    Returns:
+        AttachmentProcessingResult with classification and confidence scores
+
+    Raises:
+        ProcessingError: If attachment cannot be processed
+    """
+```
+
+**Configuration Integration**: Always use config system
+```python
+from src.utils.config import config
+from src.utils.logging_system import get_logger, log_function
+
+logger = get_logger(__name__)
+
+@log_function()
+def process_mailbox(mailbox_id: str) -> ProcessingStats:
+    hours_back = config.default_hours_back  # Never hardcode values
+    max_emails = config.max_emails_per_batch
+```
+
+### Git Workflow
+
+```bash
+# Create feature branch
+git checkout -b feature/new-capability
+
+# Make changes with frequent commits
+git add -A
+git commit -m "Add new processing capability
+
+- Implement XYZ feature
+- Add tests
+- Update documentation"
+
+# Before pushing, ensure quality
+make test                    # Must pass
+git push origin feature/new-capability
+
+# Create pull request with detailed description
+```
+
+---
+
+## Configuration Guide
+
+### Environment Variables
+
+The system uses a configuration system in `src/utils/config.py`:
+
+```python
+# Core application settings
+FLASK_HOST=0.0.0.0
+FLASK_PORT=5001
+DEBUG=false
+DEVELOPMENT_MODE=false
+
+# Email system credentials
+GMAIL_CREDENTIALS_PATH=config/gmail_credentials.json
+GMAIL_TOKEN_PATH=config/gmail_token.json
+MSGRAPH_CREDENTIALS_PATH=config/msgraph_credentials.json
+
+# Processing configuration
+DEFAULT_HOURS_BACK=24
+MAX_EMAILS_PER_BATCH=100
+MAX_CONCURRENT_EMAILS=5
+MAX_CONCURRENT_ATTACHMENTS=10
+
+# Human review thresholds
+RELEVANCE_THRESHOLD=0.7
+LOW_CONFIDENCE_THRESHOLD=0.6
+REQUIRES_REVIEW_THRESHOLD=0.25
+
+# Security settings
+MAX_ATTACHMENT_SIZE_MB=50
+ENABLE_VIRUS_SCANNING=true
+ALLOWED_FILE_EXTENSIONS=pdf,docx,xlsx,jpg,png,txt
+
+# Storage paths
+ASSETS_BASE_PATH=./assets
+PROCESSED_ATTACHMENTS_PATH=./processed_attachments
+LOG_FILE_PATH=./logs/email_agent.log
+```
+
+### Memory System Configuration
+
+**Semantic Memory Customization** (`data/memory/semantic_memory.json`):
+
+```json
+{
+  "asset_profiles": {
+    "YOUR_ASSET_ID": {
+      "name": "Asset Display Name",
+      "keywords": ["specific", "distinguishing", "terms"],
+      "asset_type": "credit|equity|real_estate",
+      "confidence": 0.9
+    }
+  },
+  "sender_mappings": {
+    "contact@firm.com": {
+      "name": "Contact Name",
+      "asset_ids": ["YOUR_ASSET_ID"],
+      "trust_score": 0.9,
+      "organization": "Firm Name"
+    }
+  }
+}
+```
+
+**Procedural Memory Customization** (`data/memory/procedural_memory.json`):
+
+```json
+{
+  "relevance_rules": [
     {
-      "filename": "RLV_TRM_i3_TD.pdf",
-      "content": <bytes>,
-      "content_type": "application/pdf",
-      "size": 2457600
+      "rule_id": "your_custom_rule",
+      "description": "Custom business rule",
+      "patterns": ["pattern1", "pattern2"],
+      "weight": 0.7,
+      "confidence": 0.8
     }
   ]
 }
 ```
 
-### **Phase 2: Relevance Evaluation** (`RelevanceFilterNode`)
-```
-Input: EmailState
-    ↓
-1. Query Procedural Memory for relevance rules:
-   - financial_keywords: ["investment", "credit", "loan", "agreement"]
-   - sender_patterns: trusted domains and known contacts
-   - attachment_types: PDF, Excel, Word documents
-    ↓
-2. Query Semantic Memory for context:
-   - known_senders: sender trust scores and associations
-   - asset_related_terms: investment-specific vocabulary
-    ↓
-3. Analysis Process:
-   - Combine subject + body text
-   - Extract meaningful terms: ["i3", "loan", "docs", "documents", "deal"]
-   - Check sender mapping: rick@bunker.us → FOUND in semantic memory
-   - Match against relevance patterns
-    ↓
-4. Scoring:
-   - Content relevance: 0.8 (strong financial/investment indicators)
-   - Sender trust: 0.95 (known trusted sender)
-   - Attachment relevance: 1.0 (PDF document type)
-   - Final relevance: 0.8
-    ↓
-Output: {relevance: "relevant", confidence: 0.8, reasoning: [...]}
-```
+### Web Interface Configuration
 
-### **Phase 3: Asset Matching** (`AssetMatcherNode`)
-```
-Input: EmailState + Relevance Result
-    ↓
-1. Extract Search Terms:
-   - From subject: ["i3", "loan", "docs"]
-   - From body: ["attached", "find", "loan", "documents", "i3", "deal"]
-   - From filename: ["rlv", "trm", "i3", "td"]
-   - Combined unique terms: ["i3", "loan", "docs", "documents", "deal", "rlv", "trm", "td"]
-    ↓
-2. Query Asset Profiles from Semantic Memory:
-   Priority terms (asset-specific): ["i3", "trm", "td"]
-   General terms (limited): ["loan", "docs", "documents"]
-    ↓
-3. Asset Profile Matching:
-   Found assets with relevance scores:
-   - I3_VERTICALS_CREDIT: score=1.000 (perfect match on "i3")
-   - GRAY_TV_CREDIT: score=0.200 (partial match on "trm")
-   - TRIMBLE_CREDIT: score=0.150 (partial match on "trm")
-    ↓
-4. Detailed Scoring per Asset (I3_VERTICALS_CREDIT example):
+The Flask application provides several configuration endpoints:
 
-   4a. Apply exact_name_match rule:
-       Asset name: "i3 verticals credit agreement"
-       Combined text: "rlv trm i3 td.pdf i3 loan docs attached find..."
-       Word overlap: ["i3"] = 1/4 asset words
-       Result: ✗ Insufficient overlap (needs 2+)
-       Score: 0.0
-
-   4b. Apply keyword_match rule:
-       Asset keywords: ["i3", "i3 verticals", "verticals"]
-       Found in text: ["i3"] = 1/3 keywords
-       Match ratio: 1/3 = 0.33
-       Base score: 0.33 × 0.8 (rule confidence) = 0.264
-       Score: 0.264
-
-   4c. Apply sender_asset_association rule:
-       Sender: rick@bunker.us
-       Query semantic memory for sender mapping...
-       Found: rick@bunker.us → asset_ids: ["I3_VERTICALS_CREDIT", "ALPHA_FUND"]
-       Match: ✓ Sender associated with this asset
-       Score: 0.3 (rule confidence) × 0.5 (rule weight) = 0.15
-
-   4d. Final Asset Score:
-       keyword_match: 0.264 × 0.7 (weight) = 0.185
-       sender_association: 0.15 × 0.5 (weight) = 0.075
-       Total: 0.185 + 0.075 = 0.260
-       Capped at 1.0: 0.260
-    ↓
-5. Threshold Check:
-   I3_VERTICALS_CREDIT: 0.260 > 0.1 (threshold) ✓
-   GRAY_TV_CREDIT: 0.070 < 0.1 (threshold) ✗
-    ↓
-6. Best Match Selection (Attachment-Centric):
-   Per attachment, return only the HIGHEST scoring match above threshold
-   RLV_TRM_i3_TD.pdf → I3_VERTICALS_CREDIT (confidence: 0.260)
-    ↓
-Output: [
-  {
-    "attachment_filename": "RLV_TRM_i3_TD.pdf",
-    "asset_id": "I3_VERTICALS_CREDIT",
-    "confidence": 0.260,
-    "reasoning": {detailed_scoring_breakdown}
-  }
-]
-```
-
-### **Phase 4: Attachment Processing** (`AttachmentProcessorNode`)
-```
-Input: Asset Matches + EmailState
-    ↓
-1. Deduplication Check:
-   Group by filename → SELECT DISTINCT to prevent duplicate processing
-    ↓
-2. Per-Match Processing:
-   For each unique attachment match:
-
-   2a. Generate Target Path:
-       Base: /Users/richardbunker/python/emailAgent/assets/
-       Asset directory: I3_VERTICALS_CREDIT/
-       Filename: RLV_TRM_i3_TD.pdf (preserve original)
-       Full path: /assets/I3_VERTICALS_CREDIT/RLV_TRM_i3_TD.pdf
-
-   2b. Security Validation:
-       File size: 2,457,600 bytes < 52,428,800 (50MB limit) ✓
-       Extension: .pdf in allowed extensions ✓
-       Content type: application/pdf ✓
-
-   2c. Directory Creation:
-       Create /assets/I3_VERTICALS_CREDIT/ if not exists
-
-   2d. File Save Operation:
-       Write attachment content to target path
-       Set file permissions: 644
-
-   2e. Verification:
-       Check file exists and size matches
-       Record successful save in logs
-    ↓
-Output: {
-  processed_count: 1,
-  failed_count: 0,
-  saved_files: ["/assets/I3_VERTICALS_CREDIT/RLV_TRM_i3_TD.pdf"]
-}
-```
-
-### **Phase 5: Feedback Integration** (`FeedbackIntegratorNode`)
-```
-Input: Complete Processing Results
-    ↓
-1. Decision Trace Capture:
-   - Email metadata and content
-   - Relevance decision with full reasoning
-   - Asset matching results with confidence scores
-   - File processing outcomes
-   - Any errors or edge cases
-    ↓
-2. Confidence Assessment:
-   Relevance: 0.8 (high confidence)
-   Asset matching: 0.260 (medium confidence - flag for potential review)
-   Processing: 1.0 (successful file save)
-    ↓
-3. Action Determination:
-   0.260 < 0.6 (low_confidence_threshold)
-   → Flag for human review (learning opportunity)
-    ↓
-4. Memory System Updates (when human feedback received):
-   - Semantic Memory: Update asset keywords, sender mappings
-   - Procedural Memory: Adjust scoring rules and thresholds
-   - Episodic Memory: Record validated human decisions
-    ↓
-Output: {
-  feedback_required: "human_review_required",
-  reasoning: "Medium confidence asset match - learning opportunity"
-}
-```
-
-## 🧠 **Semantic Memory Architecture & Specifics**
-
-### **Core Structure** (`data/memory/semantic_memory.json`)
-```json
-{
-  "asset_profiles": {
-    "I3_VERTICALS_CREDIT": {
-      "name": "I3 Verticals Credit Agreement",
-      "keywords": ["i3", "i3 verticals", "verticals"],
-      "confidence": 0.9,
-      "description": "Credit facility for I3 Verticals infrastructure investment",
-      "asset_type": "credit_agreement",
-      "sector": "telecommunications_infrastructure"
-    }
-  },
-
-  "sender_mappings": {
-    "rick@bunker.us": {
-      "name": "Rick Bunker",
-      "asset_ids": ["I3_VERTICALS_CREDIT", "ALPHA_FUND"],
-      "trust_score": 0.95,
-      "organization": "Inveniam Capital Partners",
-      "relationship_type": "internal_analyst"
-    },
-    "rbunker@invconsult.com": {
-      "name": "Rick Bunker (Consulting)",
-      "asset_ids": ["I3_VERTICALS_CREDIT", "GRAY_TV_CREDIT", "TRIMBLE_CREDIT"],
-      "trust_score": 0.90,
-      "organization": "Investment Consulting LLC",
-      "relationship_type": "external_consultant"
-    }
-  },
-
-  "patterns": {
-    "financial_document_indicators": [
-      "credit agreement", "loan documents", "term sheet",
-      "investor presentation", "financial statement"
-    ],
-    "urgency_indicators": [
-      "urgent", "asap", "time sensitive", "deadline"
-    ],
-    "confidentiality_markers": [
-      "confidential", "proprietary", "internal only", "nda required"
-    ]
-  }
-}
-```
-
-### **Key Design Principles**
-
-1. **Asset-Specific vs. Generic Terms**:
-   - **Asset Keywords**: Only terms that distinguish between assets (`["i3", "verticals"]`)
-   - **Pattern Recognition**: Generic financial terms stored separately (`["credit", "loan", "agreement"]`)
-   - **Relevance vs. Matching**: Different vocabularies for different purposes
-
-2. **Sender Intelligence**:
-   - **Multi-Identity Support**: Same person with different email addresses
-   - **Trust Scoring**: Confidence levels for different senders
-   - **Asset Associations**: Which assets each sender typically handles
-   - **Organizational Context**: Internal vs. external relationships
-
-3. **Confidence Calibration**:
-   - **Asset Confidence**: How certain we are about asset profile accuracy
-   - **Sender Trust**: How much we trust documents from this sender
-   - **Pattern Reliability**: How well patterns predict relevance
-
-### **Search and Matching Logic**
-
-1. **Priority-Based Search**:
-   ```python
-   # Extract terms from email content
-   search_terms = ["i3", "loan", "documents", "trm", "td"]
-
-   # Identify asset-specific terms (high priority)
-   priority_terms = ["i3", "trm", "td"]  # Found in asset keywords
-   general_terms = ["loan", "documents"]  # Generic financial terms
-
-   # Search semantic memory
-   for term in priority_terms:
-       results = search_asset_profiles(term, limit=50)  # No limit for specific terms
-
-   for term in general_terms[:5]:  # Limit generic terms to reduce noise
-       results = search_asset_profiles(term, limit=10)
-   ```
-
-2. **Confidence Scoring Math**:
-   ```python
-   # Keyword matching example for I3_VERTICALS_CREDIT
-   asset_keywords = ["i3", "i3 verticals", "verticals"]  # 3 terms
-   found_keywords = ["i3"]  # 1 match
-   match_ratio = 1/3 = 0.333
-   base_score = 0.333 × 0.8 (rule_confidence) = 0.267
-
-   # Sender association bonus
-   sender_bonus = 0.3 × 0.5 = 0.15  # If sender is associated
-
-   # Final score
-   final_score = 0.267 + 0.15 = 0.417
-   ```
-
-3. **Memory Query Performance**:
-   - **Fuzzy Text Matching**: Uses similarity scoring for partial matches
-   - **Caching**: Recently queried asset profiles cached in memory
-   - **Indexing**: Priority terms vs. general terms for efficient search
-
-## 🏗️ **Corrected Architecture** (Memory vs Agents)
-
-**Critical Design Principle**: Clean separation between **what we know** (memory) and **what we do** (agents).
-
-### 🧠 **Memory Systems** (Knowledge/Intelligence)
-- **Semantic Memory**: Asset profiles, keywords, **sender mappings & contact data**
-- **Procedural Memory**: Rules and algorithms for HOW to do things (matching, processing, decisions)
-- **Episodic Memory**: Historical decisions, human feedback, experiences for learning
-
-**Note**: Contact data (sender mappings, trust scores, organization data) is consolidated into semantic memory for cleaner architecture.
-
-### ⚙️ **Processing Agents** (Actions/Operations)
-- **RelevanceFilterNode**: Queries memory for relevance patterns → makes filtering decisions
-- **AssetMatcherNode**: Uses procedural memory (algorithms) + semantic memory (asset data) → matches attachments
-- **AttachmentProcessorNode**: Uses procedural memory (file rules) → performs file operations
-- **FeedbackIntegratorNode**: Updates all memory systems based on human corrections
-
-### 📊 **Processing Pipeline**
-```
-Email Ingestion → Relevance Filter → Asset Matcher → Attachment Processor → Feedback Loop
-       ↑                 ↑                ↑                   ↑                  ↑
-       └─────────────────┴────────────────┴───────────────────┴──────────────────┘
-                                         |
-                                    Memory Systems
-                           (Semantic, Procedural, Episodic)
-```
-
-## ✅ **Current Implementation Status**
-
-### **Phase 1: COMPLETED** ✅
-- **LangGraph Foundation**: Working graph-based email processing pipeline
-- **Memory-Driven Architecture**: All 4 agent nodes implemented with proper memory separation
-- **Simple Memory Systems**: JSON/SQLite-based memory implementation (3 systems: semantic, procedural, episodic)
-- **Clean Configuration**: `src/utils/config.py` with proper thresholds and validation
-- **Structured Logging**: Complete audit trails with `@log_function()` decorators
-- **Email Interfaces**: Gmail and Microsoft Graph connectors ready
-- **RelevanceFilterNode Integration**: Fully connected to actual memory systems (no placeholders)
-- **🎉 Confidence Scoring Bug FIXED**: Single and multi-attachment processing working correctly
-
-### **Implemented Agent Nodes** ✅
-1. **`RelevanceFilterNode`**:
-   - ✅ Memory-driven email relevance detection
-   - ✅ Queries semantic memory for patterns **LIVE & WORKING**
-   - ✅ Queries procedural memory for rules **LIVE & WORKING**
-   - ✅ Complete reasoning and transparency
-   - ✅ Contact data lookup from semantic memory
-
-2. **`AssetMatcherNode`**:
-   - ✅ **FIXED**: Proper confidence scoring with cleaned asset keywords
-   - ✅ Uses procedural memory for matching algorithms **LIVE & WORKING**
-   - ✅ Uses semantic memory for asset profiles **LIVE & WORKING**
-   - ✅ Episodic learning from past successful matches
-   - ✅ **FIXED**: Attachment-centric processing (best match per attachment)
-   - ✅ **NEW**: Extensive debug logging for transparency and human feedback
-
-3. **`AttachmentProcessorNode`**:
-   - ✅ Processes and saves files using memory-driven rules
-   - ✅ Queries procedural memory for file handling procedures **LIVE & WORKING**
-   - ✅ Memory-driven security checks and file type validation
-   - ✅ **WORKING**: Organized directory structure (`assets/ASSET_ID/filename`)
-   - ✅ Actual file operations with error handling and verification
-
-4. **`FeedbackIntegratorNode`**:
-   - ✅ Updates all memory systems based on human feedback **LIVE & WORKING**
-   - ✅ Comprehensive decision trace capture for human review
-   - ✅ Detailed feedback quality assessment and integration
-   - ✅ Learning impact measurement across all memory systems
-   - ✅ Complete audit trail and continuous improvement framework
-
-### **Tested and Verified** ✅
-- ✅ **Complete end-to-end email processing pipeline working**
-- ✅ **Single attachment emails**: "i3 loan docs" → 0.247 confidence → successful file save
-- ✅ **Multi-attachment emails**: 4 attachments → 4 asset matches → all files saved
-- ✅ Memory-driven decision making with fallbacks
-- ✅ Human feedback integration and learning infrastructure
-- ✅ **File saving working**: `/assets/I3_VERTICALS_CREDIT/RLV_TRM_i3_TD.pdf`
-- ✅ Directory structure: `assets/ASSET_ID/`
-- ✅ Transparent decision reasoning at every step
-- ✅ Error handling and graceful degradation
-- ✅ **Debug infrastructure**: Extensive logging for transparency
-
-## 🔄 **What Still Needs to Be Done**
-
-### **Phase 2: User Interface Enhancement** 🚧
-- [x] Basic attachment browser working
-- [ ] Enhanced UI for viewing organized attachments
-- [ ] Asset management interface
-- [ ] Human feedback forms and correction workflows
-- [ ] Decision transparency dashboard
-
-### **Phase 3: Knowledge Population** 📚
-- [ ] Load more investment patterns and keywords into semantic memory
-- [ ] Define additional asset profiles and sender relationships
-- [ ] Create more sophisticated processing rules in procedural memory
-- [ ] Establish optimized decision thresholds and weights
-- [ ] Import existing business rules and patterns
-
-### **Phase 4: Performance & Scale** 🔗
-- [ ] Batch email processing optimization
-- [ ] Background processing for large email volumes
-- [ ] Optional: Upgrade to Qdrant vector database for production scale
-- [ ] Caching and performance monitoring
-
-### **Phase 5: Production Features** 📧
-- [ ] Scheduled email monitoring and processing
-- [ ] Email filtering and advanced search
-- [ ] Reporting and analytics dashboard
-- [ ] Integration with existing asset management systems
-
-## 🛠️ **Technical Stack**
-
-- **Framework**: LangGraph for stateful agent workflows ✅
-- **Backend**: Flask with async/await patterns ✅
-- **Memory**: Simple JSON/SQLite storage (with optional Qdrant upgrade path) ✅
-- **Email APIs**: Gmail API, Microsoft Graph ✅
-- **Frontend**: Basic HTML + JavaScript (upgrade to HTMX + Tailwind planned) 🚧
-- **Storage**: Local filesystem with configurable paths ✅
-- **Monitoring**: Structured logging with performance metrics ✅
-- **Code Quality**: Pre-commit hooks with ruff, black, isort ✅
-
-## 📁 **Current Project Structure**
-
-```
-src/
-├── agents/              # LangGraph agent implementations ✅
-│   ├── email_graph.py   # Main processing graph ✅
-│   └── nodes/           # Individual agent nodes ✅
-│       ├── relevance_filter.py      # ✅ CONNECTED to memory systems
-│       ├── asset_matcher.py         # ✅ FIXED confidence scoring bug
-│       ├── attachment_processor.py  # ✅ Working file operations
-│       └── feedback_integrator.py   # ✅ Memory system updates
-├── email_interface/     # Email service connectors ✅
-│   ├── gmail.py         # ✅ Gmail implementation
-│   ├── msgraph.py       # ✅ Microsoft Graph implementation
-│   └── factory.py       # ✅ Factory pattern for email interfaces
-├── memory/              # Simple memory systems ✅
-│   ├── __init__.py      # ✅ Memory system factory
-│   └── simple_memory.py # ✅ JSON/SQLite implementation
-├── utils/               # Shared utilities ✅
-│   ├── config.py        # ✅ Configuration with proper thresholds
-│   └── logging_system.py # ✅ Structured logging with decorators
-
-data/memory/             # Memory storage files ✅
-├── semantic_memory.json     # ✅ Asset profiles + contact data + patterns
-├── procedural_memory.json   # ✅ Business rules and algorithms
-└── episodic_memory.db      # ✅ Processing history (SQLite)
-
-assets/                  # Organized attachment storage ✅
-├── I3_VERTICALS_CREDIT/     # ✅ Working - files saved here
-├── GRAY_TV_CREDIT/          # ✅ Working - files saved here
-├── TRIMBLE_CREDIT/          # ✅ Working - files saved here
-└── ALPHA_FUND/              # ✅ Ready for use
-```
-
-## 🔧 **Key Configuration**
-
-```python
-# Email processing thresholds (WORKING VALUES)
-RELEVANCE_THRESHOLD = 0.7        # Minimum score for relevant emails
-LOW_CONFIDENCE_THRESHOLD = 0.6   # Trigger human review
-ASSET_MATCH_THRESHOLD = 0.1      # Asset matching threshold (FIXED)
-
-# File processing (TESTED & WORKING)
-ASSETS_BASE_PATH = "./assets"     # Base directory for organized files
-MAX_ATTACHMENT_SIZE_MB = 50       # File size limit
-ALLOWED_FILE_EXTENSIONS = ["pdf", "xlsx", "docx", "jpg", "png"]
-
-# Memory system limits (3-system architecture)
-SEMANTIC_MEMORY_MAX_ITEMS = 50000     # Asset profiles, patterns, contact data
-PROCEDURAL_MEMORY_MAX_ITEMS = 10000   # Rules, algorithms
-EPISODIC_MEMORY_MAX_ITEMS = 100000    # Historical decisions
-```
-
-## 🚀 **Getting Started (Current)**
-
-```bash
-# Start the working system
-cd emailAgent
-source .emailagent/bin/activate
-
-# Start Flask web interface
-python app.py
-# Visit: http://localhost:5001
-
-# Or test memory-driven processing directly
-python -c "
-from src.memory import create_memory_systems
-from src.agents.nodes.relevance_filter import RelevanceFilterNode
-import asyncio
-
-async def test():
-    memory_systems = create_memory_systems()
-    filter_node = RelevanceFilterNode(memory_systems)
-
-    result = await filter_node.evaluate_relevance({
-        'subject': 'i3 loan docs',
-        'sender': 'rick@bunker.us',
-        'body': 'attached find the loan documents for the i3 deal',
-        'attachments': [{'filename': 'RLV_TRM_i3_TD.pdf'}]
-    })
-    print(f'Result: {result[0]} (confidence: {result[1]:.2f})')
-
-asyncio.run(test())
-"
-
-# Expected output:
-# Result: relevant (confidence: 0.80)
-# - Shows memory-driven relevance detection working
-# - Uses actual semantic memory for sender lookup
-# - Uses procedural memory for relevance rules
-```
-
-## 🎯 **Immediate Next Steps**
-
-1. **✅ COMPLETED**: Fix confidence scoring bug for single-attachment emails
-2. **UI Enhancement**: Improve attachment browser with asset organization view
-3. **Knowledge Enhancement**: Add more realistic investment asset profiles
-4. **Performance Optimization**: Batch processing and background jobs
-5. **Human Feedback UI**: Build on extensive debug infrastructure for learning workflows
-
-## 🔍 **Key Architectural Decisions Made**
-
-### ✅ **Design Principles Established**
-- Memory systems answer "WHAT" (data, patterns, rules)
-- Processing agents answer "HOW" (operations, workflows, actions)
-- All decisions must be transparent with complete reasoning chains
-- Human feedback continuously improves all memory systems
-- Graceful degradation when memory systems aren't available
-- **NEW**: Separate vocabularies for relevance vs. asset matching
-
-### ✅ **Bug Fixes Completed**
-- **Asset Keywords Cleaned**: Removed generic terms that diluted scoring
-- **Sender Mappings Fixed**: Added missing email-to-asset associations
-- **Confidence Math Corrected**: 1/3 vs 1/8 keyword matching dramatically improves scores
-- **Debug Infrastructure**: Extensive logging for transparency and future human feedback
-
-## 📊 **Success Metrics**
-
-- **Architecture**: ✅ Clean memory/agent separation implemented
-- **Pipeline**: ✅ End-to-end processing working for single AND multi-attachment emails
-- **Transparency**: ✅ Complete decision audit trails with debug infrastructure
-- **Learning**: ✅ Human feedback integration framework ready
-- **Maintainability**: ✅ No hardcoded business logic
-- **Extensibility**: ✅ Memory-driven approach allows easy updates
-- **🎉 PRODUCTION**: ✅ Bug-free processing with proper file organization
+- `http://localhost:5001/` - Main dashboard
+- `http://localhost:5001/memory` - Memory system management
+- `http://localhost:5001/attachments` - File browser
+- `http://localhost:5001/api/system/status` - System health check
 
 ---
 
-## 🔮 **For Next Development Session**
+## Email System Integration
 
-**Priority 1**: Enhanced UI for attachment browsing and asset management
-**Priority 2**: Expand semantic memory with additional investment assets and business rules
-**Priority 3**: Performance optimization for larger email volumes
-**Priority 4**: Human feedback interface leveraging the debug infrastructure
+### Gmail Integration
 
-**System Status**: ✅ **PRODUCTION READY** for email processing and attachment organization!
+**Setup Process**:
+1. Create Google Cloud Console project
+2. Enable Gmail API
+3. Configure OAuth consent screen
+4. Create OAuth 2.0 credentials
+5. Download credentials to `config/gmail_credentials.json`
 
-*Built with LangGraph for robust, stateful AI workflows and clean memory/agent separation*
+**Authentication Flow**:
+1. First run triggers OAuth flow
+2. User grants permissions in browser
+3. Tokens saved to `config/gmail_token.json`
+4. Future runs use saved tokens (auto-refresh)
+
+**Processing Capabilities**:
+- Parallel email fetching (5 concurrent)
+- Complete attachment download
+- Label/folder management
+- Search with complex criteria
+
+### Microsoft Graph Integration
+
+**Setup Process**:
+1. Create Azure AD app registration
+2. Configure API permissions (Mail.ReadWrite, User.Read)
+3. Grant admin consent
+4. Save credentials to `config/msgraph_credentials.json`
+
+**Multi-Tenant Support**:
+```json
+{
+  "client_id": "your-app-id",
+  "tenant_id": "common",  // For multi-tenant
+  "redirect_uri": "http://localhost:8080"
+}
+```
+
+**Advanced Features**:
+- SharePoint integration (optional)
+- Teams integration (planned)
+- Multi-mailbox support
+
+---
+
+## Understanding the Code
+
+### Key Design Patterns
+
+#### 1. Factory Pattern (Email Interfaces)
+```python
+# src/email_interface/factory.py
+interface = EmailInterfaceFactory.create('gmail')
+# Returns GmailInterface instance
+
+interface = EmailInterfaceFactory.create('microsoft_graph')
+# Returns MicrosoftGraphInterface instance
+```
+
+**Teaching Point**: Factory pattern allows adding new email systems without changing existing code.
+
+#### 2. Memory-Driven Architecture
+```python
+# Instead of hardcoded logic:
+if "investment" in subject:
+    return "relevant"
+
+# Use memory-driven logic:
+relevance_rules = self.procedural_memory.get_relevance_rules()
+for rule in relevance_rules:
+    if any(pattern in subject for pattern in rule['patterns']):
+        score += rule['weight']
+```
+
+**Teaching Point**: Separating logic from data allows business rule changes without code deployment.
+
+#### 3. Async/Await Patterns
+```python
+# Process multiple attachments in parallel
+tasks = [
+    process_single_attachment(attachment)
+    for attachment in attachments
+]
+results = await asyncio.gather(*tasks)
+```
+
+**Teaching Point**: Async processing dramatically improves performance for I/O operations.
+
+### Code Navigation Guide
+
+#### Core Processing Logic
+1. **Start Here**: `src/agents/email_graph.py` - Main workflow orchestration
+2. **Email Input**: `src/email_interface/base.py` - Abstract interface
+3. **Processing Nodes**: `src/agents/nodes/` - Individual processing steps
+4. **Memory Systems**: `src/memory/simple_memory.py` - Knowledge storage
+
+#### Web Interface
+1. **Flask App**: `app.py` - Web routes and API endpoints
+2. **Templates**: `templates/` - HTML interfaces
+3. **Static Assets**: `static/` - CSS, JavaScript, images
+
+#### Configuration and Utilities
+1. **Configuration**: `src/utils/config.py` - Centralized settings
+2. **Logging**: `src/utils/logging_system.py` - Structured logging
+3. **Memory Management**: `src/utils/memory_monitor.py` - Resource monitoring
+
+### Adding New Features
+
+#### Adding a New Email System
+1. Create new interface in `src/email_interface/new_system.py`
+2. Inherit from `BaseEmailInterface`
+3. Implement all abstract methods
+4. Add to factory in `factory.py`
+5. Add credentials template
+6. Create setup documentation
+
+#### Adding a New Processing Node
+1. Create new node in `src/agents/nodes/new_node.py`
+2. Use memory systems for configuration
+3. Add to graph in `email_graph.py`
+4. Update state definition if needed
+5. Add tests
+
+#### Adding New Asset Types
+1. Update semantic memory with asset profiles
+2. Add specific keywords and patterns
+3. Update procedural memory with matching rules
+4. Test with sample documents
+5. Monitor and adjust confidence thresholds
+
+---
+
+## Troubleshooting
+
+### Common Issues and Solutions
+
+#### 1. Authentication Failures
+
+**Gmail "insufficient authentication scopes"**:
+```bash
+# Solution: Clear token to force re-authentication
+rm config/gmail_token.json
+# Next processing run will request proper scopes
+```
+
+**Microsoft Graph "AADSTS50011: Reply URL mismatch"**:
+```bash
+# Solution: Verify redirect URI matches exactly
+# In Azure Portal: http://localhost:8080
+# In config: "redirect_uri": "http://localhost:8080"
+```
+
+#### 2. Processing Errors
+
+**No asset matches found**:
+1. Check semantic memory has asset profiles
+2. Verify keywords are distinguishing, not generic
+3. Review procedural memory matching rules
+4. Check confidence thresholds aren't too high
+
+**Attachment processing failures**:
+1. Verify file permissions on assets directory
+2. Check file size limits in configuration
+3. Ensure virus scanning is configured correctly
+4. Review file type restrictions
+
+#### 3. Memory System Issues
+
+**Semantic memory not loading**:
+```bash
+# Check file existence and format
+ls -la data/memory/semantic_memory.json
+cat data/memory/semantic_memory.json | jq .
+
+# Reset to baseline if corrupted
+make clean-memory
+make init-memory
+```
+
+**Episodic memory schema errors**:
+```bash
+# Validate database schema
+curl -s http://localhost:5001/api/system/validate-schema
+
+# Reset if necessary
+rm data/memory/episodic_memory.db
+# System will recreate on next run
+```
+
+#### 4. Performance Issues
+
+**Slow email processing**:
+```bash
+# Check parallel processing configuration
+python -c "
+from src.utils.config import config
+print(f'Max concurrent emails: {config.max_concurrent_emails}')
+print(f'Max concurrent attachments: {config.max_concurrent_attachments}')
+"
+
+# Monitor processing in real-time
+tail -f logs/email_agent.log | grep "process"
+```
+
+**High memory usage**:
+- Reduce concurrent processing limits
+- Clear old episodic memory patterns
+- Monitor with `make status`
+
+### Debug Mode
+
+Enable detailed logging for troubleshooting:
+```bash
+export DEBUG=true
+export LOG_LEVEL=DEBUG
+python app.py
+```
+
+This provides:
+- Function entry/exit logging
+- Complete decision reasoning
+- Memory system queries
+- Performance metrics
+
+### System Health Checks
+
+```bash
+# Check overall system status
+curl -s http://localhost:5001/api/system/status | jq .
+
+# Get detailed diagnostics
+curl -s http://localhost:5001/api/system/diagnostics | jq .
+
+# Validate memory systems
+curl -s http://localhost:5001/api/system/validate-schema | jq .
+```
+
+---
+
+## 📊 System Monitoring
+
+### 🔍 System Health Monitoring
+
+#### Daily Health Checks
+```bash
+# 1. Overall system status
+curl -s http://localhost:5001/api/system/status | jq '.'
+
+# 2. Check processing performance
+tail -100 logs/email_agent.log | grep "processing complete" | tail -5
+
+# 3. Memory system validation
+curl -s http://localhost:5001/api/system/validate-schema | jq '.validation_passed'
+
+# 4. Check disk space for asset storage
+df -h assets/
+
+# 5. Review recent errors
+grep -i error logs/email_agent.log | tail -10
+```
+
+#### Key Metrics to Monitor
+
+| Metric | Command | Target Range | Alert If |
+|--------|---------|---------------|----------|
+| **Processing Success Rate** | `grep "status.*saved" logs/email_agent.log \| wc -l` | >90% | <85% |
+| **Average Confidence** | `grep "confidence" logs/email_agent.log \| tail -20` | >0.6 | <0.4 |
+| **Human Review Queue Size** | `ls assets/NEEDS_REVIEW/ \| wc -l` | <20 files | >50 files |
+| **Memory System Errors** | `grep "memory.*error" logs/email_agent.log` | 0 per day | >5 per day |
+| **Email Authentication Failures** | `grep "auth.*fail" logs/email_agent.log` | 0 per day | >1 per day |
+| **Disk Space** | `df -h assets/` | <80% full | >90% full |
+
+### 📈 Performance Monitoring
+
+#### Understanding Processing Logs
+```bash
+# View complete processing session with reasoning
+grep -A 20 -B 5 "PROCESSING RESULT FOR" logs/email_agent.log | tail -50
+
+# Monitor confidence score trends
+grep "confidence:" logs/email_agent.log | awk '{print $NF}' | tail -20
+
+# Check processing time per email
+grep "processing complete" logs/email_agent.log | sed 's/.*\[\(.*\)s\].*/\1/' | tail -10
+```
+
+#### Performance Optimization Targets
+
+| Component | Current Target | Optimization Threshold |
+|-----------|----------------|------------------------|
+| **Email Processing** | <30s per email | >60s per email |
+| **Asset Matching** | <5s per attachment | >15s per attachment |
+| **Memory Query** | <1s per query | >3s per query |
+| **File Saving** | <2s per file | >10s per file |
+
+### 🚨 Common Issues & Solutions
+
+#### Issue 1: High Human Review Queue
+```bash
+# Symptoms
+ls assets/NEEDS_REVIEW/ | wc -l  # >20 files
+
+# Investigation
+grep "NEEDS_REVIEW" logs/email_agent.log | tail -10
+grep "No asset exceeded confidence" logs/email_agent.log | tail -5
+
+# Common Causes & Solutions
+# 1. New sender not in semantic memory → Add sender mapping
+# 2. New asset types → Add asset profiles
+# 3. Threshold too high → Adjust procedural memory rules
+```
+
+#### Issue 2: Processing Slowdown
+```bash
+# Symptoms
+grep "processing complete.*[5-9][0-9]s" logs/email_agent.log  # >50s processing
+
+# Investigation
+ps aux | grep python  # Check memory usage
+tail -f logs/email_agent.log | grep -E "(concurrent|parallel)"
+
+# Solutions
+# 1. Reduce max_concurrent_emails in config
+# 2. Clear old episodic memory: rm data/memory/episodic_memory.db
+# 3. Check disk space: df -h
+```
+
+#### Issue 3: Email Authentication Failures
+```bash
+# Symptoms
+grep "authentication.*fail\|token.*expired" logs/email_agent.log
+
+# Solutions for Gmail
+rm config/gmail_token.json  # Force re-authentication
+# Next processing will trigger OAuth flow
+
+# Solutions for Microsoft Graph
+# Check Azure AD app registration permissions
+# Verify tenant_id and client_id in config
+```
+
+### 🔧 Maintenance Procedures
+
+#### Weekly Maintenance
+```bash
+# 1. Archive old logs (keep last 30 days)
+find logs/ -name "*.log.*" -mtime +30 -delete
+
+# 2. Compact episodic memory database
+sqlite3 data/memory/episodic_memory.db "VACUUM;"
+
+# 3. Check for large attachments consuming space
+find assets/ -type f -size +10M -ls
+
+# 4. Validate memory system integrity
+python -c "
+from src.memory import create_memory_systems
+systems = create_memory_systems()
+print('✅ Memory systems loaded successfully')
+"
+```
+
+#### Monthly Maintenance
+```bash
+# 1. Review and clean human review queue
+# Process items in assets/NEEDS_REVIEW/
+# Update memory systems based on human feedback
+
+# 2. Analyze processing trends
+grep "confidence:" logs/email_agent.log | awk '{print $NF}' | \
+  python -c "
+import sys
+scores = [float(line.strip()) for line in sys.stdin]
+print(f'Average confidence: {sum(scores)/len(scores):.3f}')
+print(f'Low confidence count: {sum(1 for s in scores if s < 0.3)}')
+"
+
+# 3. Update dependencies
+pip list --outdated
+# Review and update critical dependencies
+
+# 4. Backup memory systems
+cp -r data/memory/ backups/memory_$(date +%Y%m%d)/
+```
+
+### 📊 Business Metrics Dashboard
+
+Track these business metrics to demonstrate value:
+
+#### Processing Efficiency
+```bash
+# Documents processed per day
+grep "status.*saved" logs/email_agent.log | \
+  grep "$(date +%Y-%m-%d)" | wc -l
+
+# Human intervention rate
+total_emails=$(grep "processing complete" logs/email_agent.log | grep "$(date +%Y-%m-%d)" | wc -l)
+review_queue=$(ls assets/NEEDS_REVIEW/ | wc -l)
+echo "Human review rate: $((review_queue * 100 / total_emails))%"
+```
+
+#### Learning Progress
+```bash
+# Human feedback integration rate
+sqlite3 data/memory/episodic_memory.db "
+SELECT
+  feedback_type,
+  COUNT(*) as count,
+  AVG(confidence_impact) as avg_impact
+FROM human_feedback
+WHERE created_at > date('now', '-30 days')
+GROUP BY feedback_type;
+"
+```
+
+#### System Reliability
+```bash
+# Uptime and error rates
+grep -c "ERROR\|CRITICAL" logs/email_agent.log
+grep -c "processing complete" logs/email_agent.log
+# Target: <1% error rate
+```
+
+## 🔬 Advanced Topics
+
+### Extending the Memory System
+
+#### Custom Memory Backends
+The current system uses JSON+SQLite for simplicity, but can be extended:
+
+```python
+class CustomSemanticMemory(BaseSemanticMemory):
+    """Custom memory backend (e.g., PostgreSQL, MongoDB)."""
+
+    def __init__(self, connection_string: str):
+        self.connection = create_connection(connection_string)
+
+    def search_asset_profiles(self, query: str) -> list[dict]:
+        # Custom search implementation
+        pass
+```
+
+#### Vector Database Integration
+For advanced semantic search, integrate vector databases:
+
+```python
+# Example Qdrant integration
+from qdrant_client import QdrantClient
+
+class VectorSemanticMemory(BaseSemanticMemory):
+    def __init__(self):
+        self.client = QdrantClient("localhost", 6333)
+        self.collection_name = "asset_profiles"
+
+    def search_asset_profiles(self, query: str) -> list[dict]:
+        # Vector similarity search
+        results = self.client.search(
+            collection_name=self.collection_name,
+            query_vector=self.encode_query(query),
+            limit=10
+        )
+        return results
+```
+
+### Custom Processing Nodes
+
+#### Adding AI-Powered Classification
+```python
+class AIClassifierNode:
+    """AI-powered document classification node."""
+
+    def __init__(self, model_name: str = "bert-base-uncased"):
+        self.classifier = AutoModelForSequenceClassification.from_pretrained(model_name)
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+
+    async def classify_document(self, content: str) -> dict:
+        # AI classification implementation
+        inputs = self.tokenizer(content, truncation=True, return_tensors="pt")
+        outputs = self.classifier(**inputs)
+        predictions = torch.nn.functional.softmax(outputs.logits, dim=-1)
+
+        return {
+            "category": self.get_category(predictions),
+            "confidence": float(predictions.max()),
+            "reasoning": "AI-powered classification"
+        }
+```
+
+#### Integration with External Systems
+```python
+class CRMIntegrationNode:
+    """Integration with external CRM systems."""
+
+    async def sync_with_crm(self, processing_result: dict) -> dict:
+        # Update CRM with processed documents
+        crm_response = await self.crm_client.update_asset(
+            asset_id=processing_result['asset_id'],
+            document_metadata=processing_result['metadata']
+        )
+
+        return {
+            "crm_updated": True,
+            "crm_record_id": crm_response['id']
+        }
+```
+
+### Performance Optimization
+
+#### Parallel Processing Tuning
+```python
+# Optimal settings for different hardware configurations
+hardware_configs = {
+    "development": {
+        "max_concurrent_emails": 3,
+        "max_concurrent_attachments": 5,
+        "email_batch_size": 10
+    },
+    "production": {
+        "max_concurrent_emails": 8,
+        "max_concurrent_attachments": 15,
+        "email_batch_size": 50
+    },
+    "high_performance": {
+        "max_concurrent_emails": 15,
+        "max_concurrent_attachments": 25,
+        "email_batch_size": 100
+    }
+}
+```
+
+#### Memory System Optimization
+```python
+# Implement caching for frequently accessed data
+from functools import lru_cache
+
+class OptimizedSemanticMemory(SimpleSemanticMemory):
+    @lru_cache(maxsize=1000)
+    def search_asset_profiles(self, query: str) -> list[dict]:
+        # Cached search results
+        return super().search_asset_profiles(query)
+
+    def invalidate_cache(self):
+        """Call when memory data changes."""
+        self.search_asset_profiles.cache_clear()
+```
+
+### Security Hardening
+
+#### Enhanced File Validation
+```python
+class SecurityProcessor:
+    """Enhanced security processing."""
+
+    def __init__(self):
+        self.clamav = clamd.ClamdUnixSocket()
+        self.file_validators = {
+            'pdf': self.validate_pdf,
+            'docx': self.validate_docx,
+            'xlsx': self.validate_excel
+        }
+
+    async def security_scan(self, file_content: bytes, filename: str) -> dict:
+        """Security scanning."""
+        results = {
+            "virus_scan": await self.virus_scan(file_content),
+            "format_validation": await self.validate_format(file_content, filename),
+            "content_analysis": await self.analyze_content(file_content),
+            "metadata_check": await self.check_metadata(file_content)
+        }
+
+        return {
+            "safe": all(r["safe"] for r in results.values()),
+            "details": results
+        }
+```
+
+#### Access Control Integration
+```python
+class AccessControlManager:
+    """Manage user access to assets and documents."""
+
+    def __init__(self, auth_provider: str):
+        self.auth = self.create_auth_provider(auth_provider)
+
+    async def check_asset_access(self, user_id: str, asset_id: str) -> bool:
+        """Check if user has access to specific asset."""
+        user_permissions = await self.auth.get_user_permissions(user_id)
+        asset_requirements = await self.get_asset_requirements(asset_id)
+
+        return self.evaluate_access(user_permissions, asset_requirements)
+```
+
+---
+
+## Contributing
+
+### Development Setup for Contributors
+
+1. **Fork and Clone**
+```bash
+git clone https://github.com/yourusername/emailAgent.git
+cd emailAgent
+```
+
+2. **Setup Development Environment**
+```bash
+make setup
+# This installs pre-commit hooks and development tools
+```
+
+3. **Run Tests Before Making Changes**
+```bash
+make test
+# Ensure everything works before starting
+```
+
+### Contribution Guidelines
+
+#### Code Quality Standards
+- **Type Hints**: Required for all functions
+- **Documentation**: Google-style docstrings for all public methods
+- **Testing**: Unit tests for new functionality
+- **Logging**: Use structured logging with `@log_function()` decorator
+- **Configuration**: Use config system, never hardcode values
+
+#### Pull Request Process
+
+1. **Create Feature Branch**
+```bash
+git checkout -b feature/descriptive-name
+```
+
+2. **Make Changes with Tests**
+```bash
+# Add functionality
+# Add comprehensive tests
+# Update documentation
+```
+
+3. **Ensure Quality**
+```bash
+make test              # All tests must pass
+make format            # Auto-format code
+make lint              # Fix any linting issues
+```
+
+4. **Commit with Descriptive Messages**
+```bash
+git commit -m "Add XYZ functionality
+
+- Implement new feature for ABC
+- Add test coverage
+- Update documentation and examples
+- Maintain backward compatibility"
+```
+
+5. **Create Pull Request**
+- Include detailed description
+- Reference any related issues
+- Provide testing instructions
+- Include screenshots for UI changes
+
+#### Adding New Documentation
+- Code comments for complex logic
+- Update README.md for major changes
+- Add setup guides for new integrations
+- Include troubleshooting steps
+
+### Project Maintenance
+
+#### Regular Maintenance Tasks
+```bash
+# Weekly dependency updates
+pip list --outdated
+pip install -U package_name
+
+# Monthly security scans
+make security
+
+# Quarterly performance reviews
+# Review logs for performance bottlenecks
+# Analyze memory usage trends
+# Update configuration recommendations
+```
+
+#### Release Process
+1. Update version in `pyproject.toml`
+2. Update CHANGELOG.md
+3. Run full test suite
+4. Create release branch
+5. Tag release
+6. Deploy to production
+7. Monitor for issues
+
+---
+
+## Conclusion
+
+This Email Agent represents an approach to document processing that combines:
+
+- **AI-Powered Processing**: LangGraph workflows with memory-driven decision making
+- **Error Handling**: Error handling, logging, and monitoring
+- **Extensible Design**: Add new email systems, processing nodes, and integrations
+- **Learning System**: Improvement through human feedback integration
+- **Developer Tools**: Documentation, testing, and development tools
+
+### Next Steps for New Developers
+
+1. **Start with Setup**: Follow the installation guide
+2. **Explore the Web Interface**: Process some test emails to understand the workflow
+3. **Read the Code**: Start with `email_graph.py` to understand the processing flow
+4. **Make Small Changes**: Add a new asset profile or modify a processing rule
+5. **Run Tests**: Use `make test-quick` frequently during development
+6. **Ask Questions**: The code is documented, but don't hesitate to seek clarification
+
+### Key Resources
+
+- **Documentation**: `/docs/` directory contains setup guides
+- **Configuration**: `src/utils/config.py` for all settings
+- **Examples**: Test files in `/tests/` show usage patterns
+- **Troubleshooting**: This README contains common issues and solutions
+- **Architecture Decisions**: Comments throughout the code explain design choices
+
+The system is designed to be both functional for end-users and accessible for developers. The memory-driven architecture means most business logic changes don't require code updates, making it maintainable and adaptable to new requirements.

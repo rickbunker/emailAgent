@@ -1488,8 +1488,8 @@ def submit_feedback() -> tuple[dict, int]:
 
             logger.info(f"Human feedback stored: {feedback_type} for {filename}")
 
-        # TODO: In the future, we could also move the file to the correct asset directory
-        # if the asset assignment was changed
+        # Note: File movement to correct asset directory could be implemented here
+        # if automatic file reorganization is desired based on feedback
 
         message = f"Feedback recorded for {filename}: {relevance_feedback}, asset: {corrected_asset}"
         return {"message": message, "feedback_type": feedback_type}, 200

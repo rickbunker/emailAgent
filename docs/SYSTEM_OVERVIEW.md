@@ -147,4 +147,4 @@ python app.py
 
 **Last Updated**: 2025-06-24 - Major confidence scoring bug resolved, system production ready
 
-*For detailed technical information, see README.md. For current status, see RESTART_NOTES.md.*
+*For detailed technical information and developer onboarding, see the main README.md.*

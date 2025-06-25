@@ -318,7 +318,7 @@ make type-check    # Run type checking only
 3. **Linting warnings**: Use `--fix` flag or fix manually
 4. **Test failures**: Fix the underlying issue, don't ignore tests
 
-> 📖 **For complete testing documentation, see [`docs/TESTING_GUIDE.md`](./TESTING_GUIDE.md)**
+> 📖 **For complete testing documentation, see the Testing Strategy section in the main README.md**
 
 ## 🛠️ Development Tools
 
