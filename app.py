@@ -713,6 +713,410 @@ def reset_procedural_memory() -> tuple[dict, int]:
         return {"error": str(e)}, 500
 
 
+@app.route("/api/attachments/review/<asset_id>/<filename>", methods=["GET"])
+def get_attachment_review_details(asset_id: str, filename: str) -> tuple[dict, int]:
+    """Get comprehensive decision breakdown for reviewing an attachment classification."""
+    try:
+        # Find the attachment file
+        asset_path = Path(config.assets_base_path) / asset_id
+        if not asset_path.exists():
+            return {"error": f"Asset {asset_id} not found"}, 404
+
+        file_path = asset_path / filename
+        if not file_path.exists():
+            return {"error": f"File {filename} not found in asset {asset_id}"}, 404
+
+        # Get processing records for this file from episodic memory
+        classification_details = None
+        if memory_systems and hasattr(
+            memory_systems["episodic"], "find_records_by_filename"
+        ):
+            # Try to find records by filename first
+            records = memory_systems["episodic"].find_records_by_filename(
+                filename, limit=5
+            )
+
+            # If no specific records found, try recent records
+            if not records:
+                recent_records = memory_systems["episodic"].get_recent_records(limit=20)
+                # Filter for records that might contain this filename
+                records = [
+                    r for r in recent_records if filename in str(r.get("metadata", {}))
+                ]
+
+            logger.info(f"Found {len(records)} episodic records for file: {filename}")
+
+            # Aggregate decision reasoning from all relevant records
+            all_decision_reasoning = []
+            file_specific_record = None
+
+            # Helper function to create reasoning signature for deduplication
+            def get_reasoning_signature(reasoning_entry):
+                return f"{reasoning_entry.get('rule_id', '')}_{reasoning_entry.get('rule_type', '')}_{reasoning_entry.get('score', 0)}"
+
+            seen_reasoning = set()
+
+            # Look for detailed reasoning in the records
+            for record in records:
+                metadata = record.get("metadata", {})
+
+                # Check for asset_matches structure first (more detailed)
+                asset_matches = metadata.get("asset_matches", [])
+                for match in asset_matches:
+                    if match.get("attachment_filename") == filename:
+                        file_specific_record = record
+                        match_reasoning = match.get("decision_reasoning", [])
+
+                        # Process and deduplicate reasoning entries
+                        for reasoning_entry in match_reasoning:
+                            # Fix missing fields
+                            if "score" not in reasoning_entry:
+                                if "highest_confidence" in reasoning_entry:
+                                    reasoning_entry["score"] = reasoning_entry[
+                                        "highest_confidence"
+                                    ]
+                                elif "confidence" in reasoning_entry:
+                                    reasoning_entry["score"] = reasoning_entry[
+                                        "confidence"
+                                    ]
+                                else:
+                                    reasoning_entry["score"] = 0.1
+
+                            if "rule_name" not in reasoning_entry:
+                                reasoning_entry["rule_name"] = reasoning_entry.get(
+                                    "rule_id", "Unknown Rule"
+                                )
+
+                            # Deduplicate based on signature
+                            signature = get_reasoning_signature(reasoning_entry)
+                            if signature not in seen_reasoning:
+                                seen_reasoning.add(signature)
+                                all_decision_reasoning.append(reasoning_entry)
+                        break
+
+                # If no asset_matches found, check direct decision_reasoning
+                if not file_specific_record and ("decision_reasoning" in metadata):
+                    decision_reasoning = metadata.get("decision_reasoning", [])
+
+                    # Check if this reasoning is specific to our file or generic
+                    file_specific = any(
+                        filename in str(reasoning_entry)
+                        for reasoning_entry in decision_reasoning
+                    )
+
+                    if (
+                        file_specific or not all_decision_reasoning
+                    ):  # Use if file-specific or no other reasoning found
+                        file_specific_record = record
+
+                        # Process and deduplicate reasoning entries
+                        for reasoning_entry in decision_reasoning:
+                            # Fix missing fields
+                            if "score" not in reasoning_entry:
+                                if "highest_confidence" in reasoning_entry:
+                                    reasoning_entry["score"] = reasoning_entry[
+                                        "highest_confidence"
+                                    ]
+                                elif "confidence" in reasoning_entry:
+                                    reasoning_entry["score"] = reasoning_entry[
+                                        "confidence"
+                                    ]
+                                else:
+                                    reasoning_entry["score"] = 0.1
+
+                            if "rule_name" not in reasoning_entry:
+                                reasoning_entry["rule_name"] = reasoning_entry.get(
+                                    "rule_id", "Unknown Rule"
+                                )
+
+                            # Deduplicate based on signature
+                            signature = get_reasoning_signature(reasoning_entry)
+                            if signature not in seen_reasoning:
+                                seen_reasoning.add(signature)
+                                all_decision_reasoning.append(reasoning_entry)
+
+            # If we found reasoning, create classification details
+            if all_decision_reasoning and file_specific_record:
+                classification_details = {
+                    "classification_result": {
+                        "asset_id": file_specific_record.get("asset_id", asset_id),
+                        "confidence": file_specific_record.get("confidence", 0.0),
+                        "decision": file_specific_record.get("decision", "classified"),
+                        "timestamp": file_specific_record.get("timestamp"),
+                        "sender": file_specific_record.get("sender"),
+                        "subject": file_specific_record.get("subject"),
+                    },
+                    "decision_reasoning": all_decision_reasoning,
+                    "additional_context": {
+                        "email_context": {
+                            "sender": file_specific_record.get("sender"),
+                            "subject": file_specific_record.get("subject"),
+                            "timestamp": file_specific_record.get("timestamp"),
+                        },
+                        "file_info": {
+                            "filename": filename,
+                            "current_location": str(file_path),
+                            "asset_assignment": asset_id,
+                        },
+                        "records_processed": len(records),
+                        "unique_reasoning_rules": len(all_decision_reasoning),
+                    },
+                }
+
+        # If no detailed reasoning found, or if reasoning lacks asset details, reconstruct analysis
+        if not classification_details or (
+            classification_details
+            and classification_details["decision_reasoning"]
+            and all(
+                r.get("total_assets_considered", 0) == 0
+                for r in classification_details["decision_reasoning"]
+            )
+        ):
+            logger.warning(
+                f"Incomplete reasoning found for {filename} - reconstructing asset matching analysis"
+            )
+
+            # Get the base classification result if we have it
+            base_result = (
+                classification_details["classification_result"]
+                if classification_details
+                else {
+                    "asset_id": asset_id,
+                    "confidence": 0.1 if asset_id == "HUMAN_REVIEW_QUEUE" else 0.0,
+                    "decision": (
+                        "needs_review"
+                        if asset_id == "HUMAN_REVIEW_QUEUE"
+                        else "unknown"
+                    ),
+                    "reason": "Reconstructed analysis - original reasoning incomplete",
+                }
+            )
+
+            # Reconstruct what the matching would have looked like
+            reconstructed_reasoning = []
+
+            if memory_systems:
+                # Get the email context from records if available
+                email_context = {
+                    "subject": (
+                        records[0].get("subject", "") if records else "asset document"
+                    ),
+                    "sender": records[0].get("sender", "") if records else "unknown",
+                    "body": "",  # We don't have the original body
+                }
+
+                # Get available assets
+                try:
+                    asset_profiles = memory_systems["semantic"].search_asset_profiles(
+                        ""
+                    )
+                    logger.info(
+                        f"Reconstructing analysis against {len(asset_profiles)} assets"
+                    )
+
+                    # Get matching rules (for completeness, though not directly used in reconstruction)
+                    memory_systems["procedural"].get_asset_matching_rules()
+
+                    # Simulate what each asset matching would have looked like
+                    for asset_profile in asset_profiles:
+                        if asset_profile["asset_id"] == "HUMAN_REVIEW_QUEUE":
+                            continue  # Skip the fallback asset
+
+                        profile = asset_profile["profile"]
+                        asset_name = profile.get("name", asset_profile["asset_id"])
+                        keywords = profile.get("keywords", [])
+
+                        # Simulate keyword matching rule
+                        combined_text = (
+                            f"{filename.lower()} {email_context['subject'].lower()}"
+                        )
+                        keyword_matches = [
+                            kw for kw in keywords if kw.lower() in combined_text
+                        ]
+                        keyword_score = (
+                            len(keyword_matches) / max(len(keywords), 1)
+                            if keywords
+                            else 0.0
+                        )
+
+                        # Simulate filename pattern matching
+                        filename_score = 0.0
+                        filename_patterns = profile.get("filename_patterns", [])
+                        for pattern in filename_patterns:
+                            if pattern.lower() in filename.lower():
+                                filename_score = 0.8
+                                break
+
+                        # Simulate asset name matching
+                        asset_name_score = 0.0
+                        if asset_name.lower() in combined_text:
+                            asset_name_score = 0.9
+                        else:
+                            # Check for partial word matches
+                            asset_words = set(asset_name.lower().split())
+                            text_words = set(combined_text.split())
+                            common_words = asset_words.intersection(text_words)
+                            if len(common_words) >= 2:
+                                asset_name_score = (
+                                    len(common_words) / len(asset_words)
+                                ) * 0.9
+
+                        # Calculate overall score (simplified)
+                        overall_score = max(
+                            keyword_score * 0.7,
+                            filename_score * 0.9,
+                            asset_name_score * 0.95,
+                        )
+
+                        # Create detailed reasoning for this asset
+                        reconstructed_reasoning.append(
+                            {
+                                "rule_id": f"asset_analysis_{asset_profile['asset_id']}",
+                                "rule_name": f"Asset Analysis: {asset_name}",
+                                "rule_type": "reconstructed_analysis",
+                                "score": overall_score,
+                                "result": "evaluated",
+                                "reason": f"Reconstructed analysis of matching against {asset_name}",
+                                "memory_items": [
+                                    {
+                                        "type": "semantic_memory",
+                                        "source": f"asset_profiles.{asset_profile['asset_id']}",
+                                        "description": f"Asset profile for {asset_name}",
+                                        "content": {
+                                            "keywords": keywords,
+                                            "filename_patterns": filename_patterns,
+                                            "name": asset_name,
+                                        },
+                                    }
+                                ],
+                                "evidence": {
+                                    "filename": filename,
+                                    "email_subject": email_context["subject"],
+                                    "combined_text": (
+                                        combined_text[:100] + "..."
+                                        if len(combined_text) > 100
+                                        else combined_text
+                                    ),
+                                    "keywords_available": keywords,
+                                    "keywords_found": keyword_matches,
+                                    "keyword_score": keyword_score,
+                                    "filename_patterns": filename_patterns,
+                                    "filename_score": filename_score,
+                                    "asset_name_score": asset_name_score,
+                                    "final_score": overall_score,
+                                    "threshold": 0.5,
+                                },
+                                "contributing_factors": [
+                                    (
+                                        f"Keyword matching: {len(keyword_matches)}/{len(keywords)} keywords found"
+                                        if keywords
+                                        else "No keywords defined"
+                                    ),
+                                    (
+                                        f"Keywords found: {keyword_matches}"
+                                        if keyword_matches
+                                        else "No keywords matched"
+                                    ),
+                                    (
+                                        f"Filename patterns: {len(filename_patterns)} patterns checked"
+                                        if filename_patterns
+                                        else "No filename patterns defined"
+                                    ),
+                                    f"Asset name matching: {'Found' if asset_name_score > 0 else 'Not found'} in content",
+                                    f"Final score: {overall_score:.3f} (threshold: 0.5)",
+                                    f"Result: {'✅ Would match' if overall_score >= 0.5 else '❌ Below threshold'}",
+                                ],
+                            }
+                        )
+
+                    # Add the final fallback reasoning
+                    highest_score = max(
+                        [r["score"] for r in reconstructed_reasoning], default=0.0
+                    )
+                    reconstructed_reasoning.append(
+                        {
+                            "rule_id": "reconstructed_fallback",
+                            "rule_name": "Reconstructed Fallback Analysis",
+                            "rule_type": "fallback_routing",
+                            "score": 0.1,
+                            "result": "triggered",
+                            "reason": f"No asset achieved confidence ≥ 0.5 - highest was {highest_score:.3f}",
+                            "memory_items": [
+                                {
+                                    "type": "procedural_memory",
+                                    "source": "matching_rules.fallback_policy",
+                                    "description": "Threshold-based routing to human review",
+                                    "content": {
+                                        "threshold": 0.5,
+                                        "action": "route_to_human_review",
+                                    },
+                                }
+                            ],
+                            "evidence": {
+                                "threshold": 0.5,
+                                "highest_confidence_found": highest_score,
+                                "confidence_gap": 0.5 - highest_score,
+                                "total_assets_considered": len(reconstructed_reasoning)
+                                - 1,
+                            },
+                            "contributing_factors": [
+                                f"Evaluated {len(reconstructed_reasoning)} assets",
+                                f"Highest confidence achieved: {highest_score:.3f}",
+                                "Required threshold: 0.5",
+                                f"Confidence gap: {0.5 - highest_score:.3f}",
+                                "Automatic routing to human review queue",
+                            ],
+                        }
+                    )
+
+                except Exception as e:
+                    logger.error(f"Error reconstructing analysis: {e}")
+                    reconstructed_reasoning = [
+                        {
+                            "rule_id": "reconstruction_failed",
+                            "rule_name": "Analysis Reconstruction Failed",
+                            "rule_type": "system_error",
+                            "score": 0.0,
+                            "result": "error",
+                            "reason": f"Could not reconstruct asset matching analysis: {e}",
+                            "memory_items": [],
+                            "evidence": {"error": str(e)},
+                            "contributing_factors": [
+                                "System error during analysis reconstruction"
+                            ],
+                        }
+                    ]
+
+            classification_details = {
+                "classification_result": base_result,
+                "decision_reasoning": reconstructed_reasoning,
+                "additional_context": {
+                    "email_context": {
+                        "sender": email_context["sender"],
+                        "subject": email_context["subject"],
+                        "timestamp": (
+                            records[0].get("timestamp")
+                            if records
+                            else datetime.now().isoformat()
+                        ),
+                    },
+                    "file_info": {
+                        "filename": filename,
+                        "current_location": str(file_path),
+                        "asset_assignment": asset_id,
+                    },
+                    "analysis_type": "reconstructed",
+                    "note": "Reconstructed analysis showing what rules would have been applied",
+                },
+            }
+
+        return classification_details, 200
+
+    except Exception as e:
+        logger.error(f"Error getting review details for {filename}: {e}")
+        return {"error": f"Failed to get review details: {str(e)}"}, 500
+
+
 @app.route("/api/feedback/submit", methods=["POST"])
 def submit_feedback() -> tuple[dict, int]:
     """Submit human feedback for file relevance and asset assignment."""
@@ -814,6 +1218,34 @@ def get_review_status() -> dict[str, Any]:
     except Exception as e:
         logger.error(f"Failed to get review status: {e}")
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/system/validate-schema", methods=["GET"])
+def validate_episodic_schema() -> tuple[dict, int]:
+    """
+    Validate the episodic memory database schema.
+
+    This endpoint helps debug schema issues that can cause the decision
+    reasoning functionality to fail in the UI.
+    """
+    try:
+        # # Local application imports
+        from src.memory.simple_memory import SimpleEpisodicMemory
+
+        episodic = SimpleEpisodicMemory()
+        validation_result = episodic.validate_schema()
+
+        logger.info("Schema validation requested via API")
+
+        return {
+            "validation": validation_result,
+            "message": "Schema validation complete",
+            "timestamp": datetime.now().isoformat(),
+        }, 200
+
+    except Exception as e:
+        logger.error(f"Schema validation API failed: {e}")
+        return {"error": f"Schema validation failed: {e}"}, 500
 
 
 if __name__ == "__main__":

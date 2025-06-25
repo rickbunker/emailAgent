@@ -7,6 +7,7 @@ and semantic memory for WHAT to match against (asset profiles, relationships).
 
 # # Standard library imports
 import re
+from datetime import datetime
 from difflib import SequenceMatcher
 
 # Standard library imports
@@ -51,11 +52,9 @@ class AssetMatcherNode:
         # Get threshold from procedural memory (memory-driven architecture)
         try:
             if self.procedural_memory:
-                thresholds = self.procedural_memory.data.get(
-                    "confidence_thresholds", {}
-                )
+                thresholds = self.procedural_memory.data.get("thresholds", {})
                 self.asset_match_threshold = thresholds.get(
-                    "requires_review_threshold", config.requires_review_threshold
+                    "asset_match_threshold", config.requires_review_threshold
                 )
             else:
                 self.asset_match_threshold = config.requires_review_threshold
@@ -138,8 +137,8 @@ class AssetMatcherNode:
                 f"🔍 Attachment {i+1} generated {len(attachment_matches)} matches"
             )
 
-        # DISABLED: Episodic memory should only be updated with human-approved data
-        # await self._record_matching_session(email_data, attachments, matches)
+        # Record matching session in episodic memory for learning
+        await self._record_matching_session(email_data, attachments, matches)
 
         logger.info("🔍 === FINAL RESULTS ===")
         logger.info(f"🔍 Total matches generated: {len(matches)}")
@@ -186,9 +185,7 @@ class AssetMatcherNode:
         logger.info(f"🔍 SINGLE ATTACHMENT MATCHING: {filename}")
         logger.info(f"🔍   Email Sender: {email_data.get('sender', 'N/A')}")
         logger.info(f"🔍   Email Subject: {email_data.get('subject', 'N/A')}")
-        logger.info(
-            f"🔍   Email Body Preview: {email_data.get('body', 'N/A')[:100]}..."
-        )
+        logger.info(f"🔍   Email Body Preview: {email_data.get('body', 'N/A')[:100]}...")
 
         # Calculate matches using memory-driven logic
         asset_scores = await self._calculate_asset_scores(
@@ -229,27 +226,118 @@ class AssetMatcherNode:
             logger.info(
                 f"🔍 NO MATCHES above threshold ({self.asset_match_threshold}) for {filename}"
             )
-            # Fallback: Route to human review queue for manual classification
-            logger.info(
-                f"🔍 ROUTING {filename} to HUMAN_REVIEW_QUEUE for manual review"
+            # If no confident matches, route to HUMAN_REVIEW_QUEUE with detailed reasoning
+            logger.info("🔍 No confident matches found - routing to HUMAN_REVIEW_QUEUE")
+
+            # Capture detailed reasoning about what was tried and why it failed
+            fallback_reasoning = []
+
+            # Include information about all assets that were considered
+            for asset_id, scores in asset_scores.items():
+                if asset_id == "HUMAN_REVIEW_QUEUE":
+                    continue
+
+                confidence = scores.get("confidence", 0.0)
+                reasoning_details = scores.get("decision_reasoning", [])
+
+                fallback_reasoning.append(
+                    {
+                        "rule_id": "asset_consideration",
+                        "rule_name": f"Asset Consideration: {asset_id}",
+                        "rule_type": "asset_matching",
+                        "asset_id": asset_id,
+                        "confidence": confidence,
+                        "score": confidence,  # Add score field for frontend compatibility
+                        "threshold": self.asset_match_threshold,
+                        "result": "rejected",
+                        "reason": f"Confidence {confidence:.3f} below threshold {self.asset_match_threshold}",
+                        "evidence_examined": reasoning_details,
+                        "memory_source": f"semantic_memory.asset_profiles.{asset_id}",
+                        "memory_items": [
+                            {
+                                "type": "semantic_memory",
+                                "source": f"asset_profiles.{asset_id}",
+                                "description": f"Asset profile data for {asset_id}",
+                                "content": {"confidence_achieved": confidence},
+                            }
+                        ],
+                        "evidence": {
+                            "confidence_achieved": confidence,
+                            "threshold_required": self.asset_match_threshold,
+                            "confidence_gap": self.asset_match_threshold - confidence,
+                        },
+                        "contributing_factors": [
+                            f"Asset {asset_id} achieved confidence of {confidence:.3f}",
+                            f"Required threshold is {self.asset_match_threshold}",
+                            f"Confidence gap: {self.asset_match_threshold - confidence:.3f}",
+                        ],
+                    }
+                )
+
+            # Add general fallback reasoning
+            highest_conf = max(
+                [
+                    scores.get("confidence", 0.0)
+                    for asset_id, scores in asset_scores.items()
+                    if asset_id != "HUMAN_REVIEW_QUEUE"
+                ],
+                default=0.0,
+            )
+            fallback_reasoning.append(
+                {
+                    "rule_id": "human_review_fallback",
+                    "rule_name": "Human Review Fallback",
+                    "rule_type": "fallback_routing",
+                    "result": "triggered",
+                    "score": 0.1,  # Add score field for frontend compatibility
+                    "reason": f"No asset achieved confidence ≥ {self.asset_match_threshold} - automatic human review required",
+                    "total_assets_considered": len(
+                        [a for a in asset_scores if a != "HUMAN_REVIEW_QUEUE"]
+                    ),
+                    "highest_confidence": highest_conf,
+                    "memory_source": "procedural_memory.matching_rules.fallback_policy",
+                    "memory_items": [
+                        {
+                            "type": "procedural_memory",
+                            "source": "matching_rules.fallback_policy",
+                            "description": "Automatic fallback when no asset matches meet the confidence threshold",
+                            "content": {
+                                "threshold": self.asset_match_threshold,
+                                "action": "route_to_human_review",
+                            },
+                        }
+                    ],
+                    "evidence": {
+                        "threshold": self.asset_match_threshold,
+                        "highest_confidence_found": highest_conf,
+                        "confidence_gap": self.asset_match_threshold - highest_conf,
+                    },
+                    "contributing_factors": [
+                        f"No asset exceeded confidence threshold of {self.asset_match_threshold}",
+                        f"Highest confidence found was {highest_conf:.3f}",
+                        "Automatic routing to human review queue",
+                    ],
+                }
             )
 
-            fallback_match = {
-                "attachment_filename": filename,
-                "asset_id": "HUMAN_REVIEW_QUEUE",
-                "confidence": 0.1,  # Low confidence to indicate it needs review
-                "reasoning": {
-                    "match_factors": [
-                        "Automatic fallback - no confident asset match found"
-                    ],
+            # Create a single match for this attachment to route to HUMAN_REVIEW_QUEUE
+            return [
+                {
+                    "attachment_filename": attachment.get("filename"),
+                    "attachment_path": attachment.get("path"),
+                    "attachment_size": attachment.get("size"),
+                    "attachment_type": attachment.get("content_type"),
+                    "asset_id": "HUMAN_REVIEW_QUEUE",
+                    "confidence": 0.1,  # Low confidence indicates fallback
+                    "reasoning": "Automatic fallback - no confident asset match found",
+                    "decision_reasoning": fallback_reasoning,  # Include detailed reasoning
+                    "match_factors": ["human_review_fallback"],
                     "confidence_factors": [
-                        f"All asset scores below threshold ({self.asset_match_threshold})"
+                        f"No asset exceeded threshold {self.asset_match_threshold}"
                     ],
-                    "rule_matches": [],
-                },
-            }
-
-            return [fallback_match]
+                    "rule_matches": ["human_review_fallback"],
+                }
+            ]
 
     async def _calculate_asset_scores(
         self,
@@ -300,6 +388,7 @@ class AssetMatcherNode:
                 "match_factors": [],
                 "confidence_factors": [],
                 "rule_matches": [],
+                "decision_reasoning": [],  # Initialize reasoning storage
             }
 
             # Apply each matching rule from procedural memory
@@ -307,37 +396,72 @@ class AssetMatcherNode:
                 rule_id = rule.get("rule_id", "unknown")
                 logger.info(f"🔍   Applying rule: {rule_id}")
 
-                rule_score = self._apply_matching_rule(
+                rule_score, reasoning = self._apply_matching_rule(
                     rule, attachment, email_data, profile, asset_id
                 )
 
+                # Store detailed reasoning for this rule
+                score_data["decision_reasoning"].append(reasoning)
+
                 if rule_score > 0:
-                    weighted_score = rule_score * rule.get("weight", 0.5)
+                    weight = rule.get("weight", 1.0)
+                    weighted_score = rule_score * weight
                     score_data["confidence"] += weighted_score
                     score_data["rule_matches"].append(
                         {
                             "rule_id": rule_id,
                             "score": rule_score,
-                            "weight": rule.get("weight", 0.5),
+                            "weight": weight,
                             "weighted_score": weighted_score,
                         }
                     )
                     logger.info(
-                        f"🔍     ✓ {rule_id}: raw_score={rule_score:.3f}, weight={rule.get('weight', 0.5):.3f}, weighted={weighted_score:.3f}"
+                        f"🔍     ✓ {rule_id}: raw_score={rule_score:.3f}, weight={weight:.2f}, weighted={weighted_score:.3f}"
                     )
                 else:
-                    logger.info(f"🔍     ✗ {rule_id}: no match (score=0)")
+                    logger.info(f"🔍     ✗ {rule_id}: score=0.000")
 
-            # Apply episodic memory learning
+            # Apply episodic learning adjustments
             episodic_adjustment = self._apply_episodic_learning(
-                asset_id, sender, similar_cases
+                asset_id, email_data.get("sender", ""), similar_cases
             )
             if episodic_adjustment != 0:
+                logger.info(f"🔍   📚 Episodic adjustment: {episodic_adjustment:+.3f}")
                 score_data["confidence"] += episodic_adjustment
                 score_data["confidence_factors"].append(
-                    f"Episodic learning adjustment: {episodic_adjustment:+.2f}"
+                    f"Adjustment based on {len(similar_cases)} similar cases: {episodic_adjustment:+.3f}"
                 )
-                logger.info(f"🔍   Episodic adjustment: {episodic_adjustment:+.3f}")
+
+                # Add episodic reasoning to decision breakdown
+                score_data["decision_reasoning"].append(
+                    {
+                        "rule_id": "episodic_learning",
+                        "rule_name": "Learning from Similar Cases",
+                        "score": episodic_adjustment,
+                        "memory_items": [
+                            {
+                                "type": "episodic_memory",
+                                "source": "similar_cases",
+                                "content": [
+                                    {
+                                        "sender": case.get("sender", ""),
+                                        "asset_id": case.get("asset_id", ""),
+                                        "confidence": case.get("confidence", 0),
+                                    }
+                                    for case in similar_cases[:3]
+                                ],  # Truncate for readability
+                                "description": f"Similar cases for sender and asset combination ({len(similar_cases)} total)",
+                            }
+                        ],
+                        "evidence": {
+                            "similar_cases_count": len(similar_cases),
+                            "adjustment": episodic_adjustment,
+                        },
+                        "contributing_factors": [
+                            f"Adjustment based on {len(similar_cases)} similar cases: {episodic_adjustment:+.3f}"
+                        ],
+                    }
+                )
 
             # Cap confidence at 1.0
             score_data["confidence"] = min(score_data["confidence"], 1.0)
@@ -351,6 +475,20 @@ class AssetMatcherNode:
                     score_data["confidence_factors"].append(
                         f"Rule matches: {len(score_data['rule_matches'])}"
                     )
+
+            # Store comprehensive scoring details
+            score_data.update(
+                {
+                    "asset_id": asset_id,
+                    "asset_name": profile.get("name", asset_id),
+                    "final_score": score_data["confidence"],
+                    "base_average": score_data["confidence"],
+                    "episodic_adjustment": episodic_adjustment,
+                    "rules_applied": len(score_data["rule_matches"]),
+                    "cumulative_score": score_data["confidence"],
+                    "profile": profile,  # Include full profile for reference
+                }
+            )
 
             # Debug logging for final scores
             logger.info(
@@ -368,47 +506,113 @@ class AssetMatcherNode:
         email_data: dict[str, Any],
         asset_profile: dict[str, Any],
         asset_id: str,
-    ) -> float:
+    ) -> tuple[float, dict[str, Any]]:
         """
-        Apply a single matching rule from procedural memory.
+        Apply a single matching rule and return score with detailed reasoning.
 
         Args:
             rule: Matching rule from procedural memory
-            attachment: Attachment metadata
+            attachment: Attachment data
             email_data: Email context
             asset_profile: Asset profile from semantic memory
+            asset_id: Asset identifier
 
         Returns:
-            Rule match score (0.0 to 1.0)
+            Tuple of (score, reasoning_details)
         """
-        rule_id = rule.get("rule_id", "")
-        filename = attachment.get("filename", "").lower().replace("_", " ")
-        subject = email_data.get("subject", "").lower()
-        body = email_data.get("body", "").lower()
-        combined_text = f"{filename} {subject} {body}"
+        rule_id = rule.get("rule_id", "unknown")
+        filename = attachment.get("filename", "")
+        combined_text = self._get_combined_text(attachment, email_data)
 
-        logger.info(f"🔍     RULE {rule_id} DETAILS:")
-        logger.info(f"🔍       Filename text: '{filename}'")
-        logger.info(f"🔍       Subject text: '{subject}'")
-        logger.info(f"🔍       Body text: '{body[:100]}...'")
-        logger.info(f"🔍       Combined text: '{combined_text[:150]}...'")
+        # Initialize reasoning details
+        reasoning = {
+            "rule_id": rule_id,
+            "rule_name": rule.get("name", rule_id),
+            "score": 0.0,
+            "memory_items": [],
+            "evidence": {},
+            "contributing_factors": [],
+        }
 
-        if rule_id == "exact_name_match":
-            # Check for exact asset name matches or significant word overlap
-            asset_name = asset_profile.get("name", "").lower()
-            logger.info(f"🔍       Asset name: '{asset_name}'")
+        logger.info(
+            f"🔍     Applying rule: {rule_id} (weight: {rule.get('weight', 1.0)})"
+        )
+
+        if rule_id == "file_name_patterns":
+            # Check filename patterns in asset profile
+            patterns = asset_profile.get("filename_patterns", [])
+            reasoning["memory_items"] = [
+                {
+                    "type": "semantic_memory",
+                    "source": f"asset_profiles.{asset_id}.filename_patterns",
+                    "content": patterns,
+                    "description": f"Filename patterns for {asset_profile.get('name', asset_id)}",
+                }
+            ]
+
+            if patterns:
+                for pattern in patterns:
+                    if pattern in filename:
+                        score = rule.get("confidence", 0.8)
+                        reasoning["score"] = score
+                        reasoning["evidence"]["matched_pattern"] = pattern
+                        reasoning["evidence"]["filename"] = filename
+                        reasoning["contributing_factors"].append(
+                            f"Filename '{filename}' matches pattern '{pattern}'"
+                        )
+                        logger.info(
+                            f"🔍       ✓ Pattern match: '{pattern}' found in filename '{filename}', score={score:.3f}"
+                        )
+                        return score, reasoning
+
+                reasoning["contributing_factors"].append(
+                    f"No patterns matched filename '{filename}'"
+                )
+                logger.info(f"🔍       ✗ No patterns matched filename: {filename}")
+            else:
+                reasoning["contributing_factors"].append(
+                    "No filename patterns defined in asset profile"
+                )
+                logger.info(
+                    f"🔍       ✗ No filename patterns defined for {asset_profile.get('name', 'unknown')}"
+                )
+
+        elif rule_id == "asset_name_in_content":
+            # Check if asset name appears in content
+            asset_name = asset_profile.get("name", "")
+            reasoning["memory_items"] = [
+                {
+                    "type": "semantic_memory",
+                    "source": f"asset_profiles.{asset_id}.name",
+                    "content": asset_name,
+                    "description": f"Official name of asset {asset_id}",
+                }
+            ]
+            reasoning["evidence"]["asset_name"] = asset_name
+            reasoning["evidence"]["combined_text_preview"] = (
+                combined_text[:200] + "..."
+                if len(combined_text) > 200
+                else combined_text
+            )
 
             if asset_name:
                 # Full name match gets maximum score
                 if asset_name in combined_text:
                     score = rule.get("confidence", 0.95)
+                    reasoning["score"] = score
+                    reasoning["contributing_factors"].append(
+                        f"Full asset name '{asset_name}' found in content"
+                    )
                     logger.info(f"🔍       ✓ Full name match found! Score: {score:.3f}")
-                    return score
+                    return score, reasoning
 
                 # Partial name match: check for significant word overlap
                 asset_words = set(asset_name.split())
                 text_words = set(combined_text.split())
                 common_words = asset_words.intersection(text_words)
+
+                reasoning["evidence"]["asset_words"] = list(asset_words)
+                reasoning["evidence"]["common_words"] = list(common_words)
 
                 logger.info(f"🔍       Asset words: {sorted(asset_words)}")
                 logger.info(
@@ -420,11 +624,18 @@ class AssetMatcherNode:
                 if len(common_words) >= 2:
                     overlap_ratio = len(common_words) / len(asset_words)
                     score = overlap_ratio * rule.get("confidence", 0.95)
+                    reasoning["score"] = score
+                    reasoning["contributing_factors"].append(
+                        f"Partial name match: {len(common_words)}/{len(asset_words)} words overlap (ratio: {overlap_ratio:.1%})"
+                    )
                     logger.info(
                         f"🔍       ✓ Partial name match: {len(common_words)}/{len(asset_words)} words, ratio={overlap_ratio:.3f}, score={score:.3f}"
                     )
-                    return score
+                    return score, reasoning
                 else:
+                    reasoning["contributing_factors"].append(
+                        f"Insufficient word overlap: {len(common_words)}/{len(asset_words)} words"
+                    )
                     logger.info(
                         f"🔍       ✗ Insufficient word overlap: {len(common_words)}/{len(asset_words)}"
                     )
@@ -432,54 +643,113 @@ class AssetMatcherNode:
         elif rule_id == "sender_asset_association":
             # Check if sender is known to be associated with this asset using semantic memory
             sender = email_data.get("sender", "").lower()
+            reasoning["evidence"]["sender"] = sender
+
             logger.info(f"🔍       Checking sender association for: '{sender}'")
 
             # Query semantic memory for sender mappings
             try:
                 sender_mapping = self.semantic_memory.get_sender_mapping(sender)
+                reasoning["memory_items"] = [
+                    {
+                        "type": "semantic_memory",
+                        "source": f"sender_mappings.{sender}",
+                        "content": sender_mapping,
+                        "description": f"Sender mapping configuration for {sender}",
+                    }
+                ]
+                reasoning["evidence"]["sender_mapping"] = sender_mapping
+
                 logger.info(f"🔍       Sender mapping result: {sender_mapping}")
 
                 if sender_mapping and asset_id in sender_mapping.get("asset_ids", []):
                     # Sender is associated with this asset
                     score = rule.get("confidence", 0.3)
+                    reasoning["score"] = score
+                    reasoning["contributing_factors"].append(
+                        f"Sender '{sender}' is mapped to asset '{asset_profile.get('name', '')} (asset_id: {asset_id}), score={score:.3f}"
+                    )
                     logger.info(
                         f"🔍       ✓ Sender association found: {sender} -> {asset_profile.get('name', '')} (asset_id: {asset_id}), score={score:.3f}"
                     )
-                    return score
+                    return score, reasoning
                 else:
+                    reasoning["contributing_factors"].append(
+                        f"Sender '{sender}' not mapped to asset '{asset_id}'"
+                    )
                     logger.info(
                         f"🔍       ✗ No sender association: {sender} -> {asset_id}"
                     )
             except Exception as e:
                 logger.warning(f"🔍       Could not query sender mappings: {e}")
+                reasoning["contributing_factors"].append(
+                    f"Error querying sender mappings: {e}"
+                )
+
                 # Fallback to old hardcoded logic
                 logger.info("🔍       Using fallback hardcoded sender logic")
+                reasoning["memory_items"].append(
+                    {
+                        "type": "procedural_memory",
+                        "source": "hardcoded_fallback_logic",
+                        "content": "rick@bunker.us -> i3 assets",
+                        "description": "Hardcoded fallback sender association rules",
+                    }
+                )
+
                 if sender == "rick@bunker.us" and asset_profile.get(
                     "name", ""
                 ).lower().startswith("i3"):
                     if "i3" in filename:
                         score = rule.get("confidence", 0.9)
+                        reasoning["score"] = score
+                        reasoning["contributing_factors"].append(
+                            f"Hardcoded rule: {sender} + 'i3' in filename matches i3 assets"
+                        )
                         logger.info(
                             f"🔍       ✓ Fallback sender + content match: {sender} -> {asset_profile.get('name', '')} (filename: {attachment.get('filename', '')}), score={score:.3f}"
                         )
-                        return score
+                        return score, reasoning
                     else:
+                        reasoning["score"] = 0.1
+                        reasoning["contributing_factors"].append(
+                            f"Partial fallback match: {sender} matches but no 'i3' in filename"
+                        )
                         logger.info(
                             "🔍       ◐ Partial fallback match (sender ok, no i3 in filename): score=0.1"
                         )
-                        return 0.1
-            return 0.0
+                        return 0.1, reasoning
+
+            return 0.0, reasoning
 
         elif rule_id == "keyword_match":
             # Check for asset keyword matches with both exact and fuzzy matching
             keywords = asset_profile.get("keywords", [])
+            reasoning["memory_items"] = [
+                {
+                    "type": "semantic_memory",
+                    "source": f"asset_profiles.{asset_id}.keywords",
+                    "content": keywords,
+                    "description": f"Keywords for asset {asset_profile.get('name', asset_id)}",
+                }
+            ]
+            reasoning["evidence"]["keywords"] = keywords
+            reasoning["evidence"]["combined_text_preview"] = (
+                combined_text[:300] + "..."
+                if len(combined_text) > 300
+                else combined_text
+            )
+
             logger.info(f"🔍       Asset keywords: {keywords}")
 
             if not keywords:
+                reasoning["contributing_factors"].append(
+                    "No keywords defined in asset profile"
+                )
                 logger.info(
                     f"🔍       ✗ No keywords found for {asset_profile.get('name', 'unknown')}"
                 )
-                return 0.0
+                return 0.0, reasoning
 
             exact_matches = 0
             fuzzy_matches = 0
@@ -487,14 +757,25 @@ class AssetMatcherNode:
             fuzzy_matched_keywords = []
             total_exact_score = 0.0
             total_fuzzy_score = 0.0
+            keyword_details = []
 
             for keyword in keywords:
+                keyword_detail = {
+                    "keyword": keyword,
+                    "match_type": "none",
+                    "score": 0.0,
+                    "matched_text": "",
+                }
+
                 # Try exact match first (fastest and most reliable)
                 if keyword.lower() in combined_text:
                     exact_matches += 1
                     matched_keywords.append(keyword)
                     # Give full credit for exact match
                     total_exact_score += 1.0
+                    keyword_detail.update(
+                        {"match_type": "exact", "score": 1.0, "matched_text": keyword}
+                    )
                     logger.info(
                         f"🔍       ✓ Keyword '{keyword}' found EXACTLY in combined text"
                     )
@@ -514,6 +795,13 @@ class AssetMatcherNode:
                         )
                         # Use the actual fuzzy score (0.7-1.0)
                         total_fuzzy_score += fuzzy_result["score"]
+                        keyword_detail.update(
+                            {
+                                "match_type": "fuzzy",
+                                "score": fuzzy_result["score"],
+                                "matched_text": fuzzy_result["matched_text"],
+                            }
+                        )
                         logger.info(
                             f"🔍       ✓ Keyword '{keyword}' found via FUZZY match: '{fuzzy_result['matched_text']}' "
                             f"(similarity: {fuzzy_result['score']:.3f}, type: {fuzzy_result['match_type']})"
@@ -522,6 +810,12 @@ class AssetMatcherNode:
                         logger.info(
                             f"🔍       ✗ Keyword '{keyword}' NOT found (exact or fuzzy)"
                         )
+
+                keyword_details.append(keyword_detail)
+
+            reasoning["evidence"]["keyword_analysis"] = keyword_details
+            reasoning["evidence"]["exact_matches"] = matched_keywords
+            reasoning["evidence"]["fuzzy_matches"] = fuzzy_matched_keywords
 
             # Calculate composite score with improved algorithm
             if exact_matches > 0 or fuzzy_matches > 0:
@@ -585,6 +879,40 @@ class AssetMatcherNode:
                     elif exact_matches == 1 and avg_exact_score >= 1.0:
                         base_score = min(base_score * 1.1, 1.0)
 
+                    # Update reasoning with detailed scoring breakdown
+                    reasoning["score"] = base_score
+                    reasoning["evidence"]["scoring_details"] = {
+                        "total_keywords": len(keywords),
+                        "exact_matches": exact_matches,
+                        "fuzzy_matches": fuzzy_matches,
+                        "coverage_ratio": coverage_ratio,
+                        "coverage_multiplier": coverage_multiplier,
+                        "combined_score": combined_score,
+                        "final_score": base_score,
+                    }
+
+                    # Build human-readable contributing factors
+                    reasoning["contributing_factors"].extend(
+                        [
+                            (
+                                f"Found {exact_matches} exact keyword matches: {matched_keywords}"
+                                if exact_matches > 0
+                                else None
+                            ),
+                            (
+                                f"Found {fuzzy_matches} fuzzy keyword matches: {fuzzy_matched_keywords}"
+                                if fuzzy_matches > 0
+                                else None
+                            ),
+                            f"Keyword coverage: {total_matches}/{len(keywords)} ({coverage_ratio:.1%})",
+                            f"Coverage multiplier: {coverage_multiplier:.2f}",
+                            f"Final keyword score: {base_score:.3f}",
+                        ]
+                    )
+                    reasoning["contributing_factors"] = [
+                        f for f in reasoning["contributing_factors"] if f is not None
+                    ]
+
                     logger.info("🔍       ✓ KEYWORD MATCHING SUMMARY:")
                     logger.info(
                         f"🔍         Exact matches: {matched_keywords} ({exact_matches}/{len(keywords)})"
@@ -599,13 +927,47 @@ class AssetMatcherNode:
                         f"🔍         Coverage multiplier: {coverage_multiplier:.2f}, Final score: {base_score:.3f}"
                     )
 
-                    return base_score
+                    return base_score, reasoning
                 else:
+                    reasoning["contributing_factors"].append(
+                        "No valid keyword matches found"
+                    )
                     logger.info("🔍       ✗ No valid matches found")
             else:
+                reasoning["contributing_factors"].append(
+                    "No keyword matches found (exact or fuzzy)"
+                )
                 logger.info("🔍       ✗ No keyword matches found (exact or fuzzy)")
 
-        return 0.0
+        return 0.0, reasoning
+
+    def _get_combined_text(
+        self, attachment: dict[str, Any], email_data: dict[str, Any]
+    ) -> str:
+        """
+        Combine attachment filename, email subject and body into searchable text.
+
+        Args:
+            attachment: Attachment metadata
+            email_data: Email context
+
+        Returns:
+            Combined text for keyword matching
+        """
+        filename = attachment.get("filename", "").lower().replace("_", " ")
+        subject = email_data.get("subject", "").lower()
+        body = email_data.get("body", "").lower()
+
+        # Clean and combine text
+        combined = f"{filename} {subject} {body}"
+
+        # Log for debugging
+        logger.info(f"🔍       Filename text: '{filename}'")
+        logger.info(f"🔍       Subject text: '{subject}'")
+        logger.info(f"🔍       Body text: '{body[:100]}...'")
+        logger.info(f"🔍       Combined text: '{combined[:150]}...'")
+
+        return combined
 
     def _apply_episodic_learning(
         self,
@@ -710,9 +1072,7 @@ class AssetMatcherNode:
 
             # Get all asset keywords from semantic memory
             all_asset_keywords = self._get_all_asset_keywords()
-            logger.info(
-                f"🔍 All asset keywords in memory: {sorted(all_asset_keywords)}"
-            )
+            logger.info(f"🔍 All asset keywords in memory: {sorted(all_asset_keywords)}")
 
             all_results = []
 
@@ -1006,45 +1366,108 @@ class AssetMatcherNode:
         matches: list[dict[str, Any]],
     ):
         """
-        Record the matching session in episodic memory.
-
-        IMPORTANT: This method is currently DISABLED because episodic memory
-        should only contain human-validated experiences, not automatic matches.
-        Episodic memory updates should happen through the feedback integrator
-        when humans approve or correct matches.
+        Record this matching session in episodic memory for learning.
 
         Args:
             email_data: Email context
-            attachments: Processed attachments
-            matches: Generated matches
+            attachments: List of attachments processed
+            matches: List of asset matches with reasoning
         """
         if not self.episodic_memory:
             return
 
         try:
-            email_id = email_data.get("id", "unknown")
-            sender = email_data.get("sender", "")
+            email_id = email_data.get("id", f"match_{datetime.now().timestamp()}")
+            sender = email_data.get("sender", "unknown")
             subject = email_data.get("subject", "")
 
+            # Collect all decision reasoning from matches
+            all_decision_reasoning = []
+            attachment_filenames = []
+
             for match in matches:
+                attachment_filename = match.get("attachment_filename", "")
+                attachment_filenames.append(attachment_filename)
+
+                # Get the decision reasoning if available
+                if "decision_reasoning" in match:
+                    all_decision_reasoning.extend(match["decision_reasoning"])
+
+            # Create comprehensive metadata including decision reasoning
+            metadata = {
+                "attachments": attachment_filenames,
+                "total_attachments": len(attachments),
+                "total_matches": len(matches),
+                "email_subject": subject,
+                "sender": sender,
+                "decision_reasoning": all_decision_reasoning,  # Include detailed reasoning
+                "matching_summary": {
+                    "successful_matches": len(
+                        [
+                            m
+                            for m in matches
+                            if m.get("confidence", 0) > self.asset_match_threshold
+                        ]
+                    ),
+                    "low_confidence_matches": len(
+                        [
+                            m
+                            for m in matches
+                            if 0 < m.get("confidence", 0) <= self.asset_match_threshold
+                        ]
+                    ),
+                    "no_matches": len(
+                        [m for m in matches if m.get("confidence", 0) == 0]
+                    ),
+                },
+            }
+
+            # Record each match as a separate processing record for detailed tracking
+            for match in matches:
+                asset_id = match.get("asset_id", "UNMATCHED")
+                confidence = match.get("confidence", 0.0)
+
+                # Determine decision category
+                if confidence > self.asset_match_threshold:
+                    decision = "matched"
+                    category = "asset_match"
+                elif confidence > 0:
+                    decision = "low_confidence"
+                    category = "asset_match"
+                else:
+                    decision = "no_match"
+                    category = "no_match"
+
+                # Store individual match record with reasoning
+                match_metadata = {
+                    **metadata,
+                    "specific_match": {
+                        "attachment_filename": match.get("attachment_filename", ""),
+                        "asset_id": asset_id,
+                        "confidence": confidence,
+                        "reasoning": match.get("decision_reasoning", []),
+                        "match_factors": match.get("match_factors", []),
+                        "confidence_factors": match.get("confidence_factors", []),
+                    },
+                }
+
                 self.episodic_memory.add_processing_record(
-                    email_id=email_id,
+                    email_id=f"{email_id}_{match.get('attachment_filename', '')}",
                     sender=sender,
                     subject=subject,
-                    asset_id=match["asset_id"],
-                    category="asset_match",
-                    confidence=match["confidence"],
-                    decision="matched",
-                    metadata={
-                        "filename": match["attachment_filename"],
-                        "reasoning": match["reasoning"],
-                        "attachment_count": len(attachments),
-                    },
+                    asset_id=asset_id,
+                    category=category,
+                    confidence=confidence,
+                    decision=decision,
+                    metadata=match_metadata,
                 )
 
-            logger.info(f"Recorded {len(matches)} matches in episodic memory")
+            logger.info(
+                f"Recorded matching session: {len(matches)} matches for {len(attachments)} attachments"
+            )
+
         except Exception as e:
-            logger.error(f"Failed to record in episodic memory: {e}")
+            logger.error(f"Failed to record matching session: {e}")
 
     def _get_default_matching_rules(self) -> list[dict[str, Any]]:
         """Default matching rules when procedural memory is unavailable."""

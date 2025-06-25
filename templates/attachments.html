@@ -309,11 +309,13 @@
 
         .modal-content {
             background-color: white;
-            margin: 10% auto;
+            margin: 5% auto;
             padding: 20px;
             border-radius: 10px;
             width: 90%;
             max-width: 500px;
+            max-height: 85vh;
+            overflow-y: auto;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
         }
 
@@ -429,6 +431,32 @@
         .btn-cancel:hover {
             background: #7f8c8d;
         }
+
+        .large-modal {
+            width: 95%;
+            max-width: 1400px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .review-content {
+            padding: 20px;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+
+        .loading-spinner {
+            text-align: center;
+            padding: 40px;
+            color: #7f8c8d;
+        }
+
+        .review-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
     </style>
 </head>
 
@@ -538,6 +566,80 @@
                     <button type="submit" class="btn btn-success">Submit Feedback</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <div>
+        <!-- Comprehensive Review Modal -->
+        <div id="reviewModal" class="modal">
+            <div class="modal-content large-modal">
+                <div class="modal-header">
+                    <h3 class="modal-title" id="reviewModalTitle">📊 Classification Decision Review</h3>
+                    <button class="close" onclick="closeReviewModal()">&times;</button>
+                </div>
+
+                <div id="reviewContent" class="review-content">
+                    <div class="loading-spinner">🔄 Loading decision details...</div>
+                </div>
+
+                <div class="review-actions" id="reviewActions" style="display: none;">
+                    <button class="btn btn-success" onclick="confirmClassification()">✅ Confirm Correct</button>
+                    <button class="btn btn-warning" onclick="openReclassifyFromReview()">🔄 Reclassify</button>
+                    <button class="btn btn-info" onclick="showMemoryHintModal()">🧠 Add Memory Hint</button>
+                    <button class="btn btn-secondary" onclick="closeReviewModal()">❌ Close</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Memory Hint Modal -->
+        <div id="memoryHintModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title">🧠 Add Memory Hint</h3>
+                    <button class="close" onclick="closeMemoryHintModal()">&times;</button>
+                </div>
+
+                <form id="memoryHintForm">
+                    <div class="feedback-section">
+                        <h4>🎯 Target Memory Item</h4>
+                        <p style="color: #7f8c8d; font-size: 13px; margin-bottom: 10px;">
+                            Select which memory item needs improvement:
+                        </p>
+                        <select name="memory_item_id" id="memoryItemSelect" required>
+                            <option value="">Select a memory item...</option>
+                        </select>
+                    </div>
+
+                    <div class="feedback-section">
+                        <h4>💡 Hint Type</h4>
+                        <div class="feedback-options">
+                            <label>
+                                <input type="radio" name="hint_type" value="clarification" required>
+                                🔍 Clarification - Add context or explanation
+                            </label>
+                            <label>
+                                <input type="radio" name="hint_type" value="correction" required>
+                                ✏️ Correction - Fix incorrect information
+                            </label>
+                            <label>
+                                <input type="radio" name="hint_type" value="enhancement" required>
+                                ⬆️ Enhancement - Add missing keywords or patterns
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="hintDetails">Hint Details</label>
+                        <textarea name="hint_details" id="hintDetails"
+                            placeholder="Describe the improvement or correction..." rows="4" required></textarea>
+                    </div>
+
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn-cancel" onclick="closeMemoryHintModal()">Cancel</button>
+                        <button type="submit" class="btn btn-primary">💾 Save Hint</button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 
@@ -669,9 +771,9 @@
                                 ⬇️ Download
                             </a>
                             <button class="btn btn-warning"
-                                    onclick="openFeedbackModal('${escapeHtml(attachment.filename)}', '${currentAsset.id}', '${encodeURIComponent(attachment.path)}', 'review')"
-                                    title="Human review needed">
-                                👁️ Review
+                                    onclick="openReviewModal('${escapeHtml(attachment.filename)}', '${currentAsset.id}', '${encodeURIComponent(attachment.path)}')"
+                                    title="Review classification decision">
+                                👁️ Review Decision
                             </button>
                             <button class="btn btn-success"
                                     onclick="openFeedbackModal('${escapeHtml(attachment.filename)}', '${currentAsset.id}', '${encodeURIComponent(attachment.path)}', 'reclassify')"
@@ -903,6 +1005,344 @@
             if (e.target === modal) {
                 closeFeedbackModal();
             }
+        });
+
+        // Comprehensive Review Modal Functions
+        let currentReviewFile = null;
+
+        async function openReviewModal(filename, assetId, filePath) {
+            currentReviewFile = {
+                filename: filename,
+                assetId: assetId,
+                filePath: decodeURIComponent(filePath)
+            };
+
+            // Show modal with loading state and large modal class
+            document.getElementById('reviewModalTitle').textContent = `📊 Review: ${filename}`;
+            document.getElementById('reviewContent').innerHTML = '<div class="loading-spinner">🔄 Loading decision details...</div>';
+            document.getElementById('reviewActions').style.display = 'none';
+
+            // Apply large modal styling
+            const reviewModal = document.getElementById('reviewModal');
+            const reviewModalContent = reviewModal.querySelector('.modal-content');
+            reviewModalContent.classList.add('large-modal');
+            reviewModal.style.display = 'block';
+
+            try {
+                // Fetch comprehensive review data
+                const response = await fetch(`/api/attachments/review/${encodeURIComponent(assetId)}/${encodeURIComponent(filename)}`);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+
+                console.log('Review data received:', data); // Debug log
+                console.log('Decision reasoning structure:', data.decision_reasoning); // Debug reasoning structure
+                displayReviewDetails(data);
+                document.getElementById('reviewActions').style.display = 'flex';
+
+            } catch (error) {
+                console.error('Failed to load review details:', error);
+                document.getElementById('reviewContent').innerHTML = `
+                    <div style="padding: 20px; text-align: center; color: #dc3545;">
+                        ❌ Failed to load decision details: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        function displayReviewDetails(data) {
+            // The API returns classification details directly
+            const details = data;
+            const reasoning = details.decision_reasoning || [];
+
+            console.log('Processing reasoning array:', reasoning);
+            console.log('Reasoning array length:', reasoning.length);
+
+            // Validate reasoning array structure
+            if (reasoning && Array.isArray(reasoning)) {
+                reasoning.forEach((rule, index) => {
+                    console.log(`Rule ${index}:`, rule);
+                    console.log(`Rule ${index} score:`, rule.score, typeof rule.score);
+                });
+            }
+
+            let content = `
+                <div style="padding: 20px;">
+                    <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                        <h4 style="margin: 0 0 10px 0; color: #495057;">📋 Classification Summary</h4>
+                        <p><strong>File:</strong> ${escapeHtml(currentReviewFile.filename)}</p>
+                        <p><strong>Asset:</strong> ${escapeHtml(currentReviewFile.assetId)}</p>
+                        <p><strong>Confidence:</strong> ${details.classification_result ? details.classification_result.confidence : 'N/A'}</p>
+                        <p><strong>Decision:</strong> ${details.classification_result ? details.classification_result.decision : 'N/A'}</p>
+                        <p><strong>Email From:</strong> ${details.classification_result ? details.classification_result.sender : 'N/A'}</p>
+                        <p><strong>Email Subject:</strong> ${escapeHtml(details.classification_result ? details.classification_result.subject : 'N/A')}</p>
+                    </div>
+            `;
+
+            if (reasoning && reasoning.length > 0) {
+                content += `
+                    <div style="margin-bottom: 20px;">
+                        <h4 style="color: #495057; margin-bottom: 15px;">🧠 Decision Reasoning Breakdown</h4>
+                        ${reasoning.map((rule, index) => `
+                            <div style="border: 1px solid #e9ecef; border-radius: 8px; margin-bottom: 15px; padding: 15px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                    <h5 style="margin: 0; color: #495057;">${rule.rule_name || rule.rule_id}</h5>
+                                    <span style="background: ${(rule.score && rule.score > 0) ? '#d4edda' : '#f8d7da'}; color: ${(rule.score && rule.score > 0) ? '#155724' : '#721c24'};
+                                                 padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px;">
+                                        Score: ${(rule.score !== undefined && rule.score !== null) ? Number(rule.score).toFixed(3) : '0.000'}
+                                    </span>
+                                </div>
+
+                                ${rule.memory_items && rule.memory_items.length > 0 ? `
+                                    <div style="margin-bottom: 10px;">
+                                        <strong>📚 Memory Items Used:</strong>
+                                        ${rule.memory_items.map(item => `
+                                            <div style="background: #e7f3ff; padding: 12px; margin: 8px 0; border-radius: 6px; font-size: 13px;">
+                                                <div style="margin-bottom: 6px;">
+                                                    <strong>${item.type}:</strong> ${item.source}
+                                                </div>
+                                                <div style="color: #6c757d; margin-bottom: 6px;">
+                                                    ${item.description}
+                                                </div>
+                                                ${item.content ? `
+                                                    <details style="margin-top: 8px;">
+                                                        <summary style="cursor: pointer; color: #495057; font-weight: 500;">Show Full Content</summary>
+                                                        <pre style="background: #f8f9fa; padding: 8px; border-radius: 4px; margin-top: 6px; white-space: pre-wrap; font-size: 12px; max-height: 200px; overflow-y: auto;">${typeof item.content === 'string' ? item.content : JSON.stringify(item.content, null, 2)}</pre>
+                                                    </details>
+                                                ` : ''}
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                ` : ''}
+
+                                ${rule.evidence && Object.keys(rule.evidence).length > 0 ? `
+                                    <div style="margin-bottom: 10px;">
+                                        <strong>🔍 Evidence:</strong>
+                                        <div style="background: #fff3cd; padding: 12px; margin: 8px 0; border-radius: 6px; font-size: 13px;">
+                                            ${Object.entries(rule.evidence).map(([key, value]) => `
+                                                <div style="margin-bottom: 8px;">
+                                                    <strong>${key}:</strong>
+                                                    ${typeof value === 'object' ? `
+                                                        <details style="margin-top: 4px;">
+                                                            <summary style="cursor: pointer; color: #495057;">Show Details</summary>
+                                                            <pre style="background: #f8f9fa; padding: 6px; border-radius: 4px; margin-top: 4px; white-space: pre-wrap; font-size: 12px; max-height: 150px; overflow-y: auto;">${JSON.stringify(value, null, 2)}</pre>
+                                                        </details>
+                                                    ` : `<span style="margin-left: 8px;">${value}</span>`}
+                                                </div>
+                                            `).join('')}
+                                        </div>
+                                    </div>
+                                ` : ''}
+
+                                ${rule.contributing_factors && rule.contributing_factors.length > 0 ? `
+                                    <div style="margin-bottom: 10px;">
+                                        <strong>💡 Contributing Factors:</strong>
+                                        <div style="background: #f8f9fa; padding: 10px; margin: 8px 0; border-radius: 6px; border-left: 4px solid #6c757d;">
+                                            ${rule.contributing_factors.map((factor, factorIndex) => {
+                    // Check if factor mentions other rules, assets, or data sources
+                    const isRuleReference = factor.includes('rule') || factor.includes('pattern') || factor.includes('threshold');
+                    const isAssetReference = factor.includes('asset') || factor.includes('CREDIT') || factor.includes('REVIEW');
+                    const isDataReference = factor.includes('memory') || factor.includes('semantic') || factor.includes('procedural');
+
+                    let iconClass = '🔹';
+                    if (isRuleReference) iconClass = '⚙️';
+                    else if (isAssetReference) iconClass = '🏢';
+                    else if (isDataReference) iconClass = '🧠';
+
+                    return `
+                                                    <div style="margin: 6px 0; padding: 6px; background: white; border-radius: 4px; font-size: 13px;">
+                                                        ${iconClass} ${factor}
+                                                        ${isRuleReference ? '<span style="color: #6c757d; font-size: 11px; margin-left: 8px;">(Rule/Pattern Reference)</span>' : ''}
+                                                        ${isAssetReference ? '<span style="color: #6c757d; font-size: 11px; margin-left: 8px;">(Asset Reference)</span>' : ''}
+                                                        ${isDataReference ? '<span style="color: #6c757d; font-size: 11px; margin-left: 8px;">(Memory System Reference)</span>' : ''}
+                                                    </div>
+                                                `;
+                }).join('')}
+                                        </div>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+
+                // Add summary analysis section
+                const allFactors = reasoning.flatMap(rule => rule.contributing_factors || []);
+                const allMemoryItems = reasoning.flatMap(rule => rule.memory_items || []);
+                const ruleReferences = allFactors.filter(f => f.includes('rule') || f.includes('pattern') || f.includes('threshold'));
+                const assetReferences = allFactors.filter(f => f.includes('asset') || f.includes('CREDIT') || f.includes('REVIEW'));
+                const memoryReferences = allFactors.filter(f => f.includes('memory') || f.includes('semantic') || f.includes('procedural'));
+
+                content += `
+                    <div style="margin-top: 20px; padding: 15px; background: #e9ecef; border-radius: 8px;">
+                        <h4 style="color: #495057; margin-bottom: 15px;">📊 Analysis Summary</h4>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
+                            <div style="background: white; padding: 10px; border-radius: 6px;">
+                                <strong>🧠 Memory Sources Used:</strong>
+                                <div style="font-size: 12px; margin-top: 4px;">
+                                    ${[...new Set(allMemoryItems.map(item => item.type))].join(', ') || 'None'}
+                                </div>
+                            </div>
+                            <div style="background: white; padding: 10px; border-radius: 6px;">
+                                <strong>⚙️ Rules Referenced:</strong>
+                                <div style="font-size: 12px; margin-top: 4px;">
+                                    ${ruleReferences.length} rule references found
+                                </div>
+                            </div>
+                            <div style="background: white; padding: 10px; border-radius: 6px;">
+                                <strong>🏢 Assets Considered:</strong>
+                                <div style="font-size: 12px; margin-top: 4px;">
+                                    ${assetReferences.length} asset references found
+                                </div>
+                            </div>
+                            <div style="background: white; padding: 10px; border-radius: 6px;">
+                                <strong>📚 Total Rules Applied:</strong>
+                                <div style="font-size: 12px; margin-top: 4px;">
+                                    ${reasoning.length} decision rules
+                                </div>
+                            </div>
+                        </div>
+                        ${memoryReferences.length > 0 ? `
+                            <div style="margin-top: 12px; padding: 8px; background: #fff3cd; border-radius: 4px; font-size: 12px;">
+                                <strong>🔍 Memory System Activity:</strong> ${memoryReferences.length} references to memory systems detected in reasoning
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            } else {
+                content += `
+                    <div style="padding: 20px; text-align: center; color: #6c757d; background: #f8f9fa; border-radius: 8px;">
+                        📄 No detailed reasoning available for this classification
+                    </div>
+                `;
+            }
+
+            content += `</div>`;
+            document.getElementById('reviewContent').innerHTML = content;
+        }
+
+        function closeReviewModal() {
+            const reviewModal = document.getElementById('reviewModal');
+            const reviewModalContent = reviewModal.querySelector('.modal-content');
+            reviewModalContent.classList.remove('large-modal');
+            reviewModal.style.display = 'none';
+            currentReviewFile = null;
+        }
+
+        function confirmClassification() {
+            if (!currentReviewFile) return;
+
+            // Submit positive feedback
+            submitQuickFeedback('review', 'relevant', '');
+        }
+
+        function openReclassifyFromReview() {
+            if (!currentReviewFile) return;
+
+            closeReviewModal();
+            openFeedbackModal(currentReviewFile.filename, currentReviewFile.assetId, currentReviewFile.filePath, 'reclassify');
+        }
+
+        function showMemoryHintModal() {
+            if (!currentReviewFile) return;
+
+            // Populate memory items dropdown from current review data
+            populateMemoryItems();
+            document.getElementById('memoryHintModal').style.display = 'block';
+        }
+
+        // Memory Hint Modal Functions
+        function populateMemoryItems() {
+            const select = document.getElementById('memoryItemSelect');
+            select.innerHTML = '<option value="">Select a memory item...</option>';
+
+            // This would be populated with actual memory items from the review data
+            // For now, show common memory item types
+            const memoryTypes = [
+                { value: 'keywords', text: 'Asset Keywords' },
+                { value: 'filename_patterns', text: 'Filename Patterns' },
+                { value: 'sender_mapping', text: 'Sender Associations' },
+                { value: 'asset_name', text: 'Asset Name' }
+            ];
+
+            memoryTypes.forEach(type => {
+                const option = document.createElement('option');
+                option.value = type.value;
+                option.textContent = type.text;
+                select.appendChild(option);
+            });
+        }
+
+        function closeMemoryHintModal() {
+            document.getElementById('memoryHintModal').style.display = 'none';
+            document.getElementById('memoryHintForm').reset();
+        }
+
+        // Helper function for quick feedback
+        async function submitQuickFeedback(feedbackType, relevance, assetAssignment) {
+            if (!currentReviewFile) return;
+
+            const feedbackData = {
+                filename: currentReviewFile.filename,
+                file_path: currentReviewFile.filePath,
+                current_asset_id: currentReviewFile.assetId,
+                feedback_type: feedbackType,
+                relevance_feedback: relevance,
+                asset_assignment_feedback: assetAssignment,
+                notes: `Quick ${feedbackType} from review interface`,
+                timestamp: new Date().toISOString()
+            };
+
+            try {
+                const response = await fetch('/api/feedback/submit', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(feedbackData)
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    alert(`✅ ${feedbackType === 'review' ? 'Confirmation' : 'Feedback'} submitted successfully`);
+                    closeReviewModal();
+                } else {
+                    alert(`❌ Feedback submission failed: ${result.error || 'Unknown error'}`);
+                }
+
+            } catch (error) {
+                console.error('Quick feedback error:', error);
+                alert('❌ Feedback submission failed: Network error occurred');
+            }
+        }
+
+        // Handle memory hint form submission
+        document.getElementById('memoryHintForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            if (!currentReviewFile) return;
+
+            const formData = new FormData(this);
+            const hintData = {
+                filename: currentReviewFile.filename,
+                asset_id: currentReviewFile.assetId,
+                memory_item_id: formData.get('memory_item_id'),
+                hint_type: formData.get('hint_type'),
+                hint_details: formData.get('hint_details'),
+                timestamp: new Date().toISOString()
+            };
+
+            // For now, just show a confirmation. In the future, this would be sent to a memory hint API
+            alert(`💾 Memory hint saved!\n\nTarget: ${hintData.memory_item_id}\nType: ${hintData.hint_type}\nDetails: ${hintData.hint_details}`);
+            closeMemoryHintModal();
         });
     </script>
 </body>

@@ -5,6 +5,7 @@ Memory Management CLI Tool for Email Agent
 Provides command-line access to memory backup, restore, export, and reset operations.
 """
 
+# # Standard library imports
 # Standard library imports
 import argparse
 import json
@@ -16,6 +17,7 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
+# # Local application imports
 # Local application imports must come after sys.path modification
 # ruff: noqa: E402
 from src.memory.simple_memory import (
